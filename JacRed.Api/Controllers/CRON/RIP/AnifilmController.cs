@@ -8,7 +8,6 @@ using JacRed.Api.Engine;
 using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
-using JacRed.Core.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -33,7 +32,7 @@ public class AnifilmController : BaseController
 
 		var torrents = new List<TorrentBaseDetails>();
 
-		foreach (var row in tParse.ReplaceBadNames(html)
+		foreach (var row in MediaNameUtils.Normalize(html)
 					.Split("class=\"releases__item\"")
 					.Skip(1))
 		{
@@ -95,34 +94,34 @@ public class AnifilmController : BaseController
 
 			torrents.Add(new TorrentDetails
 			{
-				trackerName = "anifilm",
-				types = new[]
+				TrackerName = "anifilm",
+				Types = new[]
 				{
 					"anime"
 				},
-				url = url,
-				title = title,
-				sid = 1,
-				createTime = createTime,
-				name = name,
-				originalname = originalname,
-				relased = relased
+				Url = url,
+				Title = title,
+				Sid = 1,
+				CreateTime = createTime,
+				Name = name,
+				OriginalName = originalname,
+				Relased = relased
 			});
 		}
 
 		await _torrentRepository.AddOrUpdateAsync(torrents, async (t, db) =>
 		{
-			if (db.TryGetValue(t.url, out var _tcache) && _tcache.title.Replace(" [1080p]", "") == t.title)
+			if (db.TryGetValue(t.Url, out var _tcache) && _tcache.Title.Replace(" [1080p]", "") == t.Title)
 			{
 				return true;
 			}
 
-			var fullNews = await HttpClient.Get(t.url, useproxy: AppInit.conf.Anifilm.useproxy);
+			var fullNews = await HttpClient.Get(t.Url, useproxy: AppInit.conf.Anifilm.useproxy);
 
 			if (fullNews != null)
 			{
 				string tid = null;
-				var title = t.title;
+				var title = t.Title;
 				var releasetorrents = fullNews.Split("<li class=\"release__torrents-item\">");
 
 				var _rnews = releasetorrents.FirstOrDefault(i =>
@@ -149,16 +148,16 @@ public class AnifilmController : BaseController
 
 				if (!string.IsNullOrWhiteSpace(tid))
 				{
-					var torrent = await HttpClient.Download($"{AppInit.conf.Anifilm.host}/{tid}", referer: t.url,
+					var torrent = await HttpClient.Download($"{AppInit.conf.Anifilm.host}/{tid}", referer: t.Url,
 						useproxy: AppInit.conf.Anifilm.useproxy);
 
 					var magnet = BencodeTo.Magnet(torrent);
 
 					if (!string.IsNullOrWhiteSpace(magnet))
 					{
-						t.title = title;
-						t.magnet = magnet;
-						t.sizeName = BencodeTo.SizeName(torrent);
+						t.Title = title;
+						t.Magnet = magnet;
+						t.SizeName = BencodeTo.SizeName(torrent);
 
 						return true;
 					}

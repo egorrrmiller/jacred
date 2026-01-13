@@ -35,7 +35,7 @@ public class AnimeLayerController : BaseController
 
 		var torrents = new List<TorrentBaseDetails>();
 
-		foreach (var row in tParse.ReplaceBadNames(HttpUtility.HtmlDecode(html.Replace("&nbsp;", "")))
+		foreach (var row in MediaNameUtils.Normalize(HttpUtility.HtmlDecode(html.Replace("&nbsp;", "")))
 					.Split("class=\"torrent-item torrent-item-medium panel\"")
 					.Skip(1))
 		{
@@ -65,7 +65,7 @@ public class AnimeLayerController : BaseController
 
 			if (Regex.IsMatch(row, "(Добавл|Обновл)[^<]+</span>[0-9]+ [^ ]+ [0-9]{4}"))
 			{
-				createTime = tParse.ParseCreateTime(Match(">(Добавл|Обновл)[^<]+</span>([0-9]+ [^ ]+ [0-9]{4})", 2),
+				createTime = MediaNameUtils.ParseDate(Match(">(Добавл|Обновл)[^<]+</span>([0-9]+ [^ ]+ [0-9]{4})", 2),
 					"dd.MM.yyyy");
 			} else
 			{
@@ -76,7 +76,7 @@ public class AnimeLayerController : BaseController
 					continue;
 				}
 
-				createTime = tParse.ParseCreateTime($"{date} {DateTime.Today.Year}", "dd.MM.yyyy");
+				createTime = MediaNameUtils.ParseDate($"{date} {DateTime.Today.Year}", "dd.MM.yyyy");
 			}
 
 			if (createTime == default)
@@ -172,38 +172,38 @@ public class AnimeLayerController : BaseController
 
 				torrents.Add(new TorrentDetails
 				{
-					trackerName = "animelayer",
-					types = new[]
+					TrackerName = "animelayer",
+					Types = new[]
 					{
 						"anime"
 					},
-					url = url,
-					title = title,
-					sid = sid,
-					pir = pir,
-					createTime = createTime,
-					name = name,
-					originalname = originalname,
-					relased = relased
+					Url = url,
+					Title = title,
+					Sid = sid,
+					Pir = pir,
+					CreateTime = createTime,
+					Name = name,
+					OriginalName = originalname,
+					Relased = relased
 				});
 			}
 		}
 
 		await _torrentRepository.AddOrUpdateAsync(torrents, async (t, db) =>
 		{
-			if (db.TryGetValue(t.url, out var _tcache) && _tcache.title == t.title)
+			if (db.TryGetValue(t.Url, out var _tcache) && _tcache.Title == t.Title)
 			{
 				return true;
 			}
 
-			var torrent = await HttpClient.Download($"{t.url}download/", Cookie(MemoryCache));
+			var torrent = await HttpClient.Download($"{t.Url}download/", Cookie(MemoryCache));
 			var magnet = BencodeTo.Magnet(torrent);
 			var sizeName = BencodeTo.SizeName(torrent);
 
 			if (!string.IsNullOrWhiteSpace(magnet) && !string.IsNullOrWhiteSpace(sizeName))
 			{
-				t.magnet = magnet;
-				t.sizeName = sizeName;
+				t.Magnet = magnet;
+				t.SizeName = sizeName;
 
 				return true;
 			}

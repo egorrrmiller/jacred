@@ -1,0 +1,1 @@
+global using HttpClient = JacRed.Core.Utils.HttpClient;

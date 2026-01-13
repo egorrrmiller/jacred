@@ -1,16 +1,39 @@
 ﻿namespace JacRed.Core.Models.Details;
 
+/// <summary>
+/// Полные детали торрента, включая медиа-специфичные поля.
+/// Наследует базовые поля и добавляет детализацию по качеству, размеру и т.д.
+/// </summary>
 public class TorrentDetails : TorrentBaseDetails, ICloneable
 {
-	public double size { get; set; }
+    /// <summary>
+    /// Размер файла в гигабайтах (число с плавающей точкой)
+    /// </summary>
+    public double Size { get; set; }
 
-	public int quality { get; set; }
+    /// <summary>
+    /// Качество: 2160, 1080, 720 и т.д. (в пикселях по высоте)
+    /// </summary>
+    public int Quality { get; set; }
 
-	public string videotype { get; set; }
+    /// <summary>
+    /// Тип видео: "WEB-DL", "BluRay", "HDTV", "CAM", и т.д.
+    /// </summary>
+    public string VideoType { get; set; } = null!;
 
-	public HashSet<string> voices { get; set; } = new();
+    /// <summary>
+    /// Озвучка/перевод (например: "ColdFilm", "NewStudio", "Оригинал")
+    /// </summary>
+    public HashSet<string> Voices { get; set; } = new();
 
-	public HashSet<int> seasons { get; set; } = new();
+    /// <summary>
+    /// Номера сезонов, присутствующих в раздаче
+    /// </summary>
+    public HashSet<int> Seasons { get; set; } = new();
 
-	public object Clone() => MemberwiseClone();
+    /// <summary>
+    /// Создаёт полную копию объекта (поверхностное копирование)
+    /// </summary>
+    /// <returns>Клон объекта</returns>
+    public object Clone() => MemberwiseClone();
 }

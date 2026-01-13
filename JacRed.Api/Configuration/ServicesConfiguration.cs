@@ -14,5 +14,9 @@ public static class ServicesConfiguration
 		.AddSingleton<IKeyGenerator, KeyGenerator>()
 		.AddSingleton<IMediaAnalyzerService, MediaAnalyzerService>()
 		.AddSingleton<ITorrentEnricher, TorrentEnricher>()
+		.AddSingleton<ITorrentSearchService, TorrentSearchService>()
+		.AddSingleton<ITracksDatabase, TracksDatabase>()
+		.AddSingleton<ITorrentMergerService, TorrentMergerService>()
+		.AddMemoryCache()
 		.AddHttpClient();
 }

@@ -176,7 +176,7 @@ public class TolokaController : BaseController
 
 		var torrents = new List<TolokaDetails>();
 
-		foreach (var row in tParse.ReplaceBadNames(html)
+		foreach (var row in MediaNameUtils.Normalize(html)
 					.Split("</tr>")
 					.Skip(1))
 		{
@@ -561,17 +561,17 @@ public class TolokaController : BaseController
 
 				torrents.Add(new()
 				{
-					trackerName = "toloka",
-					types = types,
-					url = url,
-					title = title,
-					sid = sid,
-					pir = pir,
-					sizeName = sizeName,
-					createTime = createTime,
-					name = name,
-					originalname = originalname,
-					relased = relased,
+					TrackerName = "toloka",
+					Types = types,
+					Url = url,
+					Title = title,
+					Sid = sid,
+					Pir = pir,
+					SizeName = sizeName,
+					CreateTime = createTime,
+					Name = name,
+					OriginalName = originalname,
+					Relased = relased,
 					downloadId = downloadId
 				});
 			}
@@ -579,7 +579,7 @@ public class TolokaController : BaseController
 
 		await _torrentRepository.AddOrUpdateAsync(torrents, async (t, db) =>
 		{
-			if (db.TryGetValue(t.url, out var _tcache) && _tcache.title == t.title)
+			if (db.TryGetValue(t.Url, out var _tcache) && _tcache.Title == t.Title)
 			{
 				return true;
 			}
@@ -591,7 +591,7 @@ public class TolokaController : BaseController
 
 			if (magnet != null)
 			{
-				t.magnet = magnet;
+				t.Magnet = magnet;
 
 				return true;
 			}

@@ -36,7 +36,7 @@ public class BaibakoController : BaseController
 
 		var torrents = new List<BaibakoDetails>();
 
-		foreach (var row in tParse.ReplaceBadNames(HttpUtility.HtmlDecode(html.Replace("&nbsp;", "")))
+		foreach (var row in MediaNameUtils.Normalize(HttpUtility.HtmlDecode(html.Replace("&nbsp;", "")))
 					.Split("<tr")
 					.Skip(1))
 		{
@@ -61,7 +61,7 @@ public class BaibakoController : BaseController
 			}
 
 			// Дата создания
-			var createTime = tParse.ParseCreateTime(Match("<small>Загружена: ([0-9]+ [^ ]+ [0-9]{4}) в [^<]+</small>"),
+			var createTime = MediaNameUtils.ParseDate(Match("<small>Загружена: ([0-9]+ [^ ]+ [0-9]{4}) в [^<]+</small>"),
 				"dd.MM.yyyy");
 
 			if (createTime == default)
@@ -135,17 +135,17 @@ public class BaibakoController : BaseController
 
 				torrents.Add(new()
 				{
-					trackerName = "baibako",
-					types = new[]
+					TrackerName = "baibako",
+					Types = new[]
 					{
 						"serial"
 					},
-					url = url,
-					title = title,
-					sid = 1,
-					createTime = createTime,
-					name = name,
-					originalname = originalname,
+					Url = url,
+					Title = title,
+					Sid = 1,
+					CreateTime = createTime,
+					Name = name,
+					OriginalName = originalname,
 					downloadUri = $"{AppInit.conf.Baibako.host}/{download}"
 				});
 			}
@@ -153,7 +153,7 @@ public class BaibakoController : BaseController
 
 		await _torrentRepository.AddOrUpdateAsync(torrents, async (t, db) =>
 		{
-			if (db.TryGetValue(t.url, out var _tcache) && _tcache.title == t.title)
+			if (db.TryGetValue(t.Url, out var _tcache) && _tcache.Title == t.Title)
 			{
 				return true;
 			}
@@ -166,8 +166,8 @@ public class BaibakoController : BaseController
 
 			if (!string.IsNullOrWhiteSpace(magnet) && !string.IsNullOrWhiteSpace(sizeName))
 			{
-				t.magnet = magnet;
-				t.sizeName = sizeName;
+				t.Magnet = magnet;
+				t.SizeName = sizeName;
 
 				return true;
 			}

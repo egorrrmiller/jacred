@@ -1,10 +1,8 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
-using JacRed.Api.Engine;
-using JacRed.Api.Engine.Tracks;
 using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models;
@@ -13,226 +11,164 @@ using JacRed.Core.Models.Sync.v1;
 using JacRed.Core.Models.Sync.v2;
 using JacRed.Core.Utils;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace JacRed.Api.Controllers;
 
-public class SyncController : BaseController
+public class SyncController : ControllerBase
 {
-	private static Dictionary<string, TorrentInfo> masterDbCache;
+    private static readonly ConcurrentDictionary<string, TorrentInfo> MasterDbCache = new();
 
-	private readonly ITorrentRepository _torrentRepository;
-	private readonly IContentCatalog _contentCatalog;
+    private readonly IContentCatalog _contentCatalog;
+    private readonly ITorrentRepository _torrentRepository;
+    private readonly ITracksDatabase _tracksDatabase;
 
-	public SyncController(IMemoryCache memoryCache, ITorrentRepository torrentRepository, IContentCatalog contentCatalog) : base(memoryCache)
-	{
-		_torrentRepository = torrentRepository;
-		_contentCatalog = contentCatalog;
-	}
+    public SyncController(
+        IContentCatalog contentCatalog,
+        ITorrentRepository torrentRepository,
+        ITracksDatabase tracksDatabase)
+    {
+        _contentCatalog = contentCatalog;
+        _torrentRepository = torrentRepository;
+        _tracksDatabase = tracksDatabase;
+    }
 
-	public async Task Configuration()
-	{
-		Console.WriteLine("SyncController load");
+    [Route("/sync/conf")]
+    public IActionResult SyncConf() => Ok(new { fbd = true, spidr = true, version = 2 });
 
-		var db = await _contentCatalog.GetAllKeysAsync();
-		masterDbCache = db.OrderBy(i => i.Value.fileTime)
-			.ToDictionary(k => k.Key, v => v.Value);
+    [Route("/sync/fdb")]
+    public async Task<IActionResult> FdbKey(string key)
+    {
+        if (!AppInit.conf.opensync)
+            return Content("[]", "application/json; charset=utf-8");
 
-		ThreadPool.QueueUserWorkItem(async _ =>
-		{
-			while (true)
-			{
-				await Task.Delay(TimeSpan.FromMinutes(10));
+        var db = await _contentCatalog.GetAllKeysAsync();
+        var results = db
+            .Where(i => i.Key.Contains(key))
+            .Take(20)
+            .Select(async i => new
+            {
+                i.Key,
+                i.Value.updateTime,
+                i.Value.fileTime,
+                path = $"Data/fdb/{HashTo.Md5(i.Key).Substring(0, 2)}/{HashTo.Md5(i.Key).Substring(2)}",
+                value = await _torrentRepository.GetCollectionAsync(i.Key, false)
+            })
+            .Select(t => t.Result)
+            .ToArray();
 
-				try
-				{
-					masterDbCache = db.OrderBy(i => i.Value.fileTime)
-						.ToDictionary(k => k.Key, v => v.Value);
-				}
-				catch
-				{
-				}
-			}
-		});
-	}
+        return Ok(results);
+    }
 
-	[Route("/sync/conf")]
-	public JsonResult SyncConf() => Json(new
-	{
-		fbd = true,
-		spidr = true,
-		version = 2
-	});
+    [Route("/sync/fdb/torrents")]
+    public async Task<IActionResult> FdbTorrents(long time, long start = -1, bool spidr = false)
+    {
+        if (!AppInit.conf.opensync || time == 0)
+            return Ok(new { nextread = false, collections = new List<Collection>() });
 
-	[Route("/sync/fdb")]
-	public async Task<ActionResult> FdbKey(string key)
-	{
-		if (!AppInit.conf.opensync)
-		{
-			return Content("[]", "application/json; charset=utf-8");
-		}
+        var nextread = false;
+        var take = 2_000;
+        var countread = 0;
+        var collections = new List<Collection>();
 
-		var db = await _contentCatalog.GetAllKeysAsync();
+        foreach (var kvp in MasterDbCache.Where(i => i.Value.fileTime > time))
+        {
+            var key = kvp.Key;
+            var item = kvp.Value;
 
-		return Json(db.Where(i => i.Key.Contains(key))
-			.Take(20)
-			.Select(async i => new
-			{
-				i.Key,
-				i.Value.updateTime,
-				i.Value.fileTime,
-				path = $"Data/fdb/{HashTo.Md5(i.Key).Substring(0, 2)}/{HashTo.Md5(i.Key).Substring(2)}",
-				value = await _torrentRepository.GetCollectionAsync(i.Key,  false)
-			})
-			.ToArray());
-	}
+            var torrent = new Dictionary<string, TorrentDetails>();
 
-	[Route("/sync/fdb/torrents")]
-	public async Task<ActionResult> FdbTorrents(long time, long start = -1, bool spidr = false)
-	{
-		if (!AppInit.conf.opensync || time == 0)
-		{
-			return Json(new
-			{
-				nextread = false,
-				collections = new List<Collection>()
-			});
-		}
+            foreach (var t in (await _torrentRepository.GetCollectionAsync(key, false)).Values)
+            {
+                if (AppInit.conf.disable_trackers?.Contains(t.TrackerName) == true) continue;
 
-		var nextread = false;
+                if (spidr || (start != -1 && start > t.UpdateTime.ToFileTimeUtc()))
+                {
+                    torrent[t.Url] = new() { Sid = t.Sid, Pir = t.Pir, Url = t.Url };
+                    continue;
+                }
 
-		int take = 2_000,
-			countread = 0;
+                if (t.Ffprobe.Count == 0 || t.Languages.Count == 0)
+                {
+                    var streams = _tracksDatabase.GetStreams(t.Magnet, t.Types);
+                    if (streams != null)
+                    {
+                        var cloned = (TorrentDetails)t.Clone();
+                        cloned.Ffprobe = streams;
+                        cloned.Languages = _tracksDatabase.GetLanguages(cloned, streams);
+                        torrent[t.Url] = cloned;
+                    }
+                    else
+                    {
+                        torrent[t.Url] = t;
+                    }
+                }
+                else
+                {
+                    torrent[t.Url] = t;
+                }
+            }
 
-		var collections = new List<Collection>(take);
+            if (torrent.Count > 0)
+            {
+                countread += torrent.Count;
+                collections.Add(new Collection
+                {
+                    Key = key, // ← теперь правильно
+                    Value = new()
+                    {
+                        time = item.updateTime,
+                        fileTime = item.fileTime,
+                        torrents = torrent
+                    }
+                });
+            }
 
-		foreach (var item in masterDbCache.Where(i => i.Value.fileTime > time))
-		{
-			var torrent = new Dictionary<string, TorrentDetails>();
+            if (countread > take)
+            {
+                nextread = true;
+                break;
+            }
+        }
 
-			foreach (var t in await _torrentRepository.GetCollectionAsync(item.Key, false))
-			{
-				if (AppInit.conf.disable_trackers != null && AppInit.conf.disable_trackers.Contains(t.Value.trackerName))
-				{
-					continue;
-				}
+        return Ok(new { nextread, countread, take, collections });
+    }
 
-				if (spidr || (start != -1 && start > t.Value.updateTime.ToFileTimeUtc()))
-				{
-					torrent.TryAdd(t.Key,
-						new()
-						{
-							sid = t.Value.sid,
-							pir = t.Value.pir,
-							url = t.Value.url
-						});
+    [Route("/sync/torrents")]
+    public async Task<IActionResult> SyncTorrents(long time)
+    {
+        if (!AppInit.conf.opensync_v1 || time == 0)
+            return Ok(new { torrents = new List<object>() });
 
-					continue;
-				}
+        var take = 2_000;
+        var torrents = new List<Torrent>();
 
-				if (t.Value.ffprobe == null || t.Value.languages == null)
-				{
-					var streams = TracksDB.Get(t.Value.magnet, t.Value.types, true);
+        foreach (var kvp in MasterDbCache.Where(i => i.Value.fileTime > time))
+        {
+            var key = kvp.Key;
+            var item = kvp.Value;
 
-					if (streams != null)
-					{
-						var _t = (TorrentDetails) t.Value.Clone();
-						_t.ffprobe = streams;
-						_t.languages = TracksDB.Languages(_t, streams);
-						torrent.TryAdd(t.Key, _t);
-					} else
-					{
-						torrent.TryAdd(t.Key, t.Value);
-					}
-				} else
-				{
-					torrent.TryAdd(t.Key, t.Value);
-				}
-			}
+            foreach (var t in (await _torrentRepository.GetCollectionAsync(key, false)).Values)
+            {
+                if (AppInit.conf.disable_trackers?.Contains(t.TrackerName) == true) continue;
 
-			if (torrent.Count > 0)
-			{
-				countread = countread + torrent.Count;
+                var cloned = (TorrentDetails) t.Clone();
+                cloned.UpdateTime = item.updateTime;
 
-				collections.Add(new()
-				{
-					Key = item.Key,
-					Value = new()
-					{
-						time = item.Value.updateTime,
-						fileTime = item.Value.fileTime,
-						torrents = torrent
-					}
-				});
-			}
+                var streams = _tracksDatabase.GetStreams(cloned.Magnet, cloned.Types);
+                if (streams != null)
+                {
+                    cloned.Ffprobe = streams;
+                    cloned.Languages = _tracksDatabase.GetLanguages(cloned, streams);
+                }
 
-			if (countread > take)
-			{
-				nextread = true;
+                torrents.Add(new Torrent { key = t.Url, value = cloned });
 
-				break;
-			}
-		}
+                if (torrents.Count > take) break;
+            }
 
-		return Json(new
-		{
-			nextread,
-			countread,
-			take,
-			collections
-		});
-	}
+            if (torrents.Count > take) break;
+        }
 
-	[Route("/sync/torrents")]
-	public async Task<JsonResult> Torrents(long time)
-	{
-		if (!AppInit.conf.opensync_v1 || time == 0)
-		{
-			return Json(new List<string>());
-		}
-
-		var take = 2_000;
-		var torrents = new List<Torrent>(take + 1);
-
-		foreach (var item in masterDbCache.Where(i => i.Value.fileTime > time))
-		{
-			foreach (var torrent in await _torrentRepository.GetCollectionAsync(item.Key, false))
-			{
-				if (AppInit.conf.disable_trackers != null && AppInit.conf.disable_trackers.Contains(torrent.Value.trackerName))
-				{
-					continue;
-				}
-
-				var _t = (TorrentDetails) torrent.Value.Clone();
-				_t.updateTime = item.Value.updateTime;
-
-				var streams = TracksDB.Get(_t.magnet, _t.types, true);
-
-				if (streams != null)
-				{
-					_t.ffprobe = streams;
-					_t.languages = TracksDB.Languages(_t, streams);
-				}
-
-				torrents.Add(new()
-				{
-					key = torrent.Key,
-					value = _t
-				});
-			}
-
-			if (torrents.Count > take)
-			{
-				take = torrents.Count;
-
-				break;
-			}
-		}
-
-		return Json(new
-		{
-			take,
-			torrents
-		});
-	}
+        return Ok(new { take = torrents.Count, torrents });
+    }
 }

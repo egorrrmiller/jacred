@@ -151,7 +151,7 @@ public class KinozalController : BaseController
 
 		var torrents = new List<TorrentBaseDetails>();
 
-		foreach (var row in Regex.Split(tParse.ReplaceBadNames(html), "<tr class=('first bg'|bg)>")
+		foreach (var row in Regex.Split(MediaNameUtils.Normalize(html), "<tr class=('first bg'|bg)>")
 					.Skip(1))
 		{
 			#region Локальный метод - Match
@@ -187,7 +187,7 @@ public class KinozalController : BaseController
 			} else
 			{
 				createTime =
-					tParse.ParseCreateTime(Match("<td class='s'>([0-9]{2}.[0-9]{2}.[0-9]{4}) в [0-9]{2}:[0-9]{2}</td>"),
+					MediaNameUtils.ParseDate(Match("<td class='s'>([0-9]{2}.[0-9]{2}.[0-9]{4}) в [0-9]{2}:[0-9]{2}</td>"),
 						"dd.MM.yyyy");
 			}
 
@@ -486,29 +486,29 @@ public class KinozalController : BaseController
 
 				torrents.Add(new TorrentDetails
 				{
-					trackerName = "kinozal",
-					types = types,
-					url = url,
-					title = title,
-					sid = sid,
-					pir = pir,
-					sizeName = sizeName,
-					createTime = createTime,
-					name = name,
-					originalname = originalname,
-					relased = relased
+					TrackerName = "kinozal",
+					Types = types,
+					Url = url,
+					Title = title,
+					Sid = sid,
+					Pir = pir,
+					SizeName = sizeName,
+					CreateTime = createTime,
+					Name = name,
+					OriginalName = originalname,
+					Relased = relased
 				});
 			}
 		}
 
 		await _torrentRepository.AddOrUpdateAsync(torrents, async (t, db) =>
 		{
-			if (db.TryGetValue(t.url, out var _tcache) && _tcache.title == t.title)
+			if (db.TryGetValue(t.Url, out var _tcache) && _tcache.Title == t.Title)
 			{
 				return true;
 			}
 
-			var id = Regex.Match(t.url, "\\?id=([0-9]+)")
+			var id = Regex.Match(t.Url, "\\?id=([0-9]+)")
 				.Groups[1].Value;
 
 			var srv_details = await HttpClient.Post($"{AppInit.conf.Kinozal.host}/get_srv_details.php?id={id}&action=2",
@@ -521,7 +521,7 @@ public class KinozalController : BaseController
 
 				if (!string.IsNullOrWhiteSpace(torrentHash))
 				{
-					t.magnet = $"magnet:?xt=urn:btih:{torrentHash}";
+					t.Magnet = $"magnet:?xt=urn:btih:{torrentHash}";
 
 					return true;
 				}

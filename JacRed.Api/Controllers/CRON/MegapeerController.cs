@@ -10,7 +10,6 @@ using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models;
 using JacRed.Core.Models.Details;
-using JacRed.Core.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
@@ -154,7 +153,7 @@ public class MegapeerController : BaseController
 
 			#region createTime
 
-			var createTime = tParse.ParseCreateTime(Match("<td>([0-9]+ [^ ]+ [0-9]+)</td><td>"), "dd.MM.yy");
+			var createTime = MediaNameUtils.ParseDate(Match("<td>([0-9]+ [^ ]+ [0-9]+)</td><td>"), "dd.MM.yy");
 
 			if (createTime == default)
 			{
@@ -478,17 +477,17 @@ public class MegapeerController : BaseController
 
 				torrents.Add(new()
 				{
-					trackerName = "megapeer",
-					types = types,
-					url = url,
-					title = title,
-					sid = sid,
-					pir = pir,
-					sizeName = sizeName,
-					createTime = createTime,
-					name = name,
-					originalname = originalname,
-					relased = relased,
+					TrackerName = "megapeer",
+					Types = types,
+					Url = url,
+					Title = title,
+					Sid = sid,
+					Pir = pir,
+					SizeName = sizeName,
+					CreateTime = createTime,
+					Name = name,
+					OriginalName = originalname,
+					Relased = relased,
 					downloadId = downloadid
 				});
 			}
@@ -496,7 +495,7 @@ public class MegapeerController : BaseController
 
 		await _torrentRepository.AddOrUpdateAsync(torrents, async (t, db) =>
 		{
-			if (db.TryGetValue(t.url, out var _tcache) && _tcache.title == t.title)
+			if (db.TryGetValue(t.Url, out var _tcache) && _tcache.Title == t.Title)
 			{
 				return true;
 			}
@@ -508,7 +507,7 @@ public class MegapeerController : BaseController
 
 			if (!string.IsNullOrWhiteSpace(magnet))
 			{
-				t.magnet = magnet;
+				t.Magnet = magnet;
 
 				return true;
 			}

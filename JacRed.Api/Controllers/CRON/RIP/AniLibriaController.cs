@@ -6,7 +6,6 @@ using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.AniLibria;
 using JacRed.Core.Models.Details;
-using JacRed.Core.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -95,21 +94,21 @@ public class AniLibriaController : BaseController
 
 						torrents.Add(new()
 						{
-							trackerName = "anilibria",
-							types = new[]
+							TrackerName = "anilibria",
+							Types = new[]
 							{
 								"anime"
 							},
-							url = url,
-							title = title,
-							sid = torrent.seeders,
-							pir = torrent.leechers,
-							createTime = createTime,
-							magnet = magnet,
-							sizeName = sizeName,
-							name = tParse.ReplaceBadNames(root.names.ru),
-							originalname = tParse.ReplaceBadNames(root.names.en),
-							relased = root.season.year
+							Url = url,
+							Title = title,
+							Sid = torrent.seeders,
+							Pir = torrent.leechers,
+							CreateTime = createTime,
+							Magnet = magnet,
+							SizeName = sizeName,
+							Name = MediaNameUtils.Normalize(root.names.ru),
+							OriginalName = MediaNameUtils.Normalize(root.names.en),
+							Relased = root.season.year
 						});
 					}
 

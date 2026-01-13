@@ -8,7 +8,6 @@ using JacRed.Api.Engine;
 using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
-using JacRed.Core.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -36,7 +35,7 @@ public class HDRezkaController : BaseController
 
 		var torrents = new List<TorrentBaseDetails>();
 
-		foreach (var row in tParse.ReplaceBadNames(html)
+		foreach (var row in MediaNameUtils.Normalize(html)
 					.Split("<a ")
 					.Skip(1)
 					.Reverse())
@@ -167,7 +166,7 @@ public class HDRezkaController : BaseController
 
 				#region Дата создания
 
-				var createTime = tParse.ParseCreateTime(Regex
+				var createTime = MediaNameUtils.ParseDate(Regex
 					.Match(fulnews, "class=\"si-date\">(Добавлено|Опубликовано|Обновлено) ([^<]+)<")
 					.Groups[2]
 					.Value, "dd.MM.yyyy");
@@ -235,18 +234,18 @@ public class HDRezkaController : BaseController
 
 				torrents.Add(new TorrentDetails
 				{
-					trackerName = "hdrezka",
-					types = types,
-					url = url,
-					title =
+					TrackerName = "hdrezka",
+					Types = types,
+					Url = url,
+					Title =
 						$"{name} / {originalname} {(string.IsNullOrWhiteSpace(siparam) ? "" : $"/ {siparam.ToLower()} ")}[{relased}, {quality}{info}]",
-					sid = 1,
-					sizeName = sizeName,
-					createTime = createTime,
-					magnet = magnet,
-					name = name,
-					originalname = originalname,
-					relased = relased
+					Sid = 1,
+					SizeName = sizeName,
+					CreateTime = createTime,
+					Magnet = magnet,
+					Name = name,
+					OriginalName = originalname,
+					Relased = relased
 				});
 
 				MemoryCache.Set(url, 0, DateTime.Today.AddDays(1));

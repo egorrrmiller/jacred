@@ -1,8 +1,5 @@
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 
@@ -1602,23 +1599,23 @@ public class TorrentEnricher : ITorrentEnricher
         // Конвертируем в TorrentDetails
         var details = new TorrentDetails()
         {
-            url = torrent.url,
-            types = torrent.types,
-            trackerName = torrent.trackerName,
-            createTime = torrent.createTime,
-            updateTime = torrent.updateTime,
-            title = torrent.title,
-            name = torrent.name,
-            originalname = torrent.originalname,
-            pir = torrent.pir,
-            sid = torrent.sid,
-            relased = torrent.relased,
-            sizeName = torrent.sizeName,
-            magnet = torrent.magnet,
-            ffprobe = torrent.ffprobe,
-            ffprobe_tryingdata = torrent.ffprobe_tryingdata,
-            _sn = torrent._sn,
-            _so = torrent._so
+            Url = torrent.Url,
+            Types = torrent.Types,
+            TrackerName = torrent.TrackerName,
+            CreateTime = torrent.CreateTime,
+            UpdateTime = torrent.UpdateTime,
+            Title = torrent.Title,
+            Name = torrent.Name,
+            OriginalName = torrent.OriginalName,
+            Pir = torrent.Pir,
+            Sid = torrent.Sid,
+            Relased = torrent.Relased,
+            SizeName = torrent.SizeName,
+            Magnet = torrent.Magnet,
+            Ffprobe = torrent.Ffprobe,
+            FfprobeTryCount = torrent.FfprobeTryCount,
+            SourceSeasonNumber = torrent.SourceSeasonNumber,
+            SourceSeasonOrder = torrent.SourceSeasonOrder
         };
 
         // Обогащаем метаданными
@@ -1631,15 +1628,15 @@ public class TorrentEnricher : ITorrentEnricher
         var details = EnrichAndConvert(torrent);
 
         // Асинхронное обогащение через MediaAnalysis
-        if (_mediaAnalyzer.ShouldAnalyze(details.types))
+        if (_mediaAnalyzer.ShouldAnalyze(details.Types))
         {
-            var streams = await _mediaAnalyzer.GetStreamsAsync(details.magnet, details.types);
+            var streams = await _mediaAnalyzer.GetStreamsAsync(details.Magnet, details.Types);
             var languages = await _mediaAnalyzer.ExtractLanguagesAsync(details, streams);
 
             if (streams.Count > 0)
-                details.ffprobe = streams;
+                details.Ffprobe = streams;
             if (languages.Count > 0)
-                details.languages = languages;
+                details.Languages = languages;
         }
 
         return details;
@@ -1648,21 +1645,21 @@ public class TorrentEnricher : ITorrentEnricher
     private void EnrichDetails(TorrentDetails torrent)
     {
         // Парсинг размера
-        torrent.size = ParseSize(torrent.sizeName);
+        torrent.Size = ParseSize(torrent.SizeName);
 
         // Определение качества
-        torrent.quality = DetectQuality(torrent.title);
+        torrent.Quality = DetectQuality(torrent.Title);
 
         // Определение типа видео
-        torrent.videotype = DetectVideoType(torrent.title);
+        torrent.VideoType = DetectVideoType(torrent.Title);
 
         // Извлечение голосовых дорожек и языков
         var voices = DetectVoices(torrent);
-        torrent.voices = voices.Voices;
-        torrent.languages = voices.Languages;
+        torrent.Voices = voices.Voices;
+        torrent.Languages = voices.Languages;
 
         // Извлечение сезонов
-        torrent.seasons = ExtractSeasons(torrent.title, torrent.types);
+        torrent.Seasons = ExtractSeasons(torrent.Title, torrent.Types);
     }
 
 	private long ParseSize(string sizeName)
@@ -1727,7 +1724,6 @@ public class TorrentEnricher : ITorrentEnricher
 		}
 
 		if (Regex.IsMatch(title.ToLower(), "(4k|uhd)( |\\]|,|$)") || title.Contains("2160p"))
-
 			// Дополнительная проверка для 4K: вышел после 2000г, размер > 10GB, есть пометка о 4K
 		{
 			return 2160;
@@ -1760,14 +1756,14 @@ public class TorrentEnricher : ITorrentEnricher
 	{
 		var voices = new HashSet<string>();
 		var languages = new HashSet<string>();
-		var titlelower = torrent.title?.ToLower() ?? string.Empty;
+		var titlelower = torrent.Title?.ToLower() ?? string.Empty;
 
 		// Специфичные для трекеров голосовые студии
-		if (torrent.trackerName == "lostfilm")
+		if (torrent.TrackerName == "lostfilm")
 		{
 			voices.Add("LostFilm");
 			languages.Add("rus");
-		} else if (torrent.trackerName == "hdrezka")
+		} else if (torrent.TrackerName == "hdrezka")
 		{
 			voices.Add("HDRezka");
 		}
@@ -1797,7 +1793,7 @@ public class TorrentEnricher : ITorrentEnricher
 		if (titlelower.Contains("ukr")
 			|| titlelower.Contains("українськ")
 			|| titlelower.Contains("украинск")
-			|| torrent.trackerName == "toloka")
+			|| torrent.TrackerName == "toloka")
 		{
 			languages.Add("ukr");
 		}

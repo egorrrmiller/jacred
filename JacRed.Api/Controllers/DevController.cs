@@ -1,10 +1,7 @@
-﻿using System;
-using System.Globalization;
-using System.Linq;
+﻿using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using JacRed.Core.Interfaces;
-using JacRed.Core.Utils;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JacRed.Api.Controllers;

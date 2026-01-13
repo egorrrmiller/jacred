@@ -119,7 +119,7 @@ public class SelezenController : BaseController
 
 		var torrents = new List<TorrentBaseDetails>();
 
-		foreach (var row in tParse.ReplaceBadNames(html)
+		foreach (var row in MediaNameUtils.Normalize(html)
 					.Split("card overflow-hidden")
 					.Skip(1))
 		{
@@ -151,7 +151,7 @@ public class SelezenController : BaseController
 			#region Дата создания
 
 			var createTime =
-				tParse.ParseCreateTime(Match("class=\"bx bx-calendar\"></span> ?([0-9]{2}\\.[0-9]{2}\\.[0-9]{4} [0-9]{2}:[0-9]{2})</a>"),
+				MediaNameUtils.ParseDate(Match("class=\"bx bx-calendar\"></span> ?([0-9]{2}\\.[0-9]{2}\\.[0-9]{4} [0-9]{2}:[0-9]{2})</a>"),
 					"dd.MM.yyyy HH:mm");
 
 			if (createTime == default)
@@ -256,29 +256,29 @@ public class SelezenController : BaseController
 
 				torrents.Add(new TorrentDetails
 				{
-					trackerName = "selezen",
-					types = types,
-					url = url,
-					title = title,
-					sid = sid,
-					pir = pir,
-					sizeName = sizeName,
-					createTime = createTime,
-					name = name,
-					originalname = originalname,
-					relased = relased
+					TrackerName = "selezen",
+					Types = types,
+					Url = url,
+					Title = title,
+					Sid = sid,
+					Pir = pir,
+					SizeName = sizeName,
+					CreateTime = createTime,
+					Name = name,
+					OriginalName = originalname,
+					Relased = relased
 				});
 			}
 		}
 
 		await _torrentRepository.AddOrUpdateAsync(torrents, async (t, db) =>
 		{
-			if (db.TryGetValue(t.url, out var _tcache) && _tcache.title == t.title)
+			if (db.TryGetValue(t.Url, out var _tcache) && _tcache.Title == t.Title)
 			{
 				return true;
 			}
 
-			var fullnews = await HttpClient.Get(t.url, cookie: cookie, useproxy: AppInit.conf.Selezen.useproxy);
+			var fullnews = await HttpClient.Get(t.Url, cookie: cookie, useproxy: AppInit.conf.Selezen.useproxy);
 
 			if (fullnews != null)
 			{
@@ -287,7 +287,7 @@ public class SelezenController : BaseController
 
 				if (!string.IsNullOrWhiteSpace(_mg))
 				{
-					t.magnet = _mg;
+					t.Magnet = _mg;
 
 					return true;
 				}

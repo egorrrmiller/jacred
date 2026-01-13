@@ -9,7 +9,6 @@ using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models;
 using JacRed.Core.Models.Details;
-using JacRed.Core.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
@@ -135,7 +134,7 @@ public class RutorController : BaseController
 			#region createTime
 
 			var createTime =
-				tParse.ParseCreateTime(Match("<td>([^<]+)</td><td([^>]+)?><a class=\"downgif\""), "dd.MM.yy");
+				MediaNameUtils.ParseDate(Match("<td>([^<]+)</td><td([^>]+)?><a class=\"downgif\""), "dd.MM.yy");
 
 			if (createTime == default)
 			{
@@ -486,18 +485,18 @@ public class RutorController : BaseController
 
 				torrents.Add(new()
 				{
-					trackerName = "rutor",
-					types = types,
-					url = url,
-					title = title,
-					sid = sid,
-					pir = pir,
-					sizeName = sizeName,
-					magnet = magnet,
-					createTime = createTime,
-					name = name,
-					originalname = originalname,
-					relased = relased
+					TrackerName = "rutor",
+					Types = types,
+					Url = url,
+					Title = title,
+					Sid = sid,
+					Pir = pir,
+					SizeName = sizeName,
+					Magnet = magnet,
+					CreateTime = createTime,
+					Name = name,
+					OriginalName = originalname,
+					Relased = relased
 				});
 			}
 		}

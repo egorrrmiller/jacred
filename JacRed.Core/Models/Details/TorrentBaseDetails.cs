@@ -1,44 +1,103 @@
 ﻿using JacRed.Core.Models.Tracks;
+using System;
+using System.Collections.Generic;
 
 namespace JacRed.Core.Models.Details;
 
 public class TorrentBaseDetails
 {
-	public string trackerName { get; set; }
+    /// <summary>
+    /// Название трекера (например: "rutor", "kinozal"). Используется для идентификации источника и отображения иконки.
+    /// </summary>
+    public string TrackerName { get; set; } = null!;
 
-	public string[] types { get; set; }
+    /// <summary>
+    /// Типы раздачи (например: ["serial", "hd"]). Определяют категорию контента и разрешение.
+    /// </summary>
+    public string[] Types { get; set; } = null!;
 
-	public string url { get; set; }
+    /// <summary>
+    /// Ссылка на страницу раздачи на трекере. Позволяет перейти к оригиналу.
+    /// </summary>
+    public string Url { get; set; } = null!;
 
-	public string title { get; set; }
+    /// <summary>
+    /// Отображаемое название раздачи, может включать озвучку, качество и другие детали.
+    /// </summary>
+    public string Title { get; set; } = null!;
 
-	public int sid { get; set; }
+    /// <summary>
+    /// Количество сидеров (раздающих) на трекере. Используется при сортировке по активности.
+    /// </summary>
+    public int Sid { get; set; }
 
-	public int pir { get; set; }
+    /// <summary>
+    /// Количество пиров (качающих) на трекере. Характеризует популярность и активность.
+    /// </summary>
+    public int Pir { get; set; }
 
-	public string sizeName { get; set; }
+    /// <summary>
+    /// Размер раздачи в человекочитаемом виде (например: "2.1 GB").
+    /// </summary>
+    public string SizeName { get; set; } = null!;
 
-	public DateTime createTime { get; set; } = DateTime.UtcNow;
+    /// <summary>
+    /// Дата создания раздачи на трекере (по данным источника).
+    /// </summary>
+    public DateTime CreateTime { get; set; } = DateTime.UtcNow;
 
-	public DateTime updateTime { get; set; } = DateTime.UtcNow;
+    /// <summary>
+    /// Дата последнего обновления информации о раздаче в системе.
+    /// </summary>
+    public DateTime UpdateTime { get; set; } = DateTime.UtcNow;
 
-	public DateTime checkTime { get; set; } = DateTime.Now;
+    /// <summary>
+    /// Время последней проверки доступности раздачи (магнет-ссылки).
+    /// </summary>
+    public DateTime CheckTime { get; set; } = DateTime.Now;
 
-	public string magnet { get; set; }
+    /// <summary>
+    /// Magnet-ссылка на раздачу. Используется для передачи в торрент-клиент.
+    /// </summary>
+    public string Magnet { get; set; } = null!;
 
-	public string name { get; set; }
+    /// <summary>
+    /// Оригинальное имя файла или каталога из торрент-метаданных.
+    /// </summary>
+    public string Name { get; set; } = null!;
 
-	public string originalname { get; set; }
+    /// <summary>
+    /// Оригинальное название медиа (без озвучки и дополнений).
+    /// </summary>
+    public string OriginalName { get; set; } = null!;
 
-	public int relased { get; set; }
+    /// <summary>
+    /// Год выпуска контента. Используется для фильтрации и сопоставления.
+    /// </summary>
+    public int Relased { get; set; }
 
-	public HashSet<string> languages { get; set; }
+    /// <summary>
+    /// Языки аудиодорожек, доступные в раздаче (например: "Русский", "English").
+    /// </summary>
+    public HashSet<string> Languages { get; set; } = null!;
 
-	public List<ffStream> ffprobe { get; set; }
+    /// <summary>
+    /// Данные о медиапотоках, полученные через ffprobe (видео, аудио, субтитры).
+    /// </summary>
+    public List<ffStream> Ffprobe { get; set; } = null!;
 
-	public int ffprobe_tryingdata { get; set; }
+    /// <summary>
+    /// Счётчик попыток получить ffprobe-данные. 0 — не начинали.
+    /// </summary>
+    public int FfprobeTryCount { get; set; }
 
-	public string _sn { get; set; }
+    /// <summary>
+    /// Номер сезона, указанный на трекере (если это сериал).
+    /// </summary>
+    public string SourceSeasonNumber { get; set; } = null!;
 
-	public string _so { get; set; }
+    /// <summary>
+    /// Порядок или диапазон сезонов, как указано на источнике (например: "2 из 5").
+    /// </summary>
+    public string SourceSeasonOrder { get; set; } = null!;
 }

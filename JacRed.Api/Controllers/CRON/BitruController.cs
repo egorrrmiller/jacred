@@ -9,7 +9,6 @@ using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models;
 using JacRed.Core.Models.Details;
-using JacRed.Core.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
@@ -108,7 +107,7 @@ public class BitruController : BaseController
 
 		var torrents = new List<TorrentBaseDetails>();
 
-		foreach (var row in tParse.ReplaceBadNames(html)
+		foreach (var row in MediaNameUtils.Normalize(html)
 					.Split("<div class=\"b-title\"")
 					.Skip(1))
 		{
@@ -150,7 +149,7 @@ public class BitruController : BaseController
 			} else
 			{
 				createTime =
-					tParse.ParseCreateTime(Match("<div class=\"ellips\"><span>([0-9]{2} [^ ]+ [0-9]{4}) в [0-9]{2}:[0-9]{2} от <a"),
+					MediaNameUtils.ParseDate(Match("<div class=\"ellips\"><span>([0-9]{2} [^ ]+ [0-9]{4}) в [0-9]{2}:[0-9]{2} от <a"),
 						"dd.MM.yyyy");
 			}
 
@@ -396,36 +395,36 @@ public class BitruController : BaseController
 
 				torrents.Add(new TorrentDetails
 				{
-					trackerName = "bitru",
-					types = types,
-					url = url,
-					title = title,
-					sid = sid,
-					pir = pir,
-					sizeName = sizeName,
-					createTime = createTime,
-					name = name,
-					originalname = originalname,
-					relased = relased
+					TrackerName = "bitru",
+					Types = types,
+					Url = url,
+					Title = title,
+					Sid = sid,
+					Pir = pir,
+					SizeName = sizeName,
+					CreateTime = createTime,
+					Name = name,
+					OriginalName = originalname,
+					Relased = relased
 				});
 			}
 		}
 
 		await _torrentRepository.AddOrUpdateAsync(torrents, async (t, db) =>
 		{
-			if (db.TryGetValue(t.url, out var _tcache) && _tcache.title == t.title)
+			if (db.TryGetValue(t.Url, out var _tcache) && _tcache.Title == t.Title)
 			{
 				return true;
 			}
 
-			var torrent = await HttpClient.Download(t.url.Replace("/details.php", "/download.php"), referer: t.url,
+			var torrent = await HttpClient.Download(t.Url.Replace("/details.php", "/download.php"), referer: t.Url,
 				useproxy: AppInit.conf.Bitru.useproxy);
 
 			var magnet = BencodeTo.Magnet(torrent);
 
 			if (magnet != null)
 			{
-				t.magnet = magnet;
+				t.Magnet = magnet;
 
 				return true;
 			}

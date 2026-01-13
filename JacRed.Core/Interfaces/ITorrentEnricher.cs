@@ -2,9 +2,10 @@ using JacRed.Core.Models.Details;
 
 namespace JacRed.Core.Interfaces;
 
+/// <summary>
+/// Обогащает торрент: вычисляет размер, качество, сезоны и т.д.
+/// </summary>
 public interface ITorrentEnricher
 {
-	TorrentDetails EnrichAndConvert(TorrentBaseDetails torrent);
-
-	Task<TorrentDetails> EnrichAndConvertAsync(TorrentBaseDetails torrent);
+    Task<TorrentDetails> EnrichAndConvertAsync(TorrentBaseDetails torrent);
 }

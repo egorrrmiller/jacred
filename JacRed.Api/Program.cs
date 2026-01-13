@@ -1,120 +1,127 @@
-using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
-using System.Threading;
-using System.Threading.Tasks;
 using JacRed.Api.Configuration;
-using JacRed.Api.Controllers;
 using JacRed.Api.Engine;
-using JacRed.Api.Engine.Tracks;
-using JacRed.Api.HostedServices;
+using JacRed.Api.Services;
 using JacRed.Core;
-using JacRed.Core.Interfaces;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- Kestrel ---
-builder.WebHost.UseKestrel(op =>
+// --- Настройка Kestrel ---
+builder.WebHost.UseKestrel(options =>
 {
-	var ip = AppInit.conf.listenip == "any"
-		? IPAddress.Any
-		: IPAddress.Parse(AppInit.conf.listenip);
+    var ip = AppInit.conf.listenip?.ToLower() == "any"
+        ? IPAddress.Any
+        : IPAddress.Parse(AppInit.conf.listenip ?? "127.0.0.1");
 
-	op.Listen(ip, AppInit.conf.listenport);
+    options.Listen(ip, AppInit.conf.listenport);
 });
 
-// --- Подготовка директорий ---
-Directory.CreateDirectory("Data/fdb");
-Directory.CreateDirectory("Data/temp");
-Directory.CreateDirectory("Data/log");
-Directory.CreateDirectory("Data/tracks");
-
-// --- Инициализация ---
-TracksDB.Configuration();
-	/*SyncController.Configuration();
-ApiController.getFastdb(true);*/
-
-// --- Cron / Long Running Jobs ---
-/*ThreadPool.QueueUserWorkItem(async _ =>
+// --- Создание директорий ---
+var directories = new[]
 {
-	while (true)
-	{
-		await Task.Delay(TimeSpan.FromMinutes(10));
+    "Data/fdb",
+    "Data/temp",
+    "Data/log",
+    "Data/tracks"
+};
 
-		try
-		{
-			ApiController.getFastdb(true);
-		}
-		catch
-		{
-		}
-	}
-});*/
+foreach (var dir in directories)
+{
+    if (!Directory.Exists(dir))
+        Directory.CreateDirectory(dir);
+}
 
-builder.Services.RegisterServices();
-
-// --- Culture / Encoding ---
+// --- Глобальные настройки ---
 CultureInfo.CurrentCulture = new("ru-RU");
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-// --- Services ---
-builder.Services.Configure<CookiePolicyOptions>(options =>
+// --- Сервисы ---
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+        options.JsonSerializerOptions.PropertyNamingPolicy = null;
+    });
+
+builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
-	options.CheckConsentNeeded = context => true;
-	options.MinimumSameSitePolicy = SameSiteMode.None;
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context.ModelState
+            .Where(e => e.Value?.Errors.Count > 0)
+            .SelectMany(e => e.Value!.Errors)
+            .Select(e => e.ErrorMessage)
+            .Distinct()
+            .ToArray();
+
+        return new BadRequestObjectResult(new
+        {
+            error = "Validation failed",
+            details = errors
+        });
+    };
 });
 
 builder.Services.AddResponseCompression(options =>
 {
-	options.MimeTypes =
-		ResponseCompressionDefaults.MimeTypes.Concat(new[]
-		{
-			"application/vnd.apple.mpegurl",
-			"image/svg+xml"
-		});
+    options.MimeTypes = Microsoft.AspNetCore.ResponseCompression.ResponseCompressionDefaults.MimeTypes
+        .Concat(new[] { "application/vnd.apple.mpegurl", "image/svg+xml" });
 });
 
-builder.Services.AddControllersWithViews()
-	.AddJsonOptions(options =>
-	{
-		options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-		options.JsonSerializerOptions.PropertyNamingPolicy = null;
-	});
+builder.Services.AddRouting(options => options.LowercaseUrls = true);
 
+// --- Регистрация зависимостей ---
+builder.Services.RegisterServices();
+
+// --- Фоновые службы ---
 builder.Services.AddHostedService<CacheInitializer>();
+builder.Services.AddHostedService<TracksDatabaseInitializer>();
+builder.Services.AddHostedService<TracksAnalysisService>();
+builder.Services.AddHostedService<TorrentSyncService>();
+builder.Services.AddHostedService<SpidrSyncService>();
+builder.Services.AddHostedService<TrackersCronService>();
+builder.Services.AddHostedService<StatsCronService>();
 
-// --- Build app ---
 var app = builder.Build();
 
-var torrent = app.Services.GetRequiredService<ITorrentRepository>();
-var content = app.Services.GetRequiredService<IContentCatalog>();
-
-ThreadPool.QueueUserWorkItem(async _ => await new SyncCron(content, torrent).Torrents());
-ThreadPool.QueueUserWorkItem(async _ => await new SyncCron(content, torrent).Spidr());
-ThreadPool.QueueUserWorkItem(async _ => await new TrackersCron(torrent, content).Run());
-ThreadPool.QueueUserWorkItem(async _ => await new StatsCron(content, torrent).Run());
-
-for (var i = 1; i <= 5; i++)
+// --- Middleware ---
+if (app.Environment.IsDevelopment())
 {
-	ThreadPool.QueueUserWorkItem(async _ => await new TracksCron(torrent, content).Run(i));
+    app.UseDeveloperExceptionPage();
+}
+else
+{
+    app.UseExceptionHandler(errorApp =>
+    {
+        errorApp.Run(async context =>
+        {
+            context.Response.StatusCode = 500;
+            context.Response.ContentType = "application/json";
+
+            await context.Response.WriteAsync(new
+            {
+                error = "Internal server error",
+                message = "An unexpected error occurred. Please try again later."
+            }.ToJson());
+        });
+    });
 }
 
-// --- Middleware ---
-app.UseDeveloperExceptionPage();
-
-app.UseForwardedHeaders(new()
+app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
-	ForwardedHeaders = ForwardedHeaders.XForwardedFor|ForwardedHeaders.XForwardedProto
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 
 app.UseRouting();
@@ -122,13 +129,23 @@ app.UseResponseCompression();
 
 if (AppInit.conf.web)
 {
-	app.UseStaticFiles();
+    app.UseStaticFiles();
 }
 
 app.UseModHeaders();
-
-// --- Endpoints ---
 app.MapControllers();
 
-// --- Start ---
-app.Run();
+// --- Запуск приложения ---
+await app.RunAsync();
+
+// --- Вспомогательные методы ---
+static class Extensions
+{
+    public static string ToJson(this object obj)
+    {
+        return System.Text.Json.JsonSerializer.Serialize(obj, new System.Text.Json.JsonSerializerOptions
+        {
+            PropertyNamingPolicy = null
+        });
+    }
+}

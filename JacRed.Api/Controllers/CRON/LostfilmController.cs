@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
@@ -35,7 +34,7 @@ public class LostfilmController : BaseController
 
 		var torrents = new List<TorrentBaseDetails>();
 
-		foreach (var row in tParse.ReplaceBadNames(html)
+		foreach (var row in MediaNameUtils.Normalize(html)
 					.Split("class=\"hor-breaker dashed\"")
 					.Skip(1))
 		{
@@ -64,7 +63,7 @@ public class LostfilmController : BaseController
 				#region Дата создания
 
 				var createTime =
-					tParse.ParseCreateTime(Match("<div class=\"right-part\">([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})</div>"),
+					MediaNameUtils.ParseDate(Match("<div class=\"right-part\">([0-9]{2}\\.[0-9]{2}\\.[0-9]{4})</div>"),
 						"dd.MM.yyyy");
 
 				if (createTime == default)
@@ -145,18 +144,18 @@ public class LostfilmController : BaseController
 
 				torrents.Add(new TorrentDetails
 				{
-					trackerName = "lostfilm",
-					types = new[]
+					TrackerName = "lostfilm",
+					Types = new[]
 					{
 						"serial"
 					},
-					url = url,
-					title = $"{name} / {originalname} / {sinfo} [{relased}]",
-					sid = 1,
-					createTime = createTime,
-					name = name,
-					originalname = originalname,
-					relased = relased
+					Url = url,
+					Title = $"{name} / {originalname} / {sinfo} [{relased}]",
+					Sid = 1,
+					CreateTime = createTime,
+					Name = name,
+					OriginalName = originalname,
+					Relased = relased
 				});
 			}
 			catch
@@ -166,22 +165,22 @@ public class LostfilmController : BaseController
 
 		await _torrentRepository.AddOrUpdateAsync(torrents, async (t, db) =>
 		{
-			if (db.TryGetValue(t.url, out var _tcache) && !string.IsNullOrWhiteSpace(_tcache.magnet))
+			if (db.TryGetValue(t.Url, out var _tcache) && !string.IsNullOrWhiteSpace(_tcache.Magnet))
 			{
 				return true;
 			}
 
-			var mag = await getMagnet(t.url);
+			var mag = await getMagnet(t.Url);
 
 			if (!string.IsNullOrWhiteSpace(mag.magnet))
 			{
 				if (!string.IsNullOrWhiteSpace(mag.quality))
 				{
-					t.title = t.title.Replace("]", $", {mag.quality}]");
+					t.Title = t.Title.Replace("]", $", {mag.quality}]");
 				}
 
-				t.magnet = mag.magnet;
-				t.sizeName = mag.sizeName;
+				t.Magnet = mag.magnet;
+				t.SizeName = mag.sizeName;
 
 				return true;
 			}
@@ -196,7 +195,7 @@ public class LostfilmController : BaseController
 
 	#region LostfilmController
 
-	private static readonly HttpClient cloudHttp;
+	private static readonly System.Net.Http.HttpClient cloudHttp;
 
 	static LostfilmController()
 	{

@@ -10,7 +10,6 @@ using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models;
 using JacRed.Core.Models.Details;
-using JacRed.Core.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
@@ -117,7 +116,7 @@ public class NNMClubController : BaseController
 
 		var torrents = new List<TorrentBaseDetails>();
 
-		foreach (var row in tParse.ReplaceBadNames(container)
+		foreach (var row in MediaNameUtils.Normalize(container)
 					.Split("<table width=\"100%\" class=\"pline\">"))
 		{
 			#region Локальный метод - Match
@@ -147,7 +146,7 @@ public class NNMClubController : BaseController
 			#region createTime
 
 			var createTime =
-				tParse.ParseCreateTime(Match("\\| ([0-9]+ [^ ]+ [0-9]{4} [^<]+)</span> \\| <span class=\"tit\""),
+				MediaNameUtils.ParseDate(Match("\\| ([0-9]+ [^ ]+ [0-9]{4} [^<]+)</span> \\| <span class=\"tit\""),
 					"dd.MM.yyyy HH:mm:ss");
 
 			if (createTime == default)
@@ -649,18 +648,18 @@ public class NNMClubController : BaseController
 
 				torrents.Add(new()
 				{
-					trackerName = "nnmclub",
-					types = types,
-					url = url,
-					title = title,
-					sid = sid,
-					pir = pir,
-					sizeName = sizeName,
-					magnet = magnet,
-					createTime = createTime,
-					name = name,
-					originalname = originalname,
-					relased = relased
+					TrackerName = "nnmclub",
+					Types = types,
+					Url = url,
+					Title = title,
+					Sid = sid,
+					Pir = pir,
+					SizeName = sizeName,
+					Magnet = magnet,
+					CreateTime = createTime,
+					Name = name,
+					OriginalName = originalname,
+					Relased = relased
 				});
 			}
 		}

@@ -1,4 +1,3 @@
-using System.IO;
 using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Utils;

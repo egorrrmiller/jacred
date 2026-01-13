@@ -4,9 +4,6 @@ namespace JacRed.Core.Interfaces;
 
 public interface ITorrentCollection : IDisposable
 {
-	public bool HasChanges { get; }
-
-	public Task AddOrUpdate(TorrentBaseDetails torrent);
-
-	public Task SaveAsync();
+	Task AddOrUpdate(TorrentBaseDetails torrent);
+	IReadOnlyDictionary<string, TorrentDetails> GetSnapshot();
 }

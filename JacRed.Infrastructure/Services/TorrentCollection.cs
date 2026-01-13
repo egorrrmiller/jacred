@@ -1,148 +1,92 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.Json;
-using System.Threading.Tasks;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
-using Microsoft.Extensions.Logging;
 
 namespace JacRed.Infrastructure.Services;
 
 public class TorrentCollection : ITorrentCollection
 {
-	private readonly Dictionary<string, TorrentDetails> _database;
+    private readonly Dictionary<string, TorrentDetails> _database;
+    private readonly ITorrentEnricher _torrentEnricher;
 
-	private readonly string _key;
+    public TorrentCollection(ITorrentEnricher torrentEnricher)
+    {
+        _database = new();
+        _torrentEnricher = torrentEnricher;
+    }
 
-	private readonly ILogger _logger;
+    public async Task AddOrUpdate(TorrentBaseDetails torrent)
+    {
+        if (_database.TryGetValue(torrent.Url, out var existing))
+        {
+            // Частичное обновление
+            await UpdateExistingTorrent(existing, torrent);
+        }
+        else
+        {
+            // Добавление нового
+            await AddNewTorrent(torrent);
+        }
+    }
 
-	private readonly IPathResolver _pathResolver;
+    public IReadOnlyDictionary<string, TorrentDetails> GetSnapshot() => new Dictionary<string, TorrentDetails>(_database);
 
-	private readonly ITorrentEnricher _torrentEnricher;
+    private async Task UpdateExistingTorrent(TorrentDetails existing, TorrentBaseDetails torrent)
+    {
+        var needsFullUpdate = false;
 
-	public TorrentCollection(string key,
-							IReadOnlyDictionary<string, TorrentDetails> data,
-							IPathResolver pathResolver, ITorrentEnricher torrentEnricher)
-	{
-		_key = key;
-		_database = new(data);
-		_pathResolver = pathResolver;
-		_torrentEnricher = torrentEnricher;
-		HasChanges = false;
-	}
+        if (torrent.Types != null && !existing.Types.SequenceEqual(torrent.Types))
+        {
+            existing.Types = torrent.Types;
+            needsFullUpdate = true;
+        }
 
-	public bool HasChanges { get; private set; }
+        if (torrent.Title != existing.Title)
+        {
+            existing.Title = torrent.Title;
+            needsFullUpdate = true;
+        }
 
-	public async Task AddOrUpdate(TorrentBaseDetails torrent)
-	{
-		if (_database.TryGetValue(torrent.url, out var existing))
+        if (!string.IsNullOrWhiteSpace(torrent.Magnet) && torrent.Magnet != existing.Magnet)
+        {
+            existing.Magnet = torrent.Magnet;
+            existing.FfprobeTryCount = 0;
+        }
 
-			// Логика обновления существующего торрента
-		{
-			await UpdateExistingTorrent(existing, torrent);
-		} else
+        existing.UpdateTime = DateTime.UtcNow;
+        existing.CheckTime = DateTime.Now;
 
-			// Логика добавления нового торрента
-		{
-			await AddNewTorrent(torrent);
-		}
+        if (needsFullUpdate)
+        {
+            await _torrentEnricher.EnrichAndConvertAsync(existing);
+        }
+    }
 
-		HasChanges = true;
-	}
+    private async Task AddNewTorrent(TorrentBaseDetails torrent)
+    {
+        if (string.IsNullOrWhiteSpace(torrent.Magnet) || torrent.Types == null || torrent.Types.Length == 0)
+            return;
 
-	public async Task SaveAsync()
-	{
-		if (!HasChanges || _database.Count == 0)
-		{
-			return;
-		}
+        var newTorrent = new TorrentDetails
+        {
+            Url = torrent.Url,
+            Types = torrent.Types,
+            TrackerName = torrent.TrackerName,
+            CreateTime = torrent.CreateTime,
+            UpdateTime = torrent.UpdateTime,
+            Title = torrent.Title,
+            Name = torrent.Name,
+            OriginalName = torrent.OriginalName,
+            Magnet = torrent.Magnet,
+            Sid = torrent.Sid,
+            Pir = torrent.Pir,
+            Relased = torrent.Relased,
+            SizeName = torrent.SizeName,
+            Ffprobe = torrent.Ffprobe
+        };
 
-		try
-		{
-			var filePath = _pathResolver.GenerateFilePath(_key);
-			var directory = Path.GetDirectoryName(filePath);
+        await _torrentEnricher.EnrichAndConvertAsync(newTorrent);
+        _database[torrent.Url] = newTorrent;
+    }
 
-			if (!Directory.Exists(directory))
-			{
-				Directory.CreateDirectory(directory);
-			}
-
-			using var stream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, 4096,
-				true);
-
-			await JsonSerializer.SerializeAsync(stream, _database);
-
-			HasChanges = false;
-		}
-		catch (Exception ex)
-		{
-			_logger.LogError(ex, "Error saving collection to file: {Key}", _key);
-		}
-	}
-
-	public void Dispose() => SaveAsync()
-		.GetAwaiter()
-		.GetResult();
-
-	private async Task UpdateExistingTorrent(TorrentDetails existing, TorrentBaseDetails torrent)
-	{
-		var needsFullUpdate = false;
-
-		if (torrent.types != null && !existing.types.SequenceEqual(torrent.types))
-		{
-			existing.types = torrent.types;
-			needsFullUpdate = true;
-		}
-
-		if (torrent.title != existing.title)
-		{
-			existing.title = torrent.title;
-			needsFullUpdate = true;
-		}
-
-		if (!string.IsNullOrWhiteSpace(torrent.magnet) && torrent.magnet != existing.magnet)
-		{
-			existing.magnet = torrent.magnet;
-			existing.ffprobe_tryingdata = 0;
-		}
-
-		existing.updateTime = DateTime.UtcNow;
-		existing.checkTime = DateTime.Now;
-
-		if (needsFullUpdate)
-
-			// Вызов обогащения данных
-		{
-			await _torrentEnricher.EnrichAndConvertAsync(existing);
-		}
-	}
-
-	private async Task AddNewTorrent(TorrentBaseDetails torrent)
-	{
-		if (string.IsNullOrWhiteSpace(torrent.magnet) || torrent.types == null || torrent.types.Length == 0)
-			return;
-
-		var newTorrent = new TorrentDetails
-		{
-			url = torrent.url,
-			types = torrent.types,
-			trackerName = torrent.trackerName,
-			createTime = torrent.createTime,
-			updateTime = torrent.updateTime,
-			title = torrent.title,
-			name = torrent.name,
-			originalname = torrent.originalname,
-			magnet = torrent.magnet,
-			sid = torrent.sid,
-			pir = torrent.pir,
-			relased = torrent.relased,
-			sizeName = torrent.sizeName,
-			ffprobe = torrent.ffprobe
-		};
-
-		await _torrentEnricher.EnrichAndConvertAsync(newTorrent);
-		_database[torrent.url] = newTorrent;
-	}
+    public void Dispose() { }
 }
