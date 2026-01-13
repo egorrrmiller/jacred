@@ -7,7 +7,7 @@ namespace JacRed.Api.Engine;
 public static class MediaNameUtils
 {
     /// <summary>
-    /// Нормализует название медиа: убирает проблемные символы, заменяет ё→е и т.д.
+    ///     Нормализует название медиа: убирает проблемные символы, заменяет ё→е и т.д.
     /// </summary>
     public static string Normalize(string name)
     {
@@ -22,8 +22,8 @@ public static class MediaNameUtils
     }
 
     /// <summary>
-    /// Парсит дату из строки, заменяя названия месяцев на числа (русские и английские).
-    /// Поддерживает форматы вроде "12 янв 2023", "5 Dec 2022".
+    ///     Парсит дату из строки, заменяя названия месяцев на числа (русские и английские).
+    ///     Поддерживает форматы вроде "12 янв 2023", "5 Dec 2022".
     /// </summary>
     public static DateTime ParseDate(string line, string format)
     {
@@ -69,10 +69,7 @@ public static class MediaNameUtils
         line = Regex.Replace(line, " Dec ", ".12.", RegexOptions.IgnoreCase);
 
         // Добавляем ведущий ноль
-        if (Regex.IsMatch(line, @"^[0-9]\."))
-        {
-            line = $"0{line}";
-        }
+        if (Regex.IsMatch(line, @"^[0-9]\.")) line = $"0{line}";
 
         DateTime.TryParseExact(line, format, new CultureInfo("ru-RU"), DateTimeStyles.None, out var result);
         return result;

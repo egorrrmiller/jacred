@@ -1,8 +1,10 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Text;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Tracks;
+using JacRed.Core.Utils;
 using Microsoft.Extensions.Logging;
 using MonoTorrent;
 using Newtonsoft.Json;
@@ -13,12 +15,14 @@ public class TracksDatabase : ITracksDatabase
 {
     private static readonly Random Random = new();
     private readonly ConcurrentDictionary<string, ffprobemodel> _database = new();
+    private readonly HttpService _httpService;
     private readonly ILogger<TracksDatabase> _logger;
     private readonly string[] _tsuriEndpoints = [];
 
-    public TracksDatabase(ILogger<TracksDatabase> logger)
+    public TracksDatabase(ILogger<TracksDatabase> logger, HttpService httpService)
     {
         _logger = logger;
+        _httpService = httpService;
     }
 
     public async Task LoadAsync()
@@ -26,28 +30,24 @@ public class TracksDatabase : ITracksDatabase
         _logger.LogInformation("Loading TracksDB from disk...");
 
         foreach (var folder1 in Directory.EnumerateDirectories("Data/tracks"))
+        foreach (var folder2 in Directory.EnumerateDirectories(folder1))
+        foreach (var file in Directory.EnumerateFiles(folder2))
         {
-            foreach (var folder2 in Directory.EnumerateDirectories(folder1))
+            var infohash = Path.GetFileName(folder1).Substring(0, 2) +
+                           Path.GetFileName(folder2) +
+                           Path.GetFileNameWithoutExtension(file);
+
+            try
             {
-                foreach (var file in Directory.EnumerateFiles(folder2))
-                {
-                    var infohash = Path.GetFileName(folder1).Substring(0, 2) + 
-                                   Path.GetFileName(folder2) + 
-                                   Path.GetFileNameWithoutExtension(file);
+                var json = await File.ReadAllTextAsync(file);
+                var model = JsonConvert.DeserializeObject<ffprobemodel>(json);
 
-                    try
-                    {
-                        var json = await File.ReadAllTextAsync(file);
-                        var model = JsonConvert.DeserializeObject<ffprobemodel>(json);
-
-                        if (model?.streams?.Count > 0)
-                            _database[infohash] = model;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to load track file: {Path}", file);
-                    }
-                }
+                if (model?.streams?.Count > 0)
+                    _database[infohash] = model;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load track file: {Path}", file);
             }
         }
 
@@ -111,7 +111,7 @@ public class TracksDatabase : ITracksDatabase
                 Arguments = $"-v quiet -print_format json -show_format -show_streams \"{mediaUrl}\"",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
-                StandardOutputEncoding = System.Text.Encoding.UTF8
+                StandardOutputEncoding = Encoding.UTF8
             });
 
             await process.WaitForExitAsync();
@@ -129,16 +129,19 @@ public class TracksDatabase : ITracksDatabase
         // Удалить торрент
         try
         {
-            await HttpClient.Post($"{tsuri}/torrents", 
+            await _httpService.Post($"{tsuri}/torrents",
                 $"{{\"action\":\"rem\",\"hash\":\"{infohash}\"}}");
         }
-        catch { /* ignore */ }
+        catch
+        {
+            /* ignore */
+        }
 
         _database[infohash] = result;
 
         try
         {
-            var path = GetFilePath(infohash, createFolder: true);
+            var path = GetFilePath(infohash, true);
             var json = JsonConvert.SerializeObject(result, Formatting.Indented);
             await File.WriteAllTextAsync(path, json);
         }
@@ -156,11 +159,9 @@ public class TracksDatabase : ITracksDatabase
             languages.UnionWith(torrent.Languages);
 
         if (streams?.Count > 0)
-        {
             languages.UnionWith(streams
                 .Where(s => s.codec_type == "audio" && !string.IsNullOrEmpty(s.tags?.language))
                 .Select(s => s.tags.language));
-        }
 
         return languages.Count > 0 ? languages : null;
     }
@@ -170,8 +171,8 @@ public class TracksDatabase : ITracksDatabase
         if (types == null || types.Length == 0)
             return true;
 
-        return types.Contains("sport") || 
-               types.Contains("tvshow") || 
+        return types.Contains("sport") ||
+               types.Contains("tvshow") ||
                types.Contains("docuserial");
     }
 

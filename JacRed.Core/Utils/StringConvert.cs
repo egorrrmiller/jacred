@@ -4,102 +4,90 @@ namespace JacRed.Core.Utils;
 
 public static class StringConvert
 {
-	#region FindStartText
+    #region FindStartText
 
-	public static string FindStartText(string data, string end, string start = null)
-	{
-		try
-		{
-			return data.Substring(0, data.IndexOf(end));
-		}
-		catch
-		{
-			return null;
-		}
-	}
+    public static string FindStartText(string data, string end, string start = null)
+    {
+        try
+        {
+            return data.Substring(0, data.IndexOf(end));
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
-	#endregion
+    #endregion
 
-	#region FindLastText
+    #region FindLastText
 
-	public static string FindLastText(string data, string start, string end = null)
-	{
-		try
-		{
-			var res = data.Substring(data.IndexOf(start));
+    public static string FindLastText(string data, string start, string end = null)
+    {
+        try
+        {
+            var res = data.Substring(data.IndexOf(start));
 
-			if (end == null)
-			{
-				return res;
-			}
+            if (end == null) return res;
 
-			return FindStartText(res, end);
-		}
-		catch
-		{
-			return null;
-		}
-	}
+            return FindStartText(res, end);
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
-	#endregion
+    #endregion
 
-	#region Remove
+    #region Remove
 
-	public static string Remove(string data, string start, string end)
-	{
-		try
-		{
-			for (var i = 0; i < 10; i++)
-			{
-				var startIndex = data.IndexOf(start);
+    public static string Remove(string data, string start, string end)
+    {
+        try
+        {
+            for (var i = 0; i < 10; i++)
+            {
+                var startIndex = data.IndexOf(start);
 
-				if (startIndex == 0)
-				{
-					break;
-				}
+                if (startIndex == 0) break;
 
-				var endIndex = data.IndexOf(end);
+                var endIndex = data.IndexOf(end);
 
-				if (endIndex == 0)
-				{
-					data = data.Remove(startIndex);
+                if (endIndex == 0)
+                {
+                    data = data.Remove(startIndex);
 
-					break;
-				}
+                    break;
+                }
 
-				data = data.Remove(startIndex, endIndex - startIndex);
-			}
+                data = data.Remove(startIndex, endIndex - startIndex);
+            }
 
-			return data;
-		}
-		catch
-		{
-			return data;
-		}
-	}
+            return data;
+        }
+        catch
+        {
+            return data;
+        }
+    }
 
-	#endregion
+    #endregion
 
-	#region SearchName
+    #region SearchName
 
-	public static string SearchName(string val)
-	{
-		if (string.IsNullOrWhiteSpace(val))
-		{
-			return null;
-		}
+    public static string SearchName(string val)
+    {
+        if (string.IsNullOrWhiteSpace(val)) return null;
 
-		val = Regex.Replace(val.ToLower(), "[^a-zA-Zа-яА-Я0-9Ёё]+", "")
-			.Replace("ё", "е")
-			.Replace("щ", "ш");
+        val = Regex.Replace(val.ToLower(), "[^a-zA-Zа-яА-Я0-9Ёё]+", "")
+            .Replace("ё", "е")
+            .Replace("щ", "ш");
 
-		if (string.IsNullOrWhiteSpace(val))
-		{
-			return null;
-		}
+        if (string.IsNullOrWhiteSpace(val)) return null;
 
-		return val;
-	}
+        return val;
+    }
 
-	#endregion
+    #endregion
 }

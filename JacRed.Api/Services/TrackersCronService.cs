@@ -60,7 +60,7 @@ public class TrackersCronService : BackgroundService
     private async Task<HashSet<string>> CollectTrackers(CancellationToken ct)
     {
         var trackers = new HashSet<string>();
-        var keys = await _contentCatalog.GetAllKeysAsync();
+        var keys = _contentCatalog.GetAllKeys();
 
         foreach (var key in keys)
         {
@@ -111,7 +111,7 @@ public class TrackersCronService : BackgroundService
         {
             using var handler = new HttpClientHandler
                 { ServerCertificateCustomValidationCallback = (_, _, _, _) => true };
-            using var client = new System.Net.Http.HttpClient(handler) { Timeout = TimeSpan.FromSeconds(7) };
+            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(7) };
             await client.GetAsync(tracker, HttpCompletionOption.ResponseHeadersRead, ct);
             return true;
         }

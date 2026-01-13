@@ -2,5 +2,5 @@
 
 public class TolokaDetails : TorrentDetails
 {
-	public string downloadId { get; set; }
+    public string downloadId { get; set; }
 }

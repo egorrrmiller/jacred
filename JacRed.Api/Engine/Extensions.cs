@@ -5,5 +5,8 @@ namespace JacRed.Api.Engine;
 
 public static class Extensions
 {
-	public static IApplicationBuilder UseModHeaders(this IApplicationBuilder builder) => builder.UseMiddleware<ModHeaders>();
+    public static IApplicationBuilder UseModHeaders(this IApplicationBuilder builder)
+    {
+        return builder.UseMiddleware<ModHeaders>();
+    }
 }

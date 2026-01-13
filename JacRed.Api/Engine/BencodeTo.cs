@@ -6,82 +6,71 @@ namespace JacRed.Api.Engine;
 
 public static class BencodeTo
 {
-	#region Magnet
+    #region Magnet
 
-	public static string Magnet(byte[] torrent)
-	{
-		try
-		{
-			if (torrent == null)
-			{
-				return null;
-			}
+    public static string Magnet(byte[] torrent)
+    {
+        try
+        {
+            if (torrent == null) return null;
 
-			var parser = new BencodeParser();
-			var res = parser.Parse<Torrent>(torrent);
+            var parser = new BencodeParser();
+            var res = parser.Parse<Torrent>(torrent);
 
-			var magnet = res.GetMagnetLink();
+            var magnet = res.GetMagnetLink();
 
-			if (res.OriginalInfoHash != null)
-			{
-				magnet = Regex.Replace(magnet, @"urn:btih:[\w0-9]+", $"urn:btih:{res.OriginalInfoHash.ToLower()}",
-					RegexOptions.IgnoreCase);
-			}
+            if (res.OriginalInfoHash != null)
+                magnet = Regex.Replace(magnet, @"urn:btih:[\w0-9]+", $"urn:btih:{res.OriginalInfoHash.ToLower()}",
+                    RegexOptions.IgnoreCase);
 
-			return magnet;
-		}
-		catch
-		{
-			return null;
-		}
-	}
+            return magnet;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
-	#endregion
+    #endregion
 
-	#region SizeName
+    #region SizeName
 
-	public static string SizeName(byte[] torrent)
-	{
-		try
-		{
-			if (torrent == null)
-			{
-				return null;
-			}
+    public static string SizeName(byte[] torrent)
+    {
+        try
+        {
+            if (torrent == null) return null;
 
-			var parser = new BencodeParser();
-			var res = parser.Parse<Torrent>(torrent);
+            var parser = new BencodeParser();
+            var res = parser.Parse<Torrent>(torrent);
 
-			string FormatBytes(long bytes)
-			{
-				string[] Suffix =
-				{
-					"B",
-					"KB",
-					"MB",
-					"GB",
-					"TB"
-				};
+            string FormatBytes(long bytes)
+            {
+                string[] Suffix =
+                {
+                    "B",
+                    "KB",
+                    "MB",
+                    "GB",
+                    "TB"
+                };
 
-				int i;
-				double dblSByte = bytes;
+                int i;
+                double dblSByte = bytes;
 
-				for (i = 0; i < Suffix.Length && bytes >= 1024; i++, bytes /= 1024)
-				{
-					dblSByte = bytes / 1024.0;
-				}
+                for (i = 0; i < Suffix.Length && bytes >= 1024; i++, bytes /= 1024) dblSByte = bytes / 1024.0;
 
-				return string.Format("{0:N2} {1}", dblSByte, Suffix[i])
-					.Replace(",", ".");
-			}
+                return string.Format("{0:N2} {1}", dblSByte, Suffix[i])
+                    .Replace(",", ".");
+            }
 
-			return FormatBytes(res.TotalSize);
-		}
-		catch
-		{
-			return null;
-		}
-	}
+            return FormatBytes(res.TotalSize);
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
-	#endregion
+    #endregion
 }

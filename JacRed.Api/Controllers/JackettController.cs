@@ -13,16 +13,18 @@ using JacRed.Core.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json.Linq;
+using TorrentInfo = JacRed.Core.Models.Api.TorrentInfo;
 
 namespace JacRed.Api.Controllers;
 
 public class JackettController : ControllerBase
 {
-    private readonly IContentCatalog _contentCatalog;
-    private readonly ITorrentRepository _torrentRepository;
     private readonly IMemoryCache _cache;
-    private readonly ITorrentSearchService _searchService;
+    private readonly IContentCatalog _contentCatalog;
+    private readonly HttpService _httpService;
     private readonly ITorrentMergerService _mergeService;
+    private readonly ITorrentSearchService _searchService;
+    private readonly ITorrentRepository _torrentRepository;
     private readonly ITracksDatabase _tracksDatabase;
 
     public JackettController(
@@ -31,7 +33,7 @@ public class JackettController : ControllerBase
         IMemoryCache cache,
         ITorrentSearchService searchService,
         ITorrentMergerService mergeService,
-        ITracksDatabase tracksDatabase)
+        ITracksDatabase tracksDatabase, HttpService httpService)
     {
         _contentCatalog = contentCatalog;
         _torrentRepository = torrentRepository;
@@ -39,30 +41,43 @@ public class JackettController : ControllerBase
         _searchService = searchService;
         _mergeService = mergeService;
         _tracksDatabase = tracksDatabase;
+        _httpService = httpService;
     }
 
     [Route("/")]
-    public ActionResult Index() => File(System.IO.File.OpenRead("wwwroot/index.html"), "text/html");
+    public ActionResult Index()
+    {
+        return File(System.IO.File.OpenRead("wwwroot/index.html"), "text/html");
+    }
 
     [Route("health")]
-    public IActionResult Health() => Ok(new { status = "OK" });
+    public IActionResult Health()
+    {
+        return Ok(new { status = "OK" });
+    }
 
     [Route("version")]
-    public ActionResult Version() => Content("11", "text/plain; charset=utf-8");
+    public ActionResult Version()
+    {
+        return Content("11", "text/plain; charset=utf-8");
+    }
 
     [Route("lastupdatedb")]
     public async Task<ActionResult> LastUpdateDB()
     {
-        var db = await _contentCatalog.GetAllKeysAsync();
+        var db = _contentCatalog.GetAllKeys();
         var latest = db.Values.MaxBy(i => i.updateTime)?.updateTime ?? new DateTime(2000, 1, 1);
         return Content(latest.ToString("dd.MM.yyyy HH:mm"), "text/plain; charset=utf-8");
     }
 
     [Route("api/v1.0/conf")]
-    public IActionResult JacRedConf(string apikey) => Ok(new
+    public IActionResult JacRedConf(string apikey)
     {
-        apikey = string.IsNullOrWhiteSpace(AppInit.conf.apikey) || apikey == AppInit.conf.apikey
-    });
+        return Ok(new
+        {
+            apikey = string.IsNullOrWhiteSpace(AppInit.conf.apikey) || apikey == AppInit.conf.apikey
+        });
+    }
 
     [Route("/api/v2.0/indexers/{status}/results")]
     public async Task<ActionResult> Jackett(
@@ -92,20 +107,16 @@ public class JackettController : ControllerBase
         {
             // Простая эвристика: первое слово — название, если нет кириллицы
             var parts = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length > 0 && !parts[0].Any(c => c >= 'а' && c <= 'я' || c >= 'А' && c <= 'Я'))
-            {
+            if (parts.Length > 0 && !parts[0].Any(c => (c >= 'а' && c <= 'я') || (c >= 'А' && c <= 'Я')))
                 title = parts[0];
-            }
             else
-            {
                 title = query; // fallback
-            }
         }
 
         // Выполняем поиск
         var searchTask = string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(title_original)
             ? _searchService.SearchByQueryAsync(query, contentType)
-            : _searchService.SearchByTitleAsync(title, title_original, year, contentType, exact: true);
+            : _searchService.SearchByTitleAsync(title, title_original, year, contentType, true);
 
         var torrents = await searchTask;
 
@@ -113,11 +124,9 @@ public class JackettController : ControllerBase
 
         // Фильтр по `apikey=rus`
         if (apikey == "rus")
-        {
-            result = result.Where(t => (t.Languages?.Contains("rus") == true) ||
+            result = result.Where(t => t.Languages?.Contains("rus") == true ||
                                        t.Types?.Intersect(new[] { "sport", "tvshow", "docuserial" }).Any() == true)
                 .ToList();
-        }
 
         var jResult = await BuildJackettResults(result, isNumRequest);
 
@@ -209,7 +218,7 @@ public class JackettController : ControllerBase
         int page = 1,
         int take = 1000)
     {
-        var db = await _contentCatalog.GetAllKeysAsync();
+        var db = _contentCatalog.GetAllKeys();
         var results = new Dictionary<string, Dictionary<int, TorrentQuality>>();
 
         var keys = BuildSearchKeys(name, originalname)
@@ -235,13 +244,11 @@ public class JackettController : ControllerBase
                     createTime = t.CreateTime,
                     updateTime = t.UpdateTime,
                     languages = langs,
-                    qualitys = new() { t.Quality }
+                    qualitys = new HashSet<int> { t.Quality }
                 };
 
                 if (!results.TryGetValue(keyName, out var yearMap))
-                {
-                    results[keyName] = yearMap = new();
-                }
+                    results[keyName] = yearMap = new Dictionary<int, TorrentQuality>();
 
                 if (yearMap.TryGetValue(t.Relased, out var existing))
                 {
@@ -279,7 +286,7 @@ public class JackettController : ControllerBase
                 : $"&imdb={search}";
 
             var response =
-                await HttpClient.Get<JObject>($"https://api.alloha.tv/?token=04941a9a3ca3ac16e2b4327347bbc1{uri}",
+                await _httpService.Get<JObject>($"https://api.alloha.tv/?token=04941a9a3ca3ac16e2b4327347bbc1{uri}",
                     timeoutSeconds: 8);
             var data = response?.Value<JObject>("data");
             cache = (data?.Value<string>("original_name"), data?.Value<string>("name"));
@@ -318,7 +325,7 @@ public class JackettController : ControllerBase
                 languages = languages,
                 info = isNumRequest
                     ? null
-                    : new Core.Models.Api.TorrentInfo
+                    : new TorrentInfo
                     {
                         name = t.Name,
                         originalname = t.OriginalName,
@@ -349,27 +356,27 @@ public class JackettController : ControllerBase
             case "multfilm":
             case "documovie":
                 desc = "Movies";
-                return new() { 2000 };
+                return new HashSet<int> { 2000 };
 
             case "serial":
             case "multserial":
                 desc = "TV";
-                return new() { 5000 };
+                return new HashSet<int> { 5000 };
 
             case "docuserial":
                 desc = "TV/Documentary";
-                return new() { 5080 };
+                return new HashSet<int> { 5080 };
 
             case "tvshow":
                 desc = "TV/Foreign";
-                return new() { 5020, 2010 };
+                return new HashSet<int> { 5020, 2010 };
 
             case "anime":
                 desc = "TV/Anime";
-                return new() { 5070 };
+                return new HashSet<int> { 5070 };
 
             default:
-                return new();
+                return new HashSet<int>();
         }
     }
 
@@ -382,11 +389,11 @@ public class JackettController : ControllerBase
             if (langs?.Any() == true)
                 languages.UnionWith(langs);
             return t.Ffprobe;
-            
         }
+
         if (t.Types?.Length == 0)
             t.Types = [];
-        
+
         var streams = _tracksDatabase.GetStreams(t.Magnet, t.Types);
         var streamLangs = _tracksDatabase.GetLanguages(t, streams);
         if (streamLangs?.Any() == true)
@@ -395,18 +402,24 @@ public class JackettController : ControllerBase
         return streams;
     }
 
-    private IEnumerable<string> BuildSearchKeys(string name, string original) =>
-        new[] { name, original }.Where(s => !string.IsNullOrWhiteSpace(s)).Select(StringConvert.SearchName);
+    private IEnumerable<string> BuildSearchKeys(string name, string original)
+    {
+        return new[] { name, original }.Where(s => !string.IsNullOrWhiteSpace(s)).Select(StringConvert.SearchName);
+    }
 
     private string GenerateCacheKey(string query, string title, string orig, int year, Dictionary<string, string> cat,
-        int serial) =>
-        $"jackett:{query}:{title}:{orig}:{year}:{(cat?.Count > 0 ? string.Join(",", cat) : "none")}:{serial}";
+        int serial)
+    {
+        return $"jackett:{query}:{title}:{orig}:{year}:{(cat?.Count > 0 ? string.Join(",", cat) : "none")}:{serial}";
+    }
 
-    private bool IsNumRequest(string query) =>
-        query != null &&
-        HttpContext.Request.Headers.UserAgent ==
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36" &&
-        !HttpContext.Request.QueryString.Value.Contains("&is_serial=");
+    private bool IsNumRequest(string query)
+    {
+        return query != null &&
+               HttpContext.Request.Headers.UserAgent ==
+               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36" &&
+               !HttpContext.Request.QueryString.Value.Contains("&is_serial=");
+    }
 
     private (string, string, int) ApplyNumQueryHeuristic(string query, string title, string orig, int year, bool isNum)
     {
@@ -419,9 +432,7 @@ public class JackettController : ControllerBase
         if (g.Length < 2) return (title, orig, year); // защита
 
         if (Regex.IsMatch(g[1].Value, "[a-zA-Z0-9]{2}"))
-        {
             return (g[0].Value, g[1].Value, g.Length > 2 ? int.Parse(g[2].Value) : year);
-        }
 
         return (title, orig, year);
     }
@@ -451,15 +462,18 @@ public class JackettController : ControllerBase
         };
     }
 
-    private int? TypeToId(string type) => type switch
+    private int? TypeToId(string type)
     {
-        "movie" => 1,
-        "serial" => 2,
-        "tvshow" => 3,
-        "docuserial" => 4,
-        "anime" => 5,
-        _ => null
-    };
+        return type switch
+        {
+            "movie" => 1,
+            "serial" => 2,
+            "tvshow" => 3,
+            "docuserial" => 4,
+            "anime" => 5,
+            _ => null
+        };
+    }
 
     #endregion
 }

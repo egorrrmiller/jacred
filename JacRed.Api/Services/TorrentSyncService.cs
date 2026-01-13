@@ -8,6 +8,7 @@ using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Sync.v2;
+using JacRed.Core.Utils;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
@@ -17,6 +18,7 @@ namespace JacRed.Api.Services;
 public class TorrentSyncService : BackgroundService
 {
     private readonly IContentCatalog _contentCatalog;
+    private readonly HttpService _httpService;
     private readonly ILogger<TorrentSyncService> _logger;
 
     private readonly SyncState _syncState = new("lastsync.txt", "starsync.txt");
@@ -25,11 +27,12 @@ public class TorrentSyncService : BackgroundService
     public TorrentSyncService(
         ILogger<TorrentSyncService> logger,
         IContentCatalog contentCatalog,
-        ITorrentRepository torrentRepository)
+        ITorrentRepository torrentRepository, HttpService httpService)
     {
         _logger = logger;
         _contentCatalog = contentCatalog;
         _torrentRepository = torrentRepository;
+        _httpService = httpService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -69,7 +72,7 @@ public class TorrentSyncService : BackgroundService
     {
         try
         {
-            var conf = await HttpClient.Get<JObject>($"{AppInit.conf.syncapi}/sync/conf");
+            var conf = await _httpService.Get<JObject>($"{AppInit.conf.syncapi}/sync/conf");
             return conf?.Value<bool>("fbd") == true;
         }
         catch
@@ -87,7 +90,7 @@ public class TorrentSyncService : BackgroundService
         {
             var url =
                 $"{AppInit.conf.syncapi}/sync/fdb/torrents?time={_syncState.LastSync}&start={_syncState.StartSync}";
-            var root = await HttpClient.Get<RootObject>(url, timeoutSeconds: 300);
+            var root = await _httpService.Get<RootObject>(url, timeoutSeconds: 300);
 
             if (root?.collections == null || root.collections.Count == 0)
             {
@@ -139,7 +142,7 @@ public class TorrentSyncService : BackgroundService
         while (!ct.IsCancellationRequested)
         {
             var url = $"{AppInit.conf.syncapi}/sync/torrents?time={_syncState.LastSync}";
-            var root = await HttpClient.Get<Core.Models.Sync.v1.RootObject>(url, timeoutSeconds: 300);
+            var root = await _httpService.Get<Core.Models.Sync.v1.RootObject>(url, timeoutSeconds: 300);
 
             if (root?.torrents == null || root.torrents.Count == 0) break;
 

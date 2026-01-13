@@ -10,7 +10,10 @@ public static class MagnetLinkExtensions
         {
             return MagnetLink.Parse(magnet).Name;
         }
-        catch { return null; }
+        catch
+        {
+            return null;
+        }
     }
 
     public static IEnumerable<string> AnnounceUrls(this string magnet)
@@ -19,6 +22,9 @@ public static class MagnetLinkExtensions
         {
             return MagnetLink.Parse(magnet).AnnounceUrls ?? Enumerable.Empty<string>();
         }
-        catch { return Enumerable.Empty<string>(); }
+        catch
+        {
+            return Enumerable.Empty<string>();
+        }
     }
 }

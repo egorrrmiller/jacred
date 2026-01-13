@@ -2,5 +2,5 @@
 
 public class Torrents
 {
-	public List<Torrent> list { get; set; }
+    public List<Torrent> list { get; set; }
 }

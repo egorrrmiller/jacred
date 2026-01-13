@@ -2,17 +2,21 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using JacRed.Api.Configuration;
 using JacRed.Api.Engine;
 using JacRed.Api.Services;
 using JacRed.Core;
+using JacRed.Core.Utils;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -38,13 +42,11 @@ var directories = new[]
 };
 
 foreach (var dir in directories)
-{
     if (!Directory.Exists(dir))
         Directory.CreateDirectory(dir);
-}
 
 // --- Глобальные настройки ---
-CultureInfo.CurrentCulture = new("ru-RU");
+CultureInfo.CurrentCulture = new CultureInfo("ru-RU");
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 // --- Сервисы ---
@@ -76,7 +78,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 
 builder.Services.AddResponseCompression(options =>
 {
-    options.MimeTypes = Microsoft.AspNetCore.ResponseCompression.ResponseCompressionDefaults.MimeTypes
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes
         .Concat(new[] { "application/vnd.apple.mpegurl", "image/svg+xml" });
 });
 
@@ -84,6 +86,17 @@ builder.Services.AddRouting(options => options.LowercaseUrls = true);
 
 // --- Регистрация зависимостей ---
 builder.Services.RegisterServices();
+
+builder.Services.AddHttpClient<HttpService>(client =>
+    {
+        client.DefaultRequestHeaders.UserAgent.ParseAdd(HttpService.UserAgent);
+        client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
+        ServerCertificateCustomValidationCallback = (_, _, _, _) => true // only if you need to ignore SSL
+    });
 
 // --- Фоновые службы ---
 builder.Services.AddHostedService<CacheInitializer>();
@@ -98,11 +111,8 @@ var app = builder.Build();
 
 // --- Middleware ---
 if (app.Environment.IsDevelopment())
-{
     app.UseDeveloperExceptionPage();
-}
 else
-{
     app.UseExceptionHandler(errorApp =>
     {
         errorApp.Run(async context =>
@@ -117,7 +127,6 @@ else
             }.ToJson());
         });
     });
-}
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
@@ -127,10 +136,7 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 app.UseRouting();
 app.UseResponseCompression();
 
-if (AppInit.conf.web)
-{
-    app.UseStaticFiles();
-}
+if (AppInit.conf.web) app.UseStaticFiles();
 
 app.UseModHeaders();
 app.MapControllers();
@@ -139,11 +145,11 @@ app.MapControllers();
 await app.RunAsync();
 
 // --- Вспомогательные методы ---
-static class Extensions
+internal static class Extensions
 {
     public static string ToJson(this object obj)
     {
-        return System.Text.Json.JsonSerializer.Serialize(obj, new System.Text.Json.JsonSerializerOptions
+        return JsonSerializer.Serialize(obj, new JsonSerializerOptions
         {
             PropertyNamingPolicy = null
         });

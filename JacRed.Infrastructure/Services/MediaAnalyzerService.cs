@@ -30,7 +30,7 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         _cache = cache;
         _logger = logger;
         _httpClientFactory = httpClientFactory;
-        _database = new();
+        _database = new ConcurrentDictionary<string, ffprobemodel>();
         _tsuriEndpoints = (configuration["tsuri"]?.Split(',') ?? Array.Empty<string>())
             .Select(s => s.Trim())
             .Where(s => !string.IsNullOrEmpty(s))
@@ -63,20 +63,20 @@ public class MediaAnalyzerService : IMediaAnalyzerService
     public async Task<List<ffStream>> GetStreamsAsync(string magnet, string[] types = null, bool onlyCache = false)
     {
         if (!ShouldAnalyze(types) || string.IsNullOrEmpty(magnet))
-            return new();
+            return new List<ffStream>();
 
         var infohash = ExtractInfoHash(magnet);
         if (string.IsNullOrEmpty(infohash))
-            return new();
+            return new List<ffStream>();
 
         if (_database.TryGetValue(infohash, out var result))
             return result.streams;
 
         if (onlyCache)
-            return new();
+            return new List<ffStream>();
 
         var filePath = GetFilePath(infohash);
-        if (!File.Exists(filePath)) return new();
+        if (!File.Exists(filePath)) return new List<ffStream>();
 
         try
         {
@@ -93,7 +93,7 @@ public class MediaAnalyzerService : IMediaAnalyzerService
             _logger.LogWarning(ex, "Failed to read track data for {infohash}", infohash);
         }
 
-        return new();
+        return new List<ffStream>();
     }
 
     public async Task AnalyzeAsync(string magnet, string[] types = null)
@@ -143,13 +143,16 @@ public class MediaAnalyzerService : IMediaAnalyzerService
                 new StringContent($"{{\"action\":\"rem\",\"hash\":\"{infohash}\"}}",
                     Encoding.UTF8, "application/json"));
         }
-        catch { /* ignore */ }
+        catch
+        {
+            /* ignore */
+        }
 
         _database.TryAdd(infohash, result);
 
         try
         {
-            var filePath = GetFilePath(infohash, createFolder: true);
+            var filePath = GetFilePath(infohash, true);
             var json = JsonConvert.SerializeObject(result, Formatting.Indented);
             await File.WriteAllTextAsync(filePath, json);
         }
@@ -170,20 +173,20 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         // From streams
         streams ??= await GetStreamsAsync(torrent.Magnet, torrent.Types);
         if (streams?.Count > 0)
-        {
             languages.UnionWith(streams
                 .Where(s => s.codec_type == "audio" && !string.IsNullOrEmpty(s.tags?.language))
                 .Select(s => s.tags.language));
-        }
 
-        return languages.Count > 0 ? languages : new();
+        return languages.Count > 0 ? languages : new HashSet<string>();
     }
 
-    public bool ShouldAnalyze(string[] types) =>
-        types == null || types.Length == 0 ||
-        !types.Contains("sport", StringComparer.OrdinalIgnoreCase) &&
-        !types.Contains("tvshow", StringComparer.OrdinalIgnoreCase) &&
-        !types.Contains("docuserial", StringComparer.OrdinalIgnoreCase);
+    public bool ShouldAnalyze(string[] types)
+    {
+        return types == null || types.Length == 0 ||
+               (!types.Contains("sport", StringComparer.OrdinalIgnoreCase) &&
+                !types.Contains("tvshow", StringComparer.OrdinalIgnoreCase) &&
+                !types.Contains("docuserial", StringComparer.OrdinalIgnoreCase));
+    }
 
     private string ExtractInfoHash(string magnet)
     {

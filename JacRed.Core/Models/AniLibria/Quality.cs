@@ -2,9 +2,9 @@
 
 public class Quality
 {
-	public string @string { get; set; }
+    public string @string { get; set; }
 
-	public int resolution { get; set; }
+    public int resolution { get; set; }
 
-	public string encoder { get; set; }
+    public string encoder { get; set; }
 }

@@ -6,21 +6,21 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
-	<ItemGroup>
-		<PackageReference Include="BencodeNET" Version="5.0.0"/>
-		<PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.1" />
-		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.1" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.1" />
-		<PackageReference Include="MonoTorrent" Version="3.0.2"/>
-		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-	</ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="BencodeNET" Version="5.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.1"/>
+        <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.1"/>
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.1"/>
+        <PackageReference Include="MonoTorrent" Version="3.0.2"/>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.4"/>
+    </ItemGroup>
 
-	<ItemGroup>
-		<ProjectReference Include="..\JacRed.Core\JacRed.Core.csproj"/>
-	</ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\JacRed.Core\JacRed.Core.csproj"/>
+    </ItemGroup>
 
-	<!--<PropertyGroup>
-	 <ServerGarbageCollection>false</ServerGarbageCollection>
+    <!--<PropertyGroup>
+     <ServerGarbageCollection>false</ServerGarbageCollection>
    </PropertyGroup>-->
 
 </Project>

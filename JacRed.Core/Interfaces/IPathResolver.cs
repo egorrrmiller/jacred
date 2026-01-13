@@ -1,7 +1,7 @@
 namespace JacRed.Core.Interfaces;
 
 /// <summary>
-/// Резолвит путь к файлу по ключу (например, Data/fdb/ab/cdef...)
+///     Резолвит путь к файлу по ключу (например, Data/fdb/ab/cdef...)
 /// </summary>
 public interface IPathResolver
 {

@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using System.Web;
 using JacRed.Core.Extensions;
 using JacRed.Core.Interfaces;
@@ -111,7 +109,8 @@ public class TorrentMergerService : ITorrentMergerService
                 merged.Types = t.Types;
 
             // _sn / _so
-            if (string.IsNullOrWhiteSpace(merged.SourceSeasonNumber) && !string.IsNullOrWhiteSpace(t.SourceSeasonNumber))
+            if (string.IsNullOrWhiteSpace(merged.SourceSeasonNumber) &&
+                !string.IsNullOrWhiteSpace(t.SourceSeasonNumber))
                 merged.SourceSeasonNumber = t.SourceSeasonNumber;
 
             if (string.IsNullOrWhiteSpace(merged.SourceSeasonOrder) && !string.IsNullOrWhiteSpace(t.SourceSeasonOrder))

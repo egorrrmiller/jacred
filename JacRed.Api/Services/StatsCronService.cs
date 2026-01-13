@@ -63,10 +63,10 @@ public class StatsCronService : BackgroundService
         var today = DateTime.Today - (DateTime.Now - DateTime.UtcNow);
         var stats = new Dictionary<string, TrackerStats>();
 
-        var keys = await _contentCatalog.GetAllKeysAsync();
+        var keys = _contentCatalog.GetAllKeys();
         foreach (var key in keys)
         {
-            var torrents = await _torrentRepository.GetCollectionAsync(key.Key, false);
+            var torrents = await _torrentRepository.GetCollectionAsync(key.Key);
             foreach (var t in torrents.Values)
             {
                 if (string.IsNullOrEmpty(t.TrackerName)) continue;

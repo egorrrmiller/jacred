@@ -2,5 +2,5 @@
 
 public class Series
 {
-	public string @string { get; set; }
+    public string @string { get; set; }
 }

@@ -2,5 +2,5 @@
 
 public class ffprobemodel
 {
-	public List<ffStream> streams { get; set; }
+    public List<ffStream> streams { get; set; }
 }

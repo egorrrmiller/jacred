@@ -5,9 +5,9 @@ namespace JacRed.Core.Interfaces;
 
 public interface IContentCatalog
 {
-	public Task<ConcurrentDictionary<string, TorrentInfo>> GetAllKeysAsync();
+    public ConcurrentDictionary<string, TorrentInfo> GetAllKeys();
 
-	Task<Dictionary<string, List<string>>> GetFastIndexes(bool forceUpdate = false);
+    Task<Dictionary<string, List<string>>> GetFastIndexes(bool forceUpdate = false);
 
-	Task SaveToFileAsync();
+    Task SaveToFileAsync();
 }

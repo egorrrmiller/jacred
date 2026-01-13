@@ -1,12 +1,14 @@
-using System.Collections.Concurrent;
 using JacRed.Core.Interfaces;
-using JacRed.Core.Models;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Utils;
 
 namespace JacRed.Infrastructure.Services;
 
-public class FileTorrentRepository : ITorrentRepository
+/// <summary>
+///     Репозиторий для управления коллекциями торрентов, хранит данные в виде сериализованных файлов.
+///     Использует кэширование с ограничением времени жизни и автоматическую инвалидацию.
+/// </summary>
+public class TorrentRepository : ITorrentRepository
 {
     private readonly ICacheService _cache;
     private readonly IContentCatalog _contentCatalog;
@@ -14,7 +16,7 @@ public class FileTorrentRepository : ITorrentRepository
     private readonly IPathResolver _pathResolver;
     private readonly ITorrentEnricher _torrentEnricher;
 
-    public FileTorrentRepository(
+    public TorrentRepository(
         IContentCatalog contentCatalog,
         ICacheService cache,
         IPathResolver pathResolver,
@@ -41,10 +43,8 @@ public class FileTorrentRepository : ITorrentRepository
             var hasChanges = false;
 
             foreach (var torrent in group)
-            {
                 if (await UpdateOrAddTorrent(currentData, torrent))
                     hasChanges = true;
-            }
 
             if (hasChanges)
             {
@@ -72,10 +72,8 @@ public class FileTorrentRepository : ITorrentRepository
             foreach (var torrent in group)
             {
                 if (predicate != null)
-                {
-                    if (await predicate(torrent, currentData) == false)
+                    if (!await predicate(torrent, currentData))
                         continue;
-                }
 
                 await _torrentEnricher.EnrichAndConvertAsync(torrent);
 
@@ -91,25 +89,22 @@ public class FileTorrentRepository : ITorrentRepository
         }
     }
 
-    public async Task<IReadOnlyDictionary<string, TorrentDetails>> GetCollectionAsync(string key, bool updateCache = false)
+    public async Task<IReadOnlyDictionary<string, TorrentDetails>> GetCollectionAsync(string key,
+        bool updateCache = false)
     {
         var cacheKey = $"collection:{key}";
 
-        return await _cache.GetOrCreateAsync(cacheKey, async () =>
-            await LoadOrCreateCollectionAsync(key),
-            TimeSpan.FromHours(1));
+        return await _cache.GetOrCreateAsync(
+            cacheKey,
+            async () => await LoadOrCreateCollectionAsync(key),
+            TimeSpan.FromMinutes(10)
+        );
     }
 
     public async Task SaveMasterIndexAsync()
     {
-        if (_contentCatalog is ContentCatalogService catalogService)
-        {
-            await catalogService.SaveToFileAsync();
-        }
+        if (_contentCatalog is ContentCatalogService catalogService) await catalogService.SaveToFileAsync();
     }
-
-    public async Task<ConcurrentDictionary<string, TorrentInfo>> GetAllKeysAsync() =>
-        await _contentCatalog.GetAllKeysAsync();
 
     #region Helpers
 
@@ -120,8 +115,11 @@ public class FileTorrentRepository : ITorrentRepository
 
         try
         {
-            return await Task.Run(() => JsonStream.Read<Dictionary<string, TorrentDetails>>(filePath))
-                   ?? new Dictionary<string, TorrentDetails>();
+            return await Task.Run(() =>
+            {
+                using var stream = File.OpenRead(filePath);
+                return JsonStream.Read<Dictionary<string, TorrentDetails>>(stream);
+            }) ?? new Dictionary<string, TorrentDetails>();
         }
         catch
         {
@@ -131,14 +129,9 @@ public class FileTorrentRepository : ITorrentRepository
 
     private async Task<bool> UpdateOrAddTorrent(Dictionary<string, TorrentDetails> data, TorrentBaseDetails torrent)
     {
-        if (data.TryGetValue(torrent.Url, out var existing))
-        {
-            return await UpdateExistingTorrent(existing, torrent);
-        }
-        else
-        {
-            return await AddNewTorrent(data, torrent);
-        }
+        return data.TryGetValue(torrent.Url, out var existing)
+            ? await UpdateExistingTorrent(existing, torrent)
+            : await AddNewTorrent(data, torrent);
     }
 
     private async Task<bool> UpdateExistingTorrent(TorrentDetails existing, TorrentBaseDetails torrent)
@@ -163,7 +156,7 @@ public class FileTorrentRepository : ITorrentRepository
             existing.FfprobeTryCount = 0;
             changed = true;
         }
-        
+
         if (torrent.TrackerName != existing.TrackerName)
         {
             existing.TrackerName = torrent.TrackerName;
@@ -173,10 +166,7 @@ public class FileTorrentRepository : ITorrentRepository
         existing.UpdateTime = DateTime.UtcNow;
         existing.CheckTime = DateTime.Now;
 
-        if (changed)
-        {
-            await _torrentEnricher.EnrichAndConvertAsync(existing);
-        }
+        if (changed) await _torrentEnricher.EnrichAndConvertAsync(existing);
 
         return changed;
     }
@@ -219,11 +209,15 @@ public class FileTorrentRepository : ITorrentRepository
 
         try
         {
-            await Task.Run(() => JsonStream.Write(filePath, data));
+            await Task.Run(() =>
+            {
+                using var fileStream = File.Create(filePath);
+                JsonStream.Write(fileStream, data);
+            });
         }
-        catch (Exception ex)
+        catch
         {
-            // Логировать при необходимости
+            // Логирование при необходимости
         }
     }
 

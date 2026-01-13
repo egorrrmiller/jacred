@@ -2,5 +2,5 @@
 
 public class MegapeerDetails : TorrentDetails
 {
-	public string downloadId { get; set; }
+    public string downloadId { get; set; }
 }

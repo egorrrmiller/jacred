@@ -2,15 +2,15 @@
 
 public class ProxySettings
 {
-	public bool BypassOnLocal;
+    public bool BypassOnLocal;
 
-	public List<string> list;
+    public List<string> list;
 
-	public string password;
+    public string password;
 
-	public string pattern;
+    public string pattern;
 
-	public bool useAuth;
+    public bool useAuth;
 
-	public string username;
+    public string username;
 }

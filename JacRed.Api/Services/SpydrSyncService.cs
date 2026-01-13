@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Sync.v2;
+using JacRed.Core.Utils;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
@@ -13,15 +14,17 @@ namespace JacRed.Api.Services;
 
 public class SpidrSyncService : BackgroundService
 {
+    private readonly HttpService _httpService;
     private readonly ILogger<SpidrSyncService> _logger;
     private readonly ITorrentRepository _torrentRepository;
 
     public SpidrSyncService(
         ILogger<SpidrSyncService> logger,
-        ITorrentRepository torrentRepository)
+        ITorrentRepository torrentRepository, HttpService httpService)
     {
         _logger = logger;
         _torrentRepository = torrentRepository;
+        _httpService = httpService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -42,7 +45,7 @@ public class SpidrSyncService : BackgroundService
             while (!stoppingToken.IsCancellationRequested)
             {
                 var url = $"{AppInit.conf.syncapi}/sync/fdb/torrents?time={lastSync}&spidr=true";
-                var root = await HttpClient.Get<RootObject>(url, timeoutSeconds: 300);
+                var root = await _httpService.Get<RootObject>(url, timeoutSeconds: 300);
 
                 if (root?.collections == null || root.collections.Count == 0) break;
 
@@ -66,7 +69,7 @@ public class SpidrSyncService : BackgroundService
     {
         try
         {
-            var conf = await HttpClient.Get<JObject>($"{AppInit.conf.syncapi}/sync/conf");
+            var conf = await _httpService.Get<JObject>($"{AppInit.conf.syncapi}/sync/conf");
             return conf?.Value<bool>("spidr") == true;
         }
         catch

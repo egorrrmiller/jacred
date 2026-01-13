@@ -2,11 +2,11 @@
 
 public class RootObject
 {
-	public bool nextread { get; set; }
+    public bool nextread { get; set; }
 
-	public int take { get; set; }
+    public int take { get; set; }
 
-	public int countread { get; set; }
+    public int countread { get; set; }
 
-	public List<Collection> collections { get; set; }
+    public List<Collection> collections { get; set; }
 }

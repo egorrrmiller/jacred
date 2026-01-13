@@ -5,11 +5,11 @@ namespace JacRed.Infrastructure.Services;
 
 public class KeyGenerator : IKeyGenerator
 {
-	public string Build(string name, string originalName)
-	{
-		var searchName = StringConvert.SearchName(name);
-		var searchOriginalName = StringConvert.SearchName(originalName);
+    public string Build(string name, string originalName)
+    {
+        var searchName = StringConvert.SearchName(name);
+        var searchOriginalName = StringConvert.SearchName(originalName);
 
-		return $"{searchName}:{searchOriginalName}";
-	}
+        return $"{searchName}:{searchOriginalName}";
+    }
 }

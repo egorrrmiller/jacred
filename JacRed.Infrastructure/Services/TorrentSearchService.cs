@@ -9,9 +9,9 @@ namespace JacRed.Infrastructure.Services;
 
 public class TorrentSearchService : ITorrentSearchService
 {
+    private readonly IMemoryCache _cache;
     private readonly IContentCatalog _contentCatalog;
     private readonly ITorrentRepository _torrentRepository;
-    private readonly IMemoryCache _cache;
 
     public TorrentSearchService(
         IContentCatalog contentCatalog,
@@ -31,7 +31,7 @@ public class TorrentSearchService : ITorrentSearchService
         bool exact = false)
     {
         if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(originalTitle))
-            return new();
+            return new List<TorrentDetails>();
 
         var fastDb = await _contentCatalog.GetFastIndexes();
         var searchName = StringConvert.SearchName(title);
@@ -41,12 +41,10 @@ public class TorrentSearchService : ITorrentSearchService
 
         // Собираем ключи через fastDb
         foreach (var key in new[] { searchName, searchOriginal }.Where(s => !string.IsNullOrWhiteSpace(s)))
-        {
             if (fastDb.TryGetValue(key, out var foundKeys))
                 keys.UnionWith(foundKeys);
-        }
 
-        if (keys.Count == 0) return new();
+        if (keys.Count == 0) return new List<TorrentDetails>();
 
         // Ограничиваем, если нужно
         if (!AppInit.conf.evercache.enable || AppInit.conf.evercache.validHour > 0)
@@ -61,7 +59,7 @@ public class TorrentSearchService : ITorrentSearchService
         bool exact = false)
     {
         if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
-            return new();
+            return new List<TorrentDetails>();
 
         var fastDb = await _contentCatalog.GetFastIndexes();
         var searchQuery = StringConvert.SearchName(query);
@@ -69,18 +67,21 @@ public class TorrentSearchService : ITorrentSearchService
         var keys = new HashSet<string>();
 
         if (exact && fastDb.TryGetValue(searchQuery, out var exactKeys))
-        {
             keys.UnionWith(exactKeys);
-        }
         else
-        {
             keys.UnionWith(fastDb
                 .Where(kvp => kvp.Key.Contains(searchQuery))
                 .SelectMany(kvp => kvp.Value)
                 .Take(AppInit.conf.maxreadfile));
-        }
 
         return await FilterAndCollectTorrents(keys, searchQuery, null, null, mediaType, exact);
+    }
+
+    public async Task<List<TorrentQuality>> GetQualityInfoAsync(string name, string originalName, string type = null,
+        int page = 1, int take = 1000)
+    {
+        // Реализуется аналогично
+        throw new NotImplementedException();
     }
 
     private async Task<List<TorrentDetails>> FilterAndCollectTorrents(
@@ -148,11 +149,5 @@ public class TorrentSearchService : ITorrentSearchService
         return t.Types.Contains("movie") || t.Types.Contains("multfilm") || t.Types.Contains("documovie")
             ? t.Relased == year || t.Relased == year - 1 || t.Relased == year + 1
             : t.Relased >= year - 1;
-    }
-
-    public async Task<List<TorrentQuality>> GetQualityInfoAsync(string name, string originalName, string type = null, int page = 1, int take = 1000)
-    {
-        // Реализуется аналогично
-        throw new NotImplementedException();
     }
 }

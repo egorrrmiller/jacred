@@ -2,5 +2,5 @@
 
 public class BaibakoDetails : TorrentDetails
 {
-	public string downloadUri { get; set; }
+    public string downloadUri { get; set; }
 }

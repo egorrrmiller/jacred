@@ -8,19 +8,20 @@ using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using MonoTorrent;
 
 namespace JacRed.Api.Services;
 
 /// <summary>
-/// Фоновый сервис для анализа торрентов через ffprobe.
-/// Обрабатывает разные группы торрентов по возрасту и активности.
+///     Фоновый сервис для анализа торрентов через ffprobe.
+///     Обрабатывает разные группы торрентов по возрасту и активности.
 /// </summary>
 public class TracksAnalysisService : BackgroundService
 {
     private readonly IContentCatalog _contentCatalog;
+    private readonly ILogger<TracksAnalysisService> _logger;
     private readonly ITorrentRepository _torrentRepository;
     private readonly ITracksDatabase _tracksDatabase;
-    private readonly ILogger<TracksAnalysisService> _logger;
 
     public TracksAnalysisService(
         IContentCatalog contentCatalog,
@@ -47,11 +48,11 @@ public class TracksAnalysisService : BackgroundService
             }
 
             await Task.WhenAll(
-                ProcessGroup(1, TimeSpan.FromHours(1),  60),  // последние 24 часа
+                ProcessGroup(1, TimeSpan.FromHours(1), 60), // последние 24 часа
                 ProcessGroup(2, TimeSpan.FromHours(10), 180), // до 1 месяца
-                ProcessGroup(3, TimeSpan.FromDays(2),   180), // до 1 года
-                ProcessGroup(4, TimeSpan.FromDays(2),   180), // старше 1 года
-                ProcessGroup(5, TimeSpan.FromHours(1),  180)  // активные обновления
+                ProcessGroup(3, TimeSpan.FromDays(2), 180), // до 1 года
+                ProcessGroup(4, TimeSpan.FromDays(2), 180), // старше 1 года
+                ProcessGroup(5, TimeSpan.FromHours(1), 180) // активные обновления
             );
 
             // Случайная пауза от 60 до 180 минут
@@ -62,7 +63,7 @@ public class TracksAnalysisService : BackgroundService
 
     private async Task ProcessGroup(int group, TimeSpan maxDuration, int delayMinutes)
     {
-        if (AppInit.conf.tracksmod == 1 && (group is 3 or 4))
+        if (AppInit.conf.tracksmod == 1 && group is 3 or 4)
             return;
 
         var startTime = DateTime.Now;
@@ -75,13 +76,12 @@ public class TracksAnalysisService : BackgroundService
 
             if (group == 2 && DateTime.Now > startTime.Add(maxDuration))
                 break;
-            if ((group is 3 or 4) && DateTime.Now > startTime.Add(maxDuration))
+            if (group is 3 or 4 && DateTime.Now > startTime.Add(maxDuration))
                 break;
-            if ((group is 3 or 4 or 5) && t.FfprobeTryCount >= 3)
+            if (group is 3 or 4 or 5 && t.FfprobeTryCount >= 3)
                 continue;
 
             if (_tracksDatabase.GetStreams(t.Magnet, t.Types).Count != 0)
-            {
                 try
                 {
                     t.FfprobeTryCount++;
@@ -91,7 +91,6 @@ public class TracksAnalysisService : BackgroundService
                 {
                     _logger.LogWarning(ex, "Failed to analyze torrent: {InfoHash}", ExtractInfoHash(t.Magnet));
                 }
-            }
         }
     }
 
@@ -99,11 +98,11 @@ public class TracksAnalysisService : BackgroundService
     {
         var result = new List<TorrentDetails>();
         var now = DateTime.UtcNow;
-        var db = await _contentCatalog.GetAllKeysAsync();
+        var db = _contentCatalog.GetAllKeys();
 
         foreach (var item in db)
         {
-            var collection = await _torrentRepository.GetCollectionAsync(item.Key, false);
+            var collection = await _torrentRepository.GetCollectionAsync(item.Key);
 
             foreach (var t in collection.Values.Where(IsValidForAnalysis))
             {
@@ -125,14 +124,16 @@ public class TracksAnalysisService : BackgroundService
         return result;
     }
 
-    private bool IsValidForAnalysis(TorrentDetails t) =>
-        !string.IsNullOrEmpty(t.Magnet) && t.Ffprobe == null && !_tracksDatabase.IsExcludedType(t.Types);
+    private bool IsValidForAnalysis(TorrentDetails t)
+    {
+        return !string.IsNullOrEmpty(t.Magnet) && t.Ffprobe == null && !_tracksDatabase.IsExcludedType(t.Types);
+    }
 
     private static string ExtractInfoHash(string magnet)
     {
         try
         {
-            return MonoTorrent.MagnetLink.Parse(magnet).InfoHashes.V1OrV2.ToHex();
+            return MagnetLink.Parse(magnet).InfoHashes.V1OrV2.ToHex();
         }
         catch
         {

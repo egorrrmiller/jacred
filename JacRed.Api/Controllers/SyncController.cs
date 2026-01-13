@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -33,7 +32,10 @@ public class SyncController : ControllerBase
     }
 
     [Route("/sync/conf")]
-    public IActionResult SyncConf() => Ok(new { fbd = true, spidr = true, version = 2 });
+    public IActionResult SyncConf()
+    {
+        return Ok(new { fbd = true, spidr = true, version = 2 });
+    }
 
     [Route("/sync/fdb")]
     public async Task<IActionResult> FdbKey(string key)
@@ -41,7 +43,7 @@ public class SyncController : ControllerBase
         if (!AppInit.conf.opensync)
             return Content("[]", "application/json; charset=utf-8");
 
-        var db = await _contentCatalog.GetAllKeysAsync();
+        var db = _contentCatalog.GetAllKeys();
         var results = db
             .Where(i => i.Key.Contains(key))
             .Take(20)
@@ -51,7 +53,7 @@ public class SyncController : ControllerBase
                 i.Value.updateTime,
                 i.Value.fileTime,
                 path = $"Data/fdb/{HashTo.Md5(i.Key).Substring(0, 2)}/{HashTo.Md5(i.Key).Substring(2)}",
-                value = await _torrentRepository.GetCollectionAsync(i.Key, false)
+                value = await _torrentRepository.GetCollectionAsync(i.Key)
             })
             .Select(t => t.Result)
             .ToArray();
@@ -77,13 +79,13 @@ public class SyncController : ControllerBase
 
             var torrent = new Dictionary<string, TorrentDetails>();
 
-            foreach (var t in (await _torrentRepository.GetCollectionAsync(key, false)).Values)
+            foreach (var t in (await _torrentRepository.GetCollectionAsync(key)).Values)
             {
                 if (AppInit.conf.disable_trackers?.Contains(t.TrackerName) == true) continue;
 
                 if (spidr || (start != -1 && start > t.UpdateTime.ToFileTimeUtc()))
                 {
-                    torrent[t.Url] = new() { Sid = t.Sid, Pir = t.Pir, Url = t.Url };
+                    torrent[t.Url] = new TorrentDetails { Sid = t.Sid, Pir = t.Pir, Url = t.Url };
                     continue;
                 }
 
@@ -114,7 +116,7 @@ public class SyncController : ControllerBase
                 collections.Add(new Collection
                 {
                     Key = key, // ← теперь правильно
-                    Value = new()
+                    Value = new Value
                     {
                         time = item.updateTime,
                         fileTime = item.fileTime,
@@ -147,11 +149,11 @@ public class SyncController : ControllerBase
             var key = kvp.Key;
             var item = kvp.Value;
 
-            foreach (var t in (await _torrentRepository.GetCollectionAsync(key, false)).Values)
+            foreach (var t in (await _torrentRepository.GetCollectionAsync(key)).Values)
             {
                 if (AppInit.conf.disable_trackers?.Contains(t.TrackerName) == true) continue;
 
-                var cloned = (TorrentDetails) t.Clone();
+                var cloned = (TorrentDetails)t.Clone();
                 cloned.UpdateTime = item.updateTime;
 
                 var streams = _tracksDatabase.GetStreams(cloned.Magnet, cloned.Types);

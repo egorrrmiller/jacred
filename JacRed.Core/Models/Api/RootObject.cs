@@ -2,7 +2,7 @@
 
 public class RootObject
 {
-	public List<Result> Results { get; set; }
+    public List<Result> Results { get; set; }
 
-	public bool jacred => true;
+    public bool jacred => true;
 }
