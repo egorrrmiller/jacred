@@ -5,6 +5,7 @@ using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Tracks;
 using JacRed.Core.Utils;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MonoTorrent;
 using Newtonsoft.Json;
@@ -17,17 +18,27 @@ public class TracksDatabase : ITracksDatabase
     private readonly ConcurrentDictionary<string, ffprobemodel> _database = new();
     private readonly HttpService _httpService;
     private readonly ILogger<TracksDatabase> _logger;
-    private readonly string[] _tsuriEndpoints = [];
+    private readonly string[] _tsuriEndpoints;
 
-    public TracksDatabase(ILogger<TracksDatabase> logger, HttpService httpService)
+    public TracksDatabase(ILogger<TracksDatabase> logger, HttpService httpService, IConfiguration configuration)
     {
         _logger = logger;
         _httpService = httpService;
+        _tsuriEndpoints = (configuration["tsuri"]?.Split(',') ?? Array.Empty<string>())
+            .Select(s => s.Trim())
+            .Where(s => !string.IsNullOrEmpty(s))
+            .ToArray();
     }
 
     public async Task LoadAsync()
     {
         _logger.LogInformation("Loading TracksDB from disk...");
+
+        if (!Directory.Exists("Data/tracks"))
+        {
+            _logger.LogInformation("TracksDB directory not found.");
+            return;
+        }
 
         foreach (var folder1 in Directory.EnumerateDirectories("Data/tracks"))
         foreach (var folder2 in Directory.EnumerateDirectories(folder1))
@@ -67,7 +78,7 @@ public class TracksDatabase : ITracksDatabase
             return res.streams;
 
         var path = GetFilePath(infohash);
-        if (!File.Exists(path))
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
             return null;
 
         try
@@ -114,6 +125,12 @@ public class TracksDatabase : ITracksDatabase
                 StandardOutputEncoding = Encoding.UTF8
             });
 
+            if (process == null)
+            {
+                _logger.LogWarning("Failed to start ffprobe for infohash: {InfoHash}", infohash);
+                return;
+            }
+
             await process.WaitForExitAsync();
             var output = await process.StandardOutput.ReadToEndAsync();
             result = JsonConvert.DeserializeObject<ffprobemodel>(output);
@@ -142,8 +159,11 @@ public class TracksDatabase : ITracksDatabase
         try
         {
             var path = GetFilePath(infohash, true);
-            var json = JsonConvert.SerializeObject(result, Formatting.Indented);
-            await File.WriteAllTextAsync(path, json);
+            if (!string.IsNullOrEmpty(path))
+            {
+                var json = JsonConvert.SerializeObject(result, Formatting.Indented);
+                await File.WriteAllTextAsync(path, json);
+            }
         }
         catch (Exception ex)
         {
@@ -166,17 +186,17 @@ public class TracksDatabase : ITracksDatabase
         return languages.Count > 0 ? languages : null;
     }
 
-    public bool IsExcludedType(string[] types)
+    public bool IsExcludedType(string[]? types)
     {
         if (types == null || types.Length == 0)
-            return true;
+            return false;
 
-        return types.Contains("sport") ||
-               types.Contains("tvshow") ||
-               types.Contains("docuserial");
+        return types.Contains("sport", StringComparer.OrdinalIgnoreCase) ||
+               types.Contains("tvshow", StringComparer.OrdinalIgnoreCase) ||
+               types.Contains("docuserial", StringComparer.OrdinalIgnoreCase);
     }
 
-    private string ExtractInfoHash(string magnet)
+    private string? ExtractInfoHash(string magnet)
     {
         try
         {
@@ -188,8 +208,11 @@ public class TracksDatabase : ITracksDatabase
         }
     }
 
-    private string GetFilePath(string infohash, bool createFolder = false)
+    private string? GetFilePath(string infohash, bool createFolder = false)
     {
+        if (string.IsNullOrWhiteSpace(infohash) || infohash.Length < 4)
+            return null;
+
         var path = $"Data/tracks/{infohash.Substring(0, 2)}/{infohash[2]}/{infohash.Substring(3)}";
         if (createFolder)
             Directory.CreateDirectory(Path.GetDirectoryName(path));

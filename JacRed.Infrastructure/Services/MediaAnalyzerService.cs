@@ -73,7 +73,8 @@ public class MediaAnalyzerService : IMediaAnalyzerService
             return new List<ffStream>();
 
         var filePath = GetFilePath(infohash);
-        if (!File.Exists(filePath)) return new List<ffStream>();
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+            return new List<ffStream>();
 
         try
         {
@@ -118,7 +119,13 @@ public class MediaAnalyzerService : IMediaAnalyzerService
                 StandardOutputEncoding = Encoding.UTF8
             });
 
-            await process?.WaitForExitAsync()!;
+            if (process == null)
+            {
+                _logger.LogWarning("Failed to start ffprobe for {infohash}", infohash);
+                return;
+            }
+
+            await process.WaitForExitAsync();
             var output = await process.StandardOutput.ReadToEndAsync();
 
             result = JsonConvert.DeserializeObject<ffprobemodel>(output);
@@ -150,8 +157,11 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         try
         {
             var filePath = GetFilePath(infohash, true);
-            var json = JsonConvert.SerializeObject(result, Formatting.Indented);
-            await File.WriteAllTextAsync(filePath, json);
+            if (!string.IsNullOrEmpty(filePath))
+            {
+                var json = JsonConvert.SerializeObject(result, Formatting.Indented);
+                await File.WriteAllTextAsync(filePath, json);
+            }
         }
         catch (Exception ex)
         {
@@ -185,7 +195,7 @@ public class MediaAnalyzerService : IMediaAnalyzerService
                 !types.Contains("docuserial", StringComparer.OrdinalIgnoreCase));
     }
 
-    private string ExtractInfoHash(string magnet)
+    private string? ExtractInfoHash(string magnet)
     {
         try
         {
@@ -197,17 +207,20 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         }
     }
 
-    private string ExtractInfoHashFromPath(string filePath)
+    private string? ExtractInfoHashFromPath(string filePath)
     {
         var dir = Path.GetDirectoryName(filePath);
         var folder2 = Path.GetFileName(dir);
         var folder1 = Path.GetFileName(Path.GetDirectoryName(dir));
         var file = Path.GetFileNameWithoutExtension(filePath);
-        return folder1 + folder2 + file;
+        return folder1 == null || folder2 == null || file == null ? null : folder1 + folder2 + file;
     }
 
-    private string GetFilePath(string infohash, bool createFolder = false)
+    private string? GetFilePath(string infohash, bool createFolder = false)
     {
+        if (string.IsNullOrWhiteSpace(infohash) || infohash.Length < 4)
+            return null;
+
         var path = $"Data/tracks/{infohash.Substring(0, 2)}/{infohash[2]}/{infohash.Substring(3)}";
         if (createFolder)
             Directory.CreateDirectory(Path.GetDirectoryName(path));

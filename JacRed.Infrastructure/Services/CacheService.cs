@@ -20,8 +20,7 @@ public class CacheService : ICacheService
 
         var options = new MemoryCacheEntryOptions
         {
-            Size = 1024 * 1024 * 150,
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
+            Size = 1024 * 1024 * 150
         };
 
         if (expiry.HasValue)

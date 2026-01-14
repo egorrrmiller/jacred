@@ -53,11 +53,14 @@ public class ContentCatalogService : IContentCatalog
     /// <summary>
     ///     Возвращает быстрый индекс для поиска: подстрока → список ключей.
     /// </summary>
-    public Task<Dictionary<string, List<string>>> GetFastIndexes(bool forceUpdate = false)
+    public async Task<Dictionary<string, List<string>>> GetFastIndexes(bool forceUpdate = false)
     {
         const string cacheKey = "catalog:fast_index";
 
-        return _cache.GetOrCreateAsync(cacheKey, () =>
+        if (forceUpdate)
+            await _cache.InvalidateAsync(cacheKey);
+
+        return await _cache.GetOrCreateAsync(cacheKey, () =>
         {
             var fastdb = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             var allKeys = GetAllKeys();

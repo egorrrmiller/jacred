@@ -25,19 +25,26 @@ public class TorrentMergerService : ITorrentMergerService
         var first = group.First();
         var merged = (TorrentDetails)first.Clone();
         
-        var announceUrls = new HashSet<string>(first.Magnet.AnnounceUrls() ?? [], StringComparer.OrdinalIgnoreCase);
+        var announceUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(first.Magnet))
+        {
+            foreach (var url in first.Magnet.AnnounceUrls() ?? [])
+                announceUrls.Add(url);
+        }
         var voices = new HashSet<string>(first.Voices ?? [], StringComparer.OrdinalIgnoreCase);
         var languages = new HashSet<string>(first.Languages ?? [], StringComparer.OrdinalIgnoreCase);
         var seasons = new HashSet<int>(first.Seasons ?? []);
 
         var titleOverride = first.TrackerName == "kinozal" ? first.Title : null;
-        var torrentName = !string.IsNullOrWhiteSpace(first.Magnet?.AnnounceName()) ? first.Magnet.AnnounceName() : null;
+        var torrentName = !string.IsNullOrWhiteSpace(first.Magnet?.AnnounceName())
+            ? first.Magnet.AnnounceName()
+            : null;
 
         // === Обработка остальных торрентов в группе ===
         foreach (var t in group.Skip(1))
         {
             // Announce URLs
-            var tAnnounceUrls = t.Magnet.AnnounceUrls();
+            var tAnnounceUrls = t.Magnet?.AnnounceUrls();
             if (tAnnounceUrls?.Any() == true)
                 foreach (var url in tAnnounceUrls)
                     announceUrls.Add(url);
@@ -66,8 +73,8 @@ public class TorrentMergerService : ITorrentMergerService
                 titleOverride = t.Title;
 
             // Torrent name
-            if (string.IsNullOrWhiteSpace(torrentName) && !string.IsNullOrWhiteSpace(t.Magnet.AnnounceName()))
-                torrentName = t.Magnet.AnnounceName();
+            if (string.IsNullOrWhiteSpace(torrentName) && !string.IsNullOrWhiteSpace(t.Magnet?.AnnounceName()))
+                torrentName = t.Magnet?.AnnounceName();
 
             // Ffprobe
             if (merged.Ffprobe == null && t.Ffprobe?.Any() == true)
@@ -128,7 +135,9 @@ public class TorrentMergerService : ITorrentMergerService
         }
 
         // === Сборка магнита ===
-        merged.Magnet = BuildMagnet(GetInfoHash(merged.Magnet), torrentName, announceUrls);
+        var mergedMagnet = BuildMagnet(GetInfoHash(merged.Magnet), torrentName, announceUrls);
+        if (!string.IsNullOrWhiteSpace(mergedMagnet))
+            merged.Magnet = mergedMagnet;
 
         // === Формирование заголовка ===
         if (!string.IsNullOrWhiteSpace(titleOverride))
@@ -158,14 +167,17 @@ public class TorrentMergerService : ITorrentMergerService
         }
     }
 
-    private string BuildMagnet(string infoHash, string name, HashSet<string> announceUrls)
+    private string? BuildMagnet(string infoHash, string name, HashSet<string> announceUrls)
     {
+        if (string.IsNullOrWhiteSpace(infoHash))
+            return null;
+
         var magnet = $"magnet:?xt=urn:btih:{infoHash.ToLower()}";
 
         if (!string.IsNullOrWhiteSpace(name))
             magnet += $"&dn={HttpUtility.UrlEncode(name)}";
 
-        foreach (var tr in announceUrls)
+        foreach (var tr in announceUrls ?? [])
         {
             if (string.IsNullOrWhiteSpace(tr)) continue;
             var encodedTr = tr.Contains("/") || tr.Contains(":") ? HttpUtility.UrlEncode(tr) : tr;

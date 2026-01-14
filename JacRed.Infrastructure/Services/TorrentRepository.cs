@@ -71,8 +71,8 @@ public class TorrentRepository : ITorrentRepository
                 if (predicate != null && !await predicate(torrent, currentData))
                     continue;
 
-                await _torrentEnricher.EnrichAndConvertAsync(torrent);
-                await UpsertTorrent(torrent);
+                var enriched = await _torrentEnricher.EnrichAndConvertAsync(torrent);
+                await UpsertTorrent(enriched);
             }
 
             await _cache.InvalidateAsync($"collection:{key}");
@@ -183,7 +183,8 @@ public class TorrentRepository : ITorrentRepository
             WHERE EXISTS (
                 SELECT 1 FROM public.master_db
                 WHERE key = @Key
-            )";
+            )
+            AND title ILIKE '%' || @Key || '%'";
 
         var torrents = await connection.QueryAsync<Torrent>(sql, new { Key = key });
 

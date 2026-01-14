@@ -129,7 +129,7 @@ public class TorrentSearchService : ITorrentSearchService
                                   (title ILIKE '%' || @SearchTerm || '%' OR
                                    name    ILIKE '%' || @SearchTerm || '%' OR
                                    original_name ILIKE '%' || @SearchTerm || '%' OR
-                                   search_tsv @@ websearch_to_query('russian', @SearchTerm))
+                                   search_tsv @@ websearch_to_tsquery('russian', @SearchTerm))
                                   AND @MaxRead > 0
                               ORDER BY ts_rank(search_tsv, websearch_to_tsquery('russian', @SearchTerm)) DESC,
                                        sid DESC, update_time DESC
@@ -207,18 +207,27 @@ public class TorrentSearchService : ITorrentSearchService
     {
         return mediaType switch
         {
-            1 => t.Types.Contains("movie") || t.Types.Contains("multfilm") || t.Types.Contains("documovie"),
-            2 => t.Types.Contains("serial") || t.Types.Contains("multserial") || t.Types.Contains("tvshow"),
-            3 => t.Types.Contains("tvshow"),
-            4 => t.Types.Contains("docuserial") || t.Types.Contains("documovie"),
-            5 => t.Types.Contains("anime"),
+            1 => t.Types?.Contains("movie") == true ||
+                 t.Types?.Contains("multfilm") == true ||
+                 t.Types?.Contains("documovie") == true,
+            2 => t.Types?.Contains("serial") == true ||
+                 t.Types?.Contains("multserial") == true ||
+                 t.Types?.Contains("tvshow") == true,
+            3 => t.Types?.Contains("tvshow") == true,
+            4 => t.Types?.Contains("docuserial") == true ||
+                 t.Types?.Contains("documovie") == true,
+            5 => t.Types?.Contains("anime") == true,
             _ => true
         };
     }
 
     private bool MatchesYear(TorrentDetails t, int year)
     {
-        return t.Types.Contains("movie") || t.Types.Contains("multfilm") || t.Types.Contains("documovie")
+        var isMovieType = t.Types?.Contains("movie") == true ||
+                          t.Types?.Contains("multfilm") == true ||
+                          t.Types?.Contains("documovie") == true;
+
+        return isMovieType
             ? t.Relased == year || t.Relased == year - 1 || t.Relased == year + 1
             : t.Relased >= year - 1;
     }
