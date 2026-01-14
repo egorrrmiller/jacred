@@ -2,31 +2,83 @@
 
 namespace JacRed.Core.Models.Api;
 
+/// <summary>
+/// Модель результата поиска торрента, возвращаемого API.
+/// Содержит основную информацию о раздаче, включая метаданные, разрешения и мультимедиа-анализ.
+/// </summary>
 public class Result
 {
-    public string Tracker { get; set; }
+    /// <summary>
+    /// Название трекера, с которого получена раздача (например, rutracker.org, nnm-club.me).
+    /// </summary>
+    public string Tracker { get; set; } = null!;
 
-    public string Details { get; set; }
+    /// <summary>
+    /// Ссылка на страницу раздачи на трекере. Используется для перехода к деталям.
+    /// </summary>
+    public string Details { get; set; } = null!;
 
-    public string Title { get; set; }
+    /// <summary>
+    /// Основное название раздачи, как указано на трекере. Может включать год, качество, рип и др.
+    /// Пример: "The Matrix 1999 BDRip 1080p".
+    /// </summary>
+    public string Title { get; set; } = null!;
 
+    /// <summary>
+    /// Размер раздачи в байтах. Используется для фильтрации и сортировки.
+    /// Передаётся как double для поддержки очень больших значений.
+    /// </summary>
     public double Size { get; set; }
 
+    /// <summary>
+    /// Дата публикации раздачи на трекере. Может отличаться от года выпуска фильма.
+    /// Используется для сортировки по актуальности.
+    /// </summary>
     public DateTime PublishDate { get; set; }
 
-    public HashSet<int> Category { get; set; }
+    /// <summary>
+    /// Идентификаторы категорий трекера (например, фильм, сериал, музыка, игра).
+    /// Позволяет фильтровать результаты по типу контента.
+    /// </summary>
+    public HashSet<int> Category { get; set; } = new();
 
-    public string CategoryDesc { get; set; }
+    /// <summary>
+    /// Человекочитаемое описание категории (например, "Фильмы", "ТВ"). Опционально.
+    /// </summary>
+    public string CategoryDesc { get; set; } = null!;
 
+    /// <summary>
+    /// Количество сидеров (пользователей, раздающих файл). Используется для оценки доступности раздачи.
+    /// </summary>
     public int Seeders { get; set; }
 
+    /// <summary>
+    /// Общее количество участников (сидеры + личи). Используется для расчёта соотношения лич/сид.
+    /// </summary>
     public int Peers { get; set; }
 
-    public string MagnetUri { get; set; }
+    /// <summary>
+    /// Magnet-ссылка для запуска загрузки раздачи через торрент-клиент. Обязательное поле.
+    /// </summary>
+    public string MagnetUri { get; set; } = null!;
 
-    public List<ffStream> ffprobe { get; set; }
+    /// <summary>
+    /// Результат анализа видео- и аудиопотоков через ffprobe (если был выполнен).
+    /// Содержит информацию о кодеках, языках, длительности и др.
+    /// Может быть null, если анализ не проводился.
+    /// </summary>
+    public List<ffStream> Ffprobe { get; set; } = null!;
 
-    public HashSet<string> languages { get; set; }
+    /// <summary>
+    /// Языки аудио- и субтитровых дорожек, извлечённые через ffprobe или парсинг названия.
+    /// Используется для фильтрации по языку (например, только "ru").
+    /// </summary>
+    public HashSet<string> Languages { get; set; } = new();
 
-    public TorrentInfo info { get; set; }
+    /// <summary>
+    /// Дополнительная метаинформация о торренте: хэш, имя файла, количество файлов и др.
+    /// Могут быть использованы для валидации или более точного сопоставления с медиа.
+    /// Может быть null, если не была получена.
+    /// </summary>
+    public TorrentInfo Info { get; set; } = null!;
 }

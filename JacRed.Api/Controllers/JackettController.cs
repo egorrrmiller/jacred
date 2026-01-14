@@ -321,9 +321,9 @@ public class JackettController : ControllerBase
                 Seeders = t.Sid,
                 Peers = t.Pir,
                 MagnetUri = t.Magnet,
-                ffprobe = ffprobe,
-                languages = languages,
-                info = isNumRequest
+                Ffprobe = ffprobe,
+                Languages = languages,
+                Info = isNumRequest
                     ? null
                     : new TorrentInfo
                     {
