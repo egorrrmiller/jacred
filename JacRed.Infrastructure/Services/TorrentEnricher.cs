@@ -1725,10 +1725,10 @@ public class TorrentEnricher : ITorrentEnricher
 
         var titlelower = title.ToLower();
 
-        if (Regex.IsMatch(titlelower, "(\\[|,| )hdr(10| |\\]|,|$)") ||
-            Regex.IsMatch(titlelower, "(10-bit|10 bit|10-бит|10 бит|hdr10)"))
-            if (!Regex.IsMatch(titlelower, "(\\[|,| )sdr( |\\]|,|$)"))
-                return "hdr";
+        if (Regex.IsMatch(titlelower, "(\\[| )hdr?(10\\+?)( |\\]|,|$)") ||
+            Regex.IsMatch(titlelower, "(10-bit|10 bit|10-бит|10 бит)") &&
+            !Regex.IsMatch(titlelower, "(\\[| )sdr( |\\]|,|$)"))
+            return "hdr";
 
         return "sdr";
     }
