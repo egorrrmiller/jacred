@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using JacRed.Core;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
@@ -15,6 +16,7 @@ public class TrackerSearchService : ITrackerSearchService
 {
     private const int TrackerTimeoutSeconds = 7;
     private readonly ICacheService _cacheService;
+    private readonly HashSet<string> _disabledTrackers;
     private readonly ILogger<TrackerSearchService> _logger;
     private readonly IReadOnlyDictionary<TrackerType, ITrackerSearchProvider> _providers;
 
@@ -26,6 +28,9 @@ public class TrackerSearchService : ITrackerSearchService
         _cacheService = cacheService;
         _logger = logger;
         _providers = providers.ToDictionary(p => p.Tracker, p => p);
+        _disabledTrackers = new HashSet<string>(
+            AppInit.conf.disable_trackers ?? Array.Empty<string>(),
+            StringComparer.OrdinalIgnoreCase);
     }
 
     public IReadOnlyCollection<TrackerType> GetSupportedTrackers()
@@ -46,7 +51,8 @@ public class TrackerSearchService : ITrackerSearchService
             return Array.Empty<TorrentBaseDetails>();
 
         var normalizedQuery = StringConvert.SearchName(query) ?? query.Trim();
-        var cacheKey = $"tracker-search:{normalizedQuery}:{string.Join(",", targetTrackers.OrderBy(t => t))}";
+        var trackerKey = string.Join(",", targetTrackers.OrderBy(t => t).Select(t => t.ToString()));
+        var cacheKey = CacheKeyBuilder.Build("tracker-search", normalizedQuery, trackerKey);
 
         return await _cacheService.GetOrCreateAsync(
             cacheKey,
@@ -57,9 +63,16 @@ public class TrackerSearchService : ITrackerSearchService
     private IReadOnlyCollection<TrackerType> ResolveTrackers(IReadOnlyCollection<TrackerType>? trackers)
     {
         if (trackers == null || trackers.Count == 0)
-            return _providers.Keys.ToArray();
+            return _providers.Values
+                .Where(p => !_disabledTrackers.Contains(p.TrackerName))
+                .Select(p => p.Tracker)
+                .ToArray();
 
-        return trackers.Where(t => _providers.ContainsKey(t)).Distinct().ToArray();
+        return trackers
+            .Where(t => _providers.ContainsKey(t))
+            .Where(t => !_disabledTrackers.Contains(_providers[t].TrackerName))
+            .Distinct()
+            .ToArray();
     }
 
     private async Task<IReadOnlyCollection<TorrentBaseDetails>> SearchUncachedAsync(

@@ -21,6 +21,7 @@ public static class ServicesConfiguration
             .AddSingleton<ITracksDatabase, TracksDatabase>()
             .AddSingleton<ITorrentMergerService, TorrentMergerService>()
             .AddSingleton<IJackettFacadeService, JackettFacadeService>()
+            .AddSingleton<ITorrentSearchPipeline, TorrentSearchPipeline>()
             .AddSingleton<ITrackerSearchService, TrackerSearchService>()
             .AddSingleton<ITrackerSearchProvider, AnimelayerTrackerSearchProvider>()
             .AddSingleton<ITrackerSearchProvider, BaibakoTrackerSearchProvider>()

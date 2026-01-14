@@ -11,44 +11,33 @@ using JacRed.Core.Models.Api;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Tracks;
 using JacRed.Core.Utils;
-using Microsoft.Extensions.Caching.Memory;
-using Newtonsoft.Json.Linq;
 using TorrentInfo = JacRed.Core.Models.Api.TorrentInfo;
 
 namespace JacRed.Api.Services;
 
 public class JackettFacadeService : IJackettFacadeService
 {
-    private readonly IMemoryCache _cache;
     private readonly ICacheService _cacheService;
     private readonly IContentCatalog _contentCatalog;
-    private readonly HttpService _httpService;
     private readonly ITorrentMergerService _mergeService;
-    private readonly ITorrentRepository _torrentRepository;
+    private readonly ITorrentSearchPipeline _searchPipeline;
     private readonly ITorrentSearchService _searchService;
-    private readonly ITrackerSearchService _trackerSearchService;
     private readonly ITracksDatabase _tracksDatabase;
 
     public JackettFacadeService(
         IContentCatalog contentCatalog,
-        ITorrentRepository torrentRepository,
         ICacheService cacheService,
-        IMemoryCache cache,
-        ITorrentSearchService searchService,
         ITorrentMergerService mergeService,
         ITracksDatabase tracksDatabase,
-        ITrackerSearchService trackerSearchService,
-        HttpService httpService)
+        ITorrentSearchService searchService,
+        ITorrentSearchPipeline searchPipeline)
     {
         _contentCatalog = contentCatalog;
-        _torrentRepository = torrentRepository;
         _cacheService = cacheService;
-        _cache = cache;
-        _searchService = searchService;
         _mergeService = mergeService;
         _tracksDatabase = tracksDatabase;
-        _trackerSearchService = trackerSearchService;
-        _httpService = httpService;
+        _searchService = searchService;
+        _searchPipeline = searchPipeline;
     }
 
     public async Task<RootObject> SearchJackettAsync(
@@ -62,42 +51,16 @@ public class JackettFacadeService : IJackettFacadeService
         string? userAgent,
         string queryString)
     {
-        var isNumRequest = IsNumRequest(query, userAgent, queryString);
+        if (!AppInit.conf.evercache.enable || AppInit.conf.evercache.validHour != 0)
+            return await BuildJackettAsync(apikey, query, title, titleOriginal, year, category, isSerial, userAgent,
+                queryString);
+
         var cacheKey = GenerateCacheKey(query, title, titleOriginal, year, category, isSerial);
-
-        if (_cache.TryGetValue(cacheKey, out List<Result> cached))
-            return new RootObject { Results = cached };
-
-        var contentType = DetermineContentType(isSerial, category) ?? -1;
-        (title, titleOriginal, year) = ApplyNumQueryHeuristic(query, title, titleOriginal, year, isNumRequest);
-
-        if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(titleOriginal) &&
-            !string.IsNullOrWhiteSpace(query))
-        {
-            var parts = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length > 0 && !parts[0].Any(c => (c >= '–∞' && c <= '—è') || (c >= '–ê' && c <= '–Ø')))
-                title = parts[0];
-            else
-                title = query;
-        }
-
-        var torrents = string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(titleOriginal)
-            ? await _searchService.SearchByQueryAsync(query, contentType)
-            : await _searchService.SearchByTitleAsync(title, titleOriginal, year, contentType, true);
-
-        var result = await _mergeService.MergeAsync(torrents);
-
-        if (apikey == "rus")
-            result = result.Where(t => t.Languages?.Contains("rus") == true ||
-                                       t.Types?.Intersect(new[] { "sport", "tvshow", "docuserial" }).Any() == true)
-                .ToList();
-
-        var jResult = await BuildJackettResults(result, isNumRequest);
-
-        if (AppInit.conf.evercache.enable && AppInit.conf.evercache.validHour == 0)
-            _cache.Set(cacheKey, jResult, TimeSpan.FromMinutes(5));
-
-        return new RootObject { Results = jResult };
+        return await _cacheService.GetOrCreateAsync(
+            cacheKey,
+            () => BuildJackettAsync(apikey, query, title, titleOriginal, year, category, isSerial, userAgent,
+                queryString),
+            TimeSpan.FromMinutes(5));
     }
 
     public async Task<IReadOnlyCollection<V1TorrentResponse>> SearchTorrentsAsync(
@@ -114,46 +77,25 @@ public class JackettFacadeService : IJackettFacadeService
         long season,
         CancellationToken cancellationToken)
     {
-        (search, altname) = await ResolveKpImdb(search, altname);
-
         var cacheKey = BuildV1CacheKey(search, altname, exact, type, sort, tracker, voice, videotype, relased, quality,
             season);
 
-        var (torrents, usedFallback) = await SearchWithFallbackAsync(search, altname, TypeToId(type), exact,
-            cancellationToken);
-
-        var query = torrents.AsEnumerable();
-
-        if (!string.IsNullOrWhiteSpace(tracker))
-            query = query.Where(t => t.TrackerName == tracker);
-
-        if (relased > 0)
-            query = query.Where(t => t.Relased == relased);
-
-        if (quality > 0)
-            query = query.Where(t => t.Quality == quality);
-
-        if (!string.IsNullOrWhiteSpace(videotype))
-            query = query.Where(t => t.VideoType == videotype);
-
-        if (!string.IsNullOrWhiteSpace(voice))
-            query = query.Where(t => t.Voices?.Contains(voice) == true);
-
-        if (season > 0)
-            query = query.Where(t => t.Seasons?.Contains((int)season) == true);
-
-        query = sort?.ToLower() switch
+        var pipelineResult = await _searchPipeline.SearchAsync(new TorrentSearchRequest
         {
-            "sid" => query.OrderByDescending(t => t.Sid),
-            "pir" => query.OrderByDescending(t => t.Pir),
-            "size" => query.OrderByDescending(t => t.Size),
-            "create" => query.OrderByDescending(t => t.CreateTime),
-            _ => query.OrderByDescending(t => t.CreateTime)
-        };
+            Search = search,
+            AltName = altname,
+            Exact = exact,
+            Type = type,
+            Sort = sort,
+            Tracker = tracker,
+            Voice = voice,
+            VideoType = videotype,
+            Relased = relased,
+            Quality = quality,
+            Season = season
+        }, cancellationToken);
 
-        var result = await _mergeService.MergeAsync(query);
-
-        var response = result.Take(2000).Select(t => new V1TorrentResponse
+        var response = pipelineResult.Items.Take(2000).Select(t => new V1TorrentResponse
         {
             tracker = t.TrackerName,
             url = t.Url?.StartsWith("http") == true ? t.Url : null,
@@ -174,7 +116,7 @@ public class JackettFacadeService : IJackettFacadeService
             types = t.Types
         }).ToList();
 
-        if (usedFallback)
+        if (pipelineResult.UsedTrackerFallback)
             await _cacheService.SetAsync(cacheKey, response, TimeSpan.FromMinutes(5));
 
         return response;
@@ -194,72 +136,6 @@ public class JackettFacadeService : IJackettFacadeService
     {
         var db = _contentCatalog.GetAllKeys();
         return db.Values.MaxBy(i => i.updateTime)?.updateTime ?? new DateTime(2000, 1, 1);
-    }
-
-    private async Task<(List<TorrentDetails> torrents, bool usedFallback)> SearchWithFallbackAsync(
-        string search,
-        string altname,
-        int? mediaType,
-        bool exact,
-        CancellationToken cancellationToken)
-    {
-        var torrents = await SearchLocalAsync(search, altname, mediaType, exact);
-        if (torrents.Count > 0)
-            return (torrents, false);
-
-        var trackerQuery = BuildTrackerQuery(search, altname);
-        if (string.IsNullOrWhiteSpace(trackerQuery))
-            return (torrents, false);
-
-        var fetched = await _trackerSearchService.SearchAsync(
-            trackerQuery,
-            _trackerSearchService.GetSupportedTrackers(),
-            cancellationToken);
-
-        if (fetched.Count == 0)
-            return (torrents, false);
-
-        await _torrentRepository.AddOrUpdateAsync(fetched);
-        torrents = await SearchLocalAsync(search, altname, mediaType, exact);
-
-        return (torrents, true);
-    }
-
-    private async Task<List<TorrentDetails>> SearchLocalAsync(
-        string search,
-        string altname,
-        int? mediaType,
-        bool exact)
-    {
-        if (exact)
-            return await _searchService.SearchByTitleAsync(search, altname, mediaType: mediaType, exact: true);
-
-        return await _searchService.SearchByQueryAsync($"{search} {altname}".Trim(), mediaType);
-    }
-
-    private async Task<(string, string)> ResolveKpImdb(string search, string altname)
-    {
-        if (string.IsNullOrWhiteSpace(search) || !Regex.IsMatch(search.Trim(), "^(tt|kp)[0-9]+$"))
-            return (search, altname);
-
-        var cacheKey = $"api/v1.0/torrents:{search}";
-        if (!_cache.TryGetValue(cacheKey, out (string original, string name) cache))
-        {
-            var uri = search.StartsWith("kp")
-                ? $"&kp={search[2..]}"
-                : $"&imdb={search}";
-
-            var response =
-                await _httpService.Get<JObject>($"https://api.alloha.tv/?token=04941a9a3ca3ac16e2b4327347bbc1{uri}",
-                    timeoutSeconds: 8);
-            var data = response?.Value<JObject>("data");
-            cache = (data?.Value<string>("original_name"), data?.Value<string>("name"));
-            _cache.Set(cacheKey, cache, TimeSpan.FromDays(1));
-        }
-
-        return !string.IsNullOrWhiteSpace(cache.original) && !string.IsNullOrWhiteSpace(cache.name)
-            ? (cache.original, cache.name)
-            : (cache.original ?? cache.name, altname);
     }
 
     private async Task<List<Result>> BuildJackettResults(IEnumerable<TorrentDetails> torrents, bool isNumRequest)
@@ -368,11 +244,14 @@ public class JackettFacadeService : IJackettFacadeService
     private string GenerateCacheKey(string query, string title, string orig, int year, Dictionary<string, string> cat,
         int serial)
     {
-        var catKey = cat?.Count > 0
-            ? string.Join(",", cat.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}:{kv.Value}"))
-            : "none";
-
-        return $"jackett:{query}:{title}:{orig}:{year}:{catKey}:{serial}";
+        var normalizedCat = CacheKeyBuilder.NormalizeCategory(cat);
+        return CacheKeyBuilder.Build("jackett",
+            query,
+            title,
+            orig,
+            year.ToString(),
+            normalizedCat,
+            serial.ToString());
     }
 
     private string BuildV1CacheKey(
@@ -388,17 +267,21 @@ public class JackettFacadeService : IJackettFacadeService
         long quality,
         long season)
     {
-        return $"api:v1.0:torrents:{search ?? string.Empty}:{altname ?? string.Empty}:{exact}:{type ?? string.Empty}:" +
-               $"{sort ?? string.Empty}:{tracker ?? string.Empty}:{voice ?? string.Empty}:{videotype ?? string.Empty}:" +
-               $"{relased}:{quality}:{season}";
-    }
-
-    private string BuildTrackerQuery(string search, string altname)
-    {
-        if (string.IsNullOrWhiteSpace(search) && string.IsNullOrWhiteSpace(altname))
-            return string.Empty;
-
-        return $"{search} {altname}".Trim();
+        return CacheKeyBuilder.Build(
+            "api",
+            "v1.0",
+            "torrents",
+            search,
+            altname,
+            exact.ToString(),
+            type,
+            sort,
+            tracker,
+            voice,
+            videotype,
+            relased.ToString(),
+            quality.ToString(),
+            season.ToString());
     }
 
     private bool IsNumRequest(string query, string? userAgent, string queryString)
@@ -413,7 +296,7 @@ public class JackettFacadeService : IJackettFacadeService
     {
         if (!isNum || query == null) return (title, orig, year);
 
-        var m = Regex.Match(query, @"^([^a-z-A-Z]+) ([^–∞-—è-–ê-—è]+)(?: ([0-9]{4}))?$");
+        var m = Regex.Match(query, @"^([^a-z-A-Z]+) ([^‡-ˇ-¿-ˇ]+)(?: ([0-9]{4}))?$");
         if (!m.Success) return (title, orig, year);
 
         var g = m.Groups.Values.Skip(1).ToArray();
@@ -448,16 +331,43 @@ public class JackettFacadeService : IJackettFacadeService
         };
     }
 
-    private int? TypeToId(string? type)
+    private async Task<RootObject> BuildJackettAsync(
+        string apikey,
+        string query,
+        string title,
+        string titleOriginal,
+        int year,
+        Dictionary<string, string> category,
+        int isSerial,
+        string? userAgent,
+        string queryString)
     {
-        return type switch
+        var isNumRequest = IsNumRequest(query, userAgent, queryString);
+        var contentType = DetermineContentType(isSerial, category) ?? -1;
+        (title, titleOriginal, year) = ApplyNumQueryHeuristic(query, title, titleOriginal, year, isNumRequest);
+
+        if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(titleOriginal) &&
+            !string.IsNullOrWhiteSpace(query))
         {
-            "movie" => 1,
-            "serial" => 2,
-            "tvshow" => 3,
-            "docuserial" => 4,
-            "anime" => 5,
-            _ => null
-        };
+            var parts = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length > 0 && !parts[0].Any(c => (c >= '‡' && c <= 'ˇ') || (c >= '¿' && c <= 'ﬂ')))
+                title = parts[0];
+            else
+                title = query;
+        }
+
+        var torrents = string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(titleOriginal)
+            ? await _searchService.SearchByQueryAsync(query, contentType)
+            : await _searchService.SearchByTitleAsync(title, titleOriginal, year, contentType, true);
+
+        var result = await _mergeService.MergeAsync(torrents);
+
+        if (apikey == "rus")
+            result = result.Where(t => t.Languages?.Contains("rus") == true ||
+                                       t.Types?.Intersect(new[] { "sport", "tvshow", "docuserial" }).Any() == true)
+                .ToList();
+
+        var jResult = await BuildJackettResults(result, isNumRequest);
+        return new RootObject { Results = jResult };
     }
 }
