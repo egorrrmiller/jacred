@@ -7,7 +7,7 @@ public interface ITrackerSearchService
 {
     IReadOnlyCollection<TrackerType> GetSupportedTrackers();
 
-    Task<IReadOnlyCollection<TorrentBaseDetails>> SearchAsync(
+    Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(
         string query,
         IReadOnlyCollection<TrackerType>? trackers = null,
         CancellationToken cancellationToken = default);

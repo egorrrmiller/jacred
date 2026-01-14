@@ -1602,7 +1602,7 @@ public class TorrentEnricher : ITorrentEnricher
     }
 
     /// <summary>Обогащает базовые данные торрента и дополняет медиа-информацией.</summary>
-    public async Task<TorrentDetails> EnrichAndConvertAsync(TorrentBaseDetails torrent)
+    public async Task<TorrentDetails> EnrichAndConvertAsync(TorrentDetails torrent)
     {
         var details = EnrichAndConvert(torrent);
 
@@ -1619,7 +1619,7 @@ public class TorrentEnricher : ITorrentEnricher
         return details;
     }
 
-    private TorrentDetails EnrichAndConvert(TorrentBaseDetails torrent)
+    private TorrentDetails EnrichAndConvert(TorrentDetails torrent)
     {
         var details = new TorrentDetails
         {
@@ -1730,7 +1730,7 @@ public class TorrentEnricher : ITorrentEnricher
         return "sdr";
     }
 
-    private (HashSet<string> Voices, HashSet<string> Languages) DetectVoices(TorrentBaseDetails torrent)
+    private (HashSet<string> Voices, HashSet<string> Languages) DetectVoices(TorrentDetails torrent)
     {
         var voices = new HashSet<string>();
         var languages = new HashSet<string>();

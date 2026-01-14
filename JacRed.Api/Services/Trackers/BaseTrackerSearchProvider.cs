@@ -13,10 +13,10 @@ public abstract class BaseTrackerSearchProvider : ITrackerSearchProvider
     public abstract string TrackerName { get; }
     public abstract string Host { get; }
 
-    public virtual Task<IReadOnlyCollection<TorrentBaseDetails>> SearchAsync(
+    public virtual Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(
         string query,
         CancellationToken cancellationToken = default)
     {
-        return Task.FromResult<IReadOnlyCollection<TorrentBaseDetails>>(Array.Empty<TorrentBaseDetails>());
+        return Task.FromResult<IReadOnlyCollection<TorrentDetails>>(Array.Empty<TorrentDetails>());
     }
 }

@@ -7,5 +7,5 @@ namespace JacRed.Core.Interfaces;
 /// </summary>
 public interface ITorrentEnricher
 {
-    Task<TorrentDetails> EnrichAndConvertAsync(TorrentBaseDetails torrent);
+    Task<TorrentDetails> EnrichAndConvertAsync(TorrentDetails torrent);
 }

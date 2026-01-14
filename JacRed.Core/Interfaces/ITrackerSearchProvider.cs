@@ -9,7 +9,7 @@ public interface ITrackerSearchProvider
     string TrackerName { get; }
     string Host { get; }
 
-    Task<IReadOnlyCollection<TorrentBaseDetails>> SearchAsync(
+    Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(
         string query,
         CancellationToken cancellationToken = default);
 }

@@ -36,7 +36,7 @@ public class TorrentRepository : ITorrentRepository
     }
 
     /// <summary>Добавляет/обновляет коллекцию торрентов без дополнительной фильтрации.</summary>
-    public async Task AddOrUpdateAsync(IReadOnlyCollection<TorrentBaseDetails> torrents)
+    public async Task AddOrUpdateAsync(IReadOnlyCollection<TorrentDetails> torrents)
     {
         foreach (var group in torrents.GroupBy(t => _keyGenerator.Build(t.Name, t.OriginalName)))
         {
@@ -58,7 +58,7 @@ public class TorrentRepository : ITorrentRepository
     public async Task AddOrUpdateAsync<T>(
         IReadOnlyCollection<T> torrents,
         Func<T, IReadOnlyDictionary<string, TorrentDetails>, Task<bool>> predicate)
-        where T : TorrentBaseDetails
+        where T : TorrentDetails
     {
         foreach (var group in torrents.GroupBy(t => _keyGenerator.Build(t.Name, t.OriginalName)))
         {
@@ -117,7 +117,7 @@ public class TorrentRepository : ITorrentRepository
         });
     }
 
-    private async Task UpsertTorrent(TorrentBaseDetails src)
+    private async Task UpsertTorrent(TorrentDetails src)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
@@ -233,7 +233,7 @@ public class TorrentRepository : ITorrentRepository
             .ToArray();
     }
 
-    private Torrent MapToDbModel(TorrentBaseDetails src, DateTime now, bool isNew = false)
+    private Torrent MapToDbModel(TorrentDetails src, DateTime now, bool isNew = false)
     {
         var details = src as TorrentDetails;
 

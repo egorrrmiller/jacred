@@ -40,17 +40,17 @@ public class TrackerSearchService : ITrackerSearchService
     }
 
     /// <summary>Ищет на выбранных трекерах и кэширует результат.</summary>
-    public async Task<IReadOnlyCollection<TorrentBaseDetails>> SearchAsync(
+    public async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(
         string query,
         IReadOnlyCollection<TrackerType>? trackers = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
-            return Array.Empty<TorrentBaseDetails>();
+            return Array.Empty<TorrentDetails>();
 
         var targetTrackers = ResolveTrackers(trackers);
         if (targetTrackers.Count == 0)
-            return Array.Empty<TorrentBaseDetails>();
+            return Array.Empty<TorrentDetails>();
 
         var normalizedQuery = StringConvert.SearchName(query) ?? query.Trim();
         var trackerKey = string.Join(",", targetTrackers.OrderBy(t => t).Select(t => t.ToString()));
@@ -77,7 +77,7 @@ public class TrackerSearchService : ITrackerSearchService
             .ToArray();
     }
 
-    private async Task<IReadOnlyCollection<TorrentBaseDetails>> SearchUncachedAsync(
+    private async Task<IReadOnlyCollection<TorrentDetails>> SearchUncachedAsync(
         string query,
         IReadOnlyCollection<TrackerType> trackers,
         CancellationToken cancellationToken)
@@ -85,7 +85,7 @@ public class TrackerSearchService : ITrackerSearchService
         var tasks = trackers.Select(tracker => SearchTrackerSafeAsync(tracker, query, cancellationToken)).ToArray();
         var results = await Task.WhenAll(tasks);
 
-        var merged = new List<TorrentBaseDetails>();
+        var merged = new List<TorrentDetails>();
         foreach (var list in results)
         {
             if (list.Count > 0)
@@ -95,13 +95,13 @@ public class TrackerSearchService : ITrackerSearchService
         return merged;
     }
 
-    private async Task<IReadOnlyCollection<TorrentBaseDetails>> SearchTrackerSafeAsync(
+    private async Task<IReadOnlyCollection<TorrentDetails>> SearchTrackerSafeAsync(
         TrackerType tracker,
         string query,
         CancellationToken cancellationToken)
     {
         if (!_providers.TryGetValue(tracker, out var provider))
-            return Array.Empty<TorrentBaseDetails>();
+            return Array.Empty<TorrentDetails>();
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(TimeSpan.FromSeconds(TrackerTimeoutSeconds));
@@ -119,6 +119,6 @@ public class TrackerSearchService : ITrackerSearchService
             _logger.LogWarning(ex, "Tracker search failed for {Tracker}", tracker);
         }
 
-        return Array.Empty<TorrentBaseDetails>();
+        return Array.Empty<TorrentDetails>();
     }
 }
