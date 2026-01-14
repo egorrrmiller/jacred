@@ -1605,24 +1605,21 @@ public class TorrentEnricher : ITorrentEnricher
     {
         var details = EnrichAndConvert(torrent);
 
-        // Асинхронное обогащение через MediaAnalysis
-        if (_mediaAnalyzer.ShouldAnalyze(details.Types))
-        {
-            var streams = await _mediaAnalyzer.GetStreamsAsync(details.Magnet, details.Types);
-            var languages = await _mediaAnalyzer.ExtractLanguagesAsync(details, streams);
+        if (!_mediaAnalyzer.ShouldAnalyze(details.Types)) return details;
+        
+        var streams = await _mediaAnalyzer.GetStreamsAsync(details.Magnet ?? string.Empty, details.Types);
+        var languages = await _mediaAnalyzer.ExtractLanguagesAsync(details, streams);
 
-            if (streams.Count > 0)
-                details.Ffprobe = streams;
-            if (languages.Count > 0)
-                details.Languages = languages;
-        }
+        if (streams.Count > 0)
+            details.Ffprobe = streams;
+        if (languages.Count > 0)
+            details.Languages = languages;
 
         return details;
     }
 
-    public TorrentDetails EnrichAndConvert(TorrentBaseDetails torrent)
+    private TorrentDetails EnrichAndConvert(TorrentBaseDetails torrent)
     {
-        // Конвертируем в TorrentDetails
         var details = new TorrentDetails
         {
             Url = torrent.Url,
@@ -1644,7 +1641,6 @@ public class TorrentEnricher : ITorrentEnricher
             SourceSeasonOrder = torrent.SourceSeasonOrder
         };
 
-        // Обогащаем метаданными
         EnrichDetails(details);
         return details;
     }

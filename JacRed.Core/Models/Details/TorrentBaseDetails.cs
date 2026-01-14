@@ -5,6 +5,11 @@ namespace JacRed.Core.Models.Details;
 public class TorrentBaseDetails
 {
     /// <summary>
+    /// Идентификатор раздачи.
+    /// </summary>
+    public Guid Id { get; set; }
+    
+    /// <summary>
     ///     Название трекера (например: "rutor", "kinozal"). Используется для идентификации источника и отображения иконки.
     /// </summary>
     public string TrackerName { get; set; } = null!;
@@ -37,7 +42,7 @@ public class TorrentBaseDetails
     /// <summary>
     ///     Размер раздачи в человекочитаемом виде (например: "2.1 GB").
     /// </summary>
-    public string SizeName { get; set; } = null!;
+    public string? SizeName { get; set; } = null!;
 
     /// <summary>
     ///     Дата создания раздачи на трекере (по данным источника).
@@ -57,17 +62,17 @@ public class TorrentBaseDetails
     /// <summary>
     ///     Magnet-ссылка на раздачу. Используется для передачи в торрент-клиент.
     /// </summary>
-    public string Magnet { get; set; } = null!;
+    public string? Magnet { get; set; } = null!;
 
     /// <summary>
     ///     Оригинальное имя файла или каталога из торрент-метаданных.
     /// </summary>
-    public string Name { get; set; } = null!;
+    public string? Name { get; set; } = null!;
 
     /// <summary>
     ///     Оригинальное название медиа (без озвучки и дополнений).
     /// </summary>
-    public string OriginalName { get; set; } = null!;
+    public string? OriginalName { get; set; } = null!;
 
     /// <summary>
     ///     Год выпуска контента. Используется для фильтрации и сопоставления.
@@ -77,12 +82,12 @@ public class TorrentBaseDetails
     /// <summary>
     ///     Языки аудиодорожек, доступные в раздаче (например: "Русский", "English").
     /// </summary>
-    public HashSet<string> Languages { get; set; } = null!;
+    public HashSet<string>? Languages { get; set; }
 
     /// <summary>
     ///     Данные о медиапотоках, полученные через ffprobe (видео, аудио, субтитры).
     /// </summary>
-    public List<ffStream> Ffprobe { get; set; } = null!;
+    public List<ffStream>? Ffprobe { get; set; }
 
     /// <summary>
     ///     Счётчик попыток получить ffprobe-данные. 0 — не начинали.
@@ -92,10 +97,10 @@ public class TorrentBaseDetails
     /// <summary>
     ///     Номер сезона, указанный на трекере (если это сериал).
     /// </summary>
-    public string SourceSeasonNumber { get; set; } = null!;
+    public string? SourceSeasonNumber { get; set; } = null!;
 
     /// <summary>
     ///     Порядок или диапазон сезонов, как указано на источнике (например: "2 из 5").
     /// </summary>
-    public string SourceSeasonOrder { get; set; } = null!;
+    public string? SourceSeasonOrder { get; set; } = null!;
 }

@@ -87,7 +87,7 @@ public class DevController : Controller
             }
         }*/
 
-        await _contentCatalog.SaveToFileAsync();
+        //await _contentCatalog.SaveToFileAsync();
 
         return Json(new
         {

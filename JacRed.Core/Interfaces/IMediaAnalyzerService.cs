@@ -9,9 +9,9 @@ public interface IMediaAnalyzerService
 
     public bool ShouldAnalyze(string[] types);
 
-    public Task<List<ffStream>> GetStreamsAsync(string magnet, string[] types = null, bool onlyCache = false);
+    public Task<List<ffStream>> GetStreamsAsync(string magnet, string[]? types = null, bool onlyCache = false);
 
-    public Task AnalyzeAsync(string magnet, string[] types = null);
+    public Task AnalyzeAsync(string magnet, string[]? types = null);
 
-    public Task<HashSet<string>> ExtractLanguagesAsync(TorrentDetails torrent, List<ffStream> streams = null);
+    public Task<HashSet<string>> ExtractLanguagesAsync(TorrentDetails torrent, List<ffStream>? streams = null);
 }

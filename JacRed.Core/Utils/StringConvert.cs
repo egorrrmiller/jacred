@@ -6,7 +6,7 @@ public static class StringConvert
 {
     #region FindStartText
 
-    public static string FindStartText(string data, string end, string start = null)
+    public static string FindStartText(string data, string end, string? start = null)
     {
         try
         {
@@ -22,7 +22,7 @@ public static class StringConvert
 
     #region FindLastText
 
-    public static string FindLastText(string data, string start, string end = null)
+    public static string FindLastText(string data, string start, string? end = null)
     {
         try
         {

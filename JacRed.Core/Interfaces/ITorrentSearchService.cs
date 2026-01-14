@@ -20,7 +20,7 @@ public interface ITorrentSearchService
     Task<List<TorrentQuality>> GetQualityInfoAsync(
         string name,
         string originalName,
-        string type = null,
+        string? type = null,
         int page = 1,
         int take = 1000);
 }

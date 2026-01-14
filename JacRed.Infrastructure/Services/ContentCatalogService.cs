@@ -1,51 +1,57 @@
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using Dapper;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models;
-using JacRed.Core.Utils;
+using JacRed.Core.Models.Database;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 
 namespace JacRed.Infrastructure.Services;
 
 /// <summary>
 ///     Сервис для управления глобальным каталогом торрентов (key → TorrentInfo).
-///     Хранит данные в IMemoryCache и сохраняет их в сжатый файл Data/masterDb.bz.
-///     Оптимизирован для минимизации потребления RAM и предотвращения утечек.
 /// </summary>
 public class ContentCatalogService : IContentCatalog
 {
     private readonly ICacheService _cache;
     private readonly ILogger<ContentCatalogService> _logger;
     private readonly IMemoryCache _memoryCache;
+    private readonly string _connectionString;
 
     public ContentCatalogService(
         ICacheService cache,
         ILogger<ContentCatalogService> logger,
-        IMemoryCache memoryCache)
+        IMemoryCache memoryCache,
+        string connectionString)
     {
         _cache = cache;
         _logger = logger;
         _memoryCache = memoryCache;
+        _connectionString = connectionString;
     }
 
     /// <summary>
     ///     Возвращает весь каталог (key → TorrentInfo).
-    ///     Синхронный метод — нет смысла в асинхронности при работе с IMemoryCache.
+    ///     Кэшируется в памяти на 30 минут. При отсутствии — загружается из БД.
     /// </summary>
-    public ConcurrentDictionary<string, TorrentInfo> GetAllKeys()
+    public ConcurrentDictionary<string, TorrentInfo>? GetAllKeys()
     {
         const string cacheKey = "catalog:all_keys";
+
         if (_memoryCache.TryGetValue<ConcurrentDictionary<string, TorrentInfo>>(cacheKey, out var value))
             return value;
 
-        return new ConcurrentDictionary<string, TorrentInfo>();
+        value = LoadAllFromDatabase();
+        var cacheEntryOptions = new MemoryCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromMinutes(30));
+        _memoryCache.Set(cacheKey, value, cacheEntryOptions);
+
+        return value;
     }
 
     /// <summary>
     ///     Возвращает быстрый индекс для поиска: подстрока → список ключей.
-    ///     Кэшируется на 30 минут.
-    ///     🔥 Оптимизирован: работает с копиями строк, избегает Span в async.
     /// </summary>
     public Task<Dictionary<string, List<string>>> GetFastIndexes(bool forceUpdate = false)
     {
@@ -63,50 +69,28 @@ public class ContentCatalogService : IContentCatalog
         }, TimeSpan.FromMinutes(30));
     }
 
-    /// <summary>
-    ///     Сохраняет текущий каталог в файл Data/masterDb.bz.
-    ///     Создаёт дневной бэкап и удаляет бэкапы старше 3 дней.
-    /// </summary>
-    public async Task SaveToFileAsync()
+    #region Private Methods
+
+    private ConcurrentDictionary<string, TorrentInfo> LoadAllFromDatabase()
     {
-        const string cacheKey = "catalog:all_keys";
-        if (!_memoryCache.TryGetValue<ConcurrentDictionary<string, TorrentInfo>>(cacheKey, out var data) ||
-            data.Count == 0)
-        {
-            _logger.LogWarning("Нечего сохранять: каталог пуст или не загружен");
-            return;
-        }
+        const string sql = @"SELECT ""Key"", ""UpdateTime"", ""FileTime"" FROM public.master_db";
 
-        try
+        using var connection = new NpgsqlConnection(_connectionString);
+        var result = connection.Query<MasterDb>(sql);
+
+        var dict = new ConcurrentDictionary<string, TorrentInfo>();
+
+        foreach (var item in result)
         {
-            // Основной файл
-            await Task.Run(() =>
+            dict.TryAdd(item.Key, new TorrentInfo
             {
-                using var fileStream = File.Create("Data/masterDb.bz");
-                JsonStream.Write(fileStream, data);
+                updateTime = item.UpdateTime,
+                fileTime = item.FileTime
             });
-            _logger.LogInformation("Сохранено {Count} записей в Data/masterDb.bz", data.Count);
-
-            // Бэкап: masterDb_dd-MM-yyyy.bz
-            var backupFile = $"Data/masterDb_{DateTime.Today:dd-MM-yyyy}.bz";
-            if (!File.Exists(backupFile))
-            {
-                File.Copy("Data/masterDb.bz", backupFile);
-                _logger.LogInformation("Создан бэкап: {BackupFile}", backupFile);
-            }
-
-            // Удаление старых бэкапов (старше 3 дней)
-            var oldBackup = $"Data/masterDb_{DateTime.Today.AddDays(-3):dd-MM-yyyy}.bz";
-            if (File.Exists(oldBackup))
-            {
-                File.Delete(oldBackup);
-                _logger.LogInformation("Удалён старый бэкап: {OldBackup}", oldBackup);
-            }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ошибка при сохранении masterDb");
-        }
+
+        _logger.LogInformation("Загружено {Count} записей из master_db", dict.Count);
+        return dict;
     }
 
     /// <summary>
@@ -115,8 +99,9 @@ public class ContentCatalogService : IContentCatalog
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void BuildFastIndex(Dictionary<string, List<string>> fastdb,
-        ConcurrentDictionary<string, TorrentInfo> allKeys)
+        ConcurrentDictionary<string, TorrentInfo>? allKeys)
     {
+        if (allKeys == null) return;
         foreach (var item in allKeys)
         foreach (var part in item.Key.Split(':', StringSplitOptions.RemoveEmptyEntries))
         {
@@ -131,4 +116,6 @@ public class ContentCatalogService : IContentCatalog
             list.Add(item.Key);
         }
     }
+
+    #endregion
 }

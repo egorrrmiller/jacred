@@ -24,15 +24,14 @@ public class TorrentMergerService : ITorrentMergerService
     {
         var first = group.First();
         var merged = (TorrentDetails)first.Clone();
-
-        // === Инициализация с защитой от null ===
+        
         var announceUrls = new HashSet<string>(first.Magnet.AnnounceUrls() ?? [], StringComparer.OrdinalIgnoreCase);
-        var voices = new HashSet<string>(first.Voices, StringComparer.OrdinalIgnoreCase);
-        var languages = new HashSet<string>(first.Languages, StringComparer.OrdinalIgnoreCase);
-        var seasons = new HashSet<int>(first.Seasons);
+        var voices = new HashSet<string>(first.Voices ?? [], StringComparer.OrdinalIgnoreCase);
+        var languages = new HashSet<string>(first.Languages ?? [], StringComparer.OrdinalIgnoreCase);
+        var seasons = new HashSet<int>(first.Seasons ?? []);
 
         var titleOverride = first.TrackerName == "kinozal" ? first.Title : null;
-        var torrentName = !string.IsNullOrWhiteSpace(first.Magnet.AnnounceName()) ? first.Magnet.AnnounceName() : null;
+        var torrentName = !string.IsNullOrWhiteSpace(first.Magnet?.AnnounceName()) ? first.Magnet.AnnounceName() : null;
 
         // === Обработка остальных торрентов в группе ===
         foreach (var t in group.Skip(1))
@@ -41,7 +40,7 @@ public class TorrentMergerService : ITorrentMergerService
             var tAnnounceUrls = t.Magnet.AnnounceUrls();
             if (tAnnounceUrls?.Any() == true)
                 foreach (var url in tAnnounceUrls)
-                    announceUrls.Add(url); // HashSet сам игнорирует дубли
+                    announceUrls.Add(url);
 
             // Voices
             if (t.Voices?.Any() == true)

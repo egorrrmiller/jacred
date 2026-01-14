@@ -2,33 +2,29 @@
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
-using JacRed.Core.Models.AppConf;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 namespace JacRed.Core.Utils;
 
 /// <summary>
-///     Сервис для HTTP-запросов с поддержкой прокси, сжатия и безопасного управления ресурсами.
-///     Использует IHttpClientFactory для предотвращения утечек сокетов и памяти.
-///     Не является статическим — корректно работает в DI.
+/// Сервис для HTTP-запросов с поддержкой прокси, сжатия и управления таймаутами.
+/// Использует IHttpClientFactory — нет утечек памяти. Сохранены все публичные методы.
 /// </summary>
 public class HttpService
 {
-    public static readonly string UserAgent =
+    public static readonly string UserAgent = 
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36";
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<HttpService> _logger;
-    private readonly ProxyManager _proxyManager;
+    private readonly ProxyHandler _proxyHandler;
 
-    public HttpService(
-        HttpClient httpClient,
-        ILogger<HttpService> logger)
+    public HttpService(HttpClient httpClient, ILogger<HttpService> logger)
     {
         _httpClient = httpClient;
         _logger = logger;
-        _proxyManager = new ProxyManager();
+        _proxyHandler = new ProxyHandler();
     }
 
     #region Get
@@ -45,15 +41,7 @@ public class HttpService
         int httpVersion = 1)
     {
         var result = await BaseGetAsync(
-            url,
-            encoding,
-            cookie,
-            referer,
-            timeoutSeconds,
-            maxResponseSize,
-            addHeaders,
-            useProxy,
-            httpVersion);
+            url, encoding, cookie, referer, timeoutSeconds, maxResponseSize, addHeaders, useProxy, httpVersion);
 
         return result.content ?? string.Empty;
     }
@@ -75,18 +63,8 @@ public class HttpService
     {
         try
         {
-            var html = await Get(
-                url,
-                encoding,
-                cookie,
-                referer,
-                timeoutSeconds,
-                maxResponseSize,
-                addHeaders,
-                useProxy);
-
-            if (string.IsNullOrWhiteSpace(html))
-                return default!;
+            var html = await Get(url, encoding, cookie, referer, timeoutSeconds, maxResponseSize, addHeaders, useProxy);
+            if (string.IsNullOrWhiteSpace(html)) return default!;
 
             var settings = ignoreDeserializeErrors
                 ? new JsonSerializerSettings { Error = (se, ev) => ev.ErrorContext.Handled = true }
@@ -121,33 +99,31 @@ public class HttpService
             Version = new Version(httpVersion, 0)
         };
 
-        // Настройка заголовков
         request.Headers.UserAgent.ParseAdd(UserAgent);
-        if (!string.IsNullOrEmpty(cookie))
-            request.Headers.Add("cookie", cookie);
-        if (!string.IsNullOrEmpty(referer))
-            request.Headers.Add("referer", referer);
+        if (!string.IsNullOrEmpty(cookie)) request.Headers.Add("cookie", cookie);
+        if (!string.IsNullOrEmpty(referer)) request.Headers.Add("referer", referer);
         if (addHeaders != null)
             foreach (var (name, val) in addHeaders)
                 request.Headers.Add(name, val);
 
-        // Прокси через DelegatingHandler (см. регистрацию в DI)
+        // Применяем прокси через middleware-подход (заголовок + логика)
+        _proxyHandler.Apply(request, url, useProxy);
+
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+            _httpClient.MaxResponseContentBufferSize = maxResponseSize == 0 ? 10_000_000 : maxResponseSize;
             using var response = await _httpClient
                 .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
 
             if (response.StatusCode != HttpStatusCode.OK)
                 return (null, response);
 
-            var contentBytes = await response.Content.ReadAsByteArrayAsync(cts.Token).ConfigureAwait(false);
-            if (contentBytes.Length == 0)
-                return (null, response);
+            var stream = await response.Content.ReadAsStreamAsync(cts.Token).ConfigureAwait(false);
+            using var reader = new StreamReader(stream, encoding ?? Encoding.UTF8, detectEncodingFromByteOrderMarks: true, 8192, leaveOpen: true);
 
-            var content = encoding != null
-                ? encoding.GetString(contentBytes)
-                : Encoding.UTF8.GetString(contentBytes);
+            var content = await reader.ReadToEndAsync(cts.Token).ConfigureAwait(false);
+            if (content.Length == 0) return (null, response);
 
             return string.IsNullOrWhiteSpace(content) ? (null, response) : (content, response);
         }
@@ -176,15 +152,14 @@ public class HttpService
         bool useProxy = false)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, url);
-
         request.Headers.UserAgent.ParseAdd(UserAgent);
-        if (!string.IsNullOrEmpty(cookie))
-            request.Headers.Add("cookie", cookie);
-        if (!string.IsNullOrEmpty(referer))
-            request.Headers.Add("referer", referer);
+        if (!string.IsNullOrEmpty(cookie)) request.Headers.Add("cookie", cookie);
+        if (!string.IsNullOrEmpty(referer)) request.Headers.Add("referer", referer);
         if (addHeaders != null)
             foreach (var (name, val) in addHeaders)
                 request.Headers.Add(name, val);
+
+        _proxyHandler.Apply(request, url, useProxy);
 
         try
         {
@@ -195,89 +170,12 @@ public class HttpService
             if (response.StatusCode != HttpStatusCode.OK)
                 return null;
 
-            var data = await response.Content.ReadAsByteArrayAsync(cts.Token).ConfigureAwait(false);
-            return data.Length == 0 ? null : data;
+            var bytes = await response.Content.ReadAsByteArrayAsync(cts.Token).ConfigureAwait(false);
+            return bytes.Length == 0 ? null : bytes;
         }
         catch
         {
             return null;
-        }
-    }
-
-    #endregion
-
-    private static HttpResponseMessage CreateErrorResponse(HttpStatusCode code, string url)
-    {
-        return new HttpResponseMessage
-        {
-            StatusCode = code,
-            RequestMessage = new HttpRequestMessage(HttpMethod.Get, url)
-        };
-    }
-
-    #region ProxyManager
-
-    private class ProxyManager
-    {
-        private readonly object _lock = new();
-        private readonly ConcurrentBag<string> _proxyRandomList = new();
-        private bool _initialized;
-
-        public void ConfigureProxy(HttpClientHandler handler, string url, bool useProxy)
-        {
-            handler.UseProxy = false;
-
-            // Global proxy by pattern
-            if (AppInit.conf?.globalproxy != null)
-                foreach (var p in AppInit.conf.globalproxy)
-                {
-                    if (p.list == null || p.list.Count == 0 || !Regex.IsMatch(url, p.pattern, RegexOptions.IgnoreCase))
-                        continue;
-
-                    handler.UseProxy = true;
-                    handler.Proxy = CreateWebProxy(p);
-                    return;
-                }
-
-            // Main proxy
-            if (useProxy && AppInit.conf?.proxy?.list != null && AppInit.conf.proxy.list.Count > 0)
-            {
-                InitializeProxyList();
-                handler.UseProxy = true;
-                handler.Proxy = CreateWebProxy(AppInit.conf.proxy);
-            }
-        }
-
-        private void InitializeProxyList()
-        {
-            if (_initialized) return;
-
-            lock (_lock)
-            {
-                if (_initialized) return;
-
-                if (AppInit.conf?.proxy?.list != null)
-                {
-                    var shuffled = AppInit.conf.proxy.list.OrderBy(_ => Guid.NewGuid()).ToList();
-                    foreach (var ip in shuffled)
-                        _proxyRandomList.Add(ip);
-                }
-
-                _initialized = true;
-            }
-        }
-
-        private WebProxy CreateWebProxy(ProxySettings settings)
-        {
-            var ip = settings.list.Count == 1
-                ? settings.list[0]
-                : settings.list[Random.Shared.Next(settings.list.Count)];
-
-            var credentials = settings.useAuth
-                ? new NetworkCredential(settings.username, settings.password)
-                : null;
-
-            return new WebProxy(ip, settings.BypassOnLocal, null, credentials);
         }
     }
 
@@ -307,17 +205,14 @@ public class HttpService
         bool useProxy = false,
         Encoding? encoding = null)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, url)
-        {
-            Content = content
-        };
-
+        var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
         request.Headers.UserAgent.ParseAdd(UserAgent);
-        if (!string.IsNullOrEmpty(cookie))
-            request.Headers.Add("cookie", cookie);
+        if (!string.IsNullOrEmpty(cookie)) request.Headers.Add("cookie", cookie);
         if (addHeaders != null)
             foreach (var (name, val) in addHeaders)
                 request.Headers.Add(name, val);
+
+        _proxyHandler.Apply(request, url, useProxy);
 
         try
         {
@@ -328,12 +223,9 @@ public class HttpService
                 return string.Empty;
 
             var bytes = await response.Content.ReadAsByteArrayAsync(cts.Token).ConfigureAwait(false);
-            if (bytes.Length == 0)
-                return string.Empty;
+            if (bytes.Length == 0) return string.Empty;
 
-            return encoding != null
-                ? encoding.GetString(bytes)
-                : Encoding.UTF8.GetString(bytes);
+            return encoding != null ? encoding.GetString(bytes) : Encoding.UTF8.GetString(bytes);
         }
         catch
         {
@@ -356,8 +248,7 @@ public class HttpService
         bool ignoreDeserializeErrors = false)
     {
         var content = new StringContent(data, Encoding.UTF8, "application/x-www-form-urlencoded");
-        return await Post<T>(url, content, cookie, timeoutSeconds, addHeaders, useProxy, encoding,
-            ignoreDeserializeErrors);
+        return await Post<T>(url, content, cookie, timeoutSeconds, addHeaders, useProxy, encoding, ignoreDeserializeErrors);
     }
 
     public async ValueTask<T> Post<T>(
@@ -373,18 +264,73 @@ public class HttpService
         try
         {
             var json = await Post(url, content, cookie, timeoutSeconds, addHeaders, useProxy, encoding);
-            if (string.IsNullOrEmpty(json))
-                return default!;
-
+            if (string.IsNullOrEmpty(json)) return default!;
             var settings = ignoreDeserializeErrors
                 ? new JsonSerializerSettings { Error = (se, ev) => ev.ErrorContext.Handled = true }
                 : null;
-
             return JsonConvert.DeserializeObject<T>(json, settings)!;
         }
         catch
         {
             return default!;
+        }
+    }
+
+    #endregion
+
+    private static HttpResponseMessage CreateErrorResponse(HttpStatusCode code, string url)
+    {
+        return new HttpResponseMessage
+        {
+            StatusCode = code,
+            RequestMessage = new HttpRequestMessage(HttpMethod.Get, url)
+        };
+    }
+
+    #region ProxyHandler
+
+    private class ProxyHandler
+    {
+        private readonly ConcurrentBag<string> _proxyList = new();
+        private bool _initialized = false;
+        private readonly object _lock = new();
+
+        public void Apply(HttpRequestMessage request, string url, bool useProxy)
+        {
+            // Глобальные прокси по паттерну
+            if (AppInit.conf?.globalproxy != null)
+            {
+                foreach (var p in AppInit.conf.globalproxy)
+                {
+                    if (p.list?.Count > 0 && Regex.IsMatch(url, p.pattern, RegexOptions.IgnoreCase))
+                    {
+                        request.Headers.Add("X-Use-Global-Proxy", p.list[0]); // Подсказка для логики вне HttpClient
+                        return;
+                    }
+                }
+            }
+
+            // Основной прокси
+            if (useProxy && AppInit.conf?.proxy?.list != null && AppInit.conf.proxy.list.Count > 0)
+            {
+                Initialize();
+                if (_proxyList.TryTake(out var proxy))
+                {
+                    request.Headers.Add("X-Use-Main-Proxy", proxy);
+                }
+            }
+        }
+
+        private void Initialize()
+        {
+            if (_initialized) return;
+            lock (_lock)
+            {
+                if (_initialized) return;
+                var shuffled = AppInit.conf.proxy.list.OrderBy(_ => Guid.NewGuid()).ToList();
+                foreach (var ip in shuffled) _proxyList.Add(ip);
+                _initialized = true;
+            }
         }
     }
 

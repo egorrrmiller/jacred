@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -19,6 +20,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -87,6 +89,14 @@ builder.Services.AddRouting(options => options.LowercaseUrls = true);
 // --- Регистрация зависимостей ---
 builder.Services.RegisterServices();
 
+// --- Регистрация PostgreSQL ---
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+
+// Регистрация строки подключения как именованной строки (если нужно)
+builder.Services.AddSingleton(connectionString);
+
+// --- HTTP Client ---
 builder.Services.AddHttpClient<HttpService>(client =>
     {
         client.DefaultRequestHeaders.UserAgent.ParseAdd(HttpService.UserAgent);
@@ -99,10 +109,9 @@ builder.Services.AddHttpClient<HttpService>(client =>
     });
 
 // --- Фоновые службы ---
-builder.Services.AddHostedService<CacheInitializer>();
 builder.Services.AddHostedService<TracksDatabaseInitializer>();
 builder.Services.AddHostedService<TracksAnalysisService>();
-builder.Services.AddHostedService<TorrentSyncService>();
+//builder.Services.AddHostedService<TorrentSyncService>(); remove
 builder.Services.AddHostedService<SpidrSyncService>();
 builder.Services.AddHostedService<TrackersCronService>();
 builder.Services.AddHostedService<StatsCronService>();

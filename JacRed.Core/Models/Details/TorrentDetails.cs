@@ -19,17 +19,17 @@ public class TorrentDetails : TorrentBaseDetails, ICloneable
     /// <summary>
     ///     Тип видео: "WEB-DL", "BluRay", "HDTV", "CAM", и т.д.
     /// </summary>
-    public string VideoType { get; set; } = null!;
+    public string? VideoType { get; set; } = null!;
 
     /// <summary>
     ///     Озвучка/перевод (например: "ColdFilm", "NewStudio", "Оригинал")
     /// </summary>
-    public HashSet<string> Voices { get; set; } = new();
+    public HashSet<string>? Voices { get; set; }
 
     /// <summary>
     ///     Номера сезонов, присутствующих в раздаче
     /// </summary>
-    public HashSet<int> Seasons { get; set; } = new();
+    public HashSet<int>? Seasons { get; set; }
 
     /// <summary>
     ///     Создаёт полную копию объекта (поверхностное копирование)

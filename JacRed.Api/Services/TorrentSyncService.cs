@@ -54,7 +54,7 @@ public class TorrentSyncService : BackgroundService
 
                 await syncMethod(stoppingToken);
 
-                await _contentCatalog.SaveToFileAsync();
+                //await _contentCatalog.SaveToFileAsync();
                 await _syncState.SaveAsync(stoppingToken);
             }
             catch (Exception ex)
@@ -90,7 +90,7 @@ public class TorrentSyncService : BackgroundService
         {
             var url =
                 $"{AppInit.conf.syncapi}/sync/fdb/torrents?time={_syncState.LastSync}&start={_syncState.StartSync}";
-            var root = await _httpService.Get<RootObject>(url, timeoutSeconds: 300);
+            var root = await _httpService.Get<RootObject>(url, timeoutSeconds: 300, maxResponseSize: 100_000_000);
 
             if (root?.collections == null || root.collections.Count == 0)
             {
@@ -115,7 +115,6 @@ public class TorrentSyncService : BackgroundService
             if (torrents.Count > 0)
                 await _torrentRepository.AddOrUpdateAsync(torrents);
 
-            // ✅ Безопасное получение последнего элемента
             var lastCollection = root.collections.Last();
             _syncState.LastSync = lastCollection.Value.fileTime;
 
@@ -124,7 +123,7 @@ public class TorrentSyncService : BackgroundService
                 if (DateTime.Now > lastSave.AddMinutes(5))
                 {
                     lastSave = DateTime.Now;
-                    await _contentCatalog.SaveToFileAsync();
+                    //await _contentCatalog.SaveToFileAsync();
                     await _syncState.SaveAsync(ct);
                 }
 
@@ -168,7 +167,7 @@ public class TorrentSyncService : BackgroundService
         {
             if (_syncState.LastSync > 0)
             {
-                await _contentCatalog.SaveToFileAsync();
+                //await _contentCatalog.SaveToFileAsync();
                 await _syncState.SaveAsync();
             }
         }

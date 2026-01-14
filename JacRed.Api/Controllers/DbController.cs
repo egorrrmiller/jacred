@@ -26,7 +26,7 @@ public class DbController : BaseController
 
         _saveDbWork = true;
 
-        await _contentCatalog.SaveToFileAsync();
+        //await _contentCatalog.SaveToFileAsync();
 
         _saveDbWork = false;
 

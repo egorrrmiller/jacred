@@ -4,7 +4,7 @@ namespace JacRed.Core.Extensions;
 
 public static class MagnetLinkExtensions
 {
-    public static string AnnounceName(this string magnet)
+    public static string? AnnounceName(this string magnet)
     {
         try
         {
@@ -16,7 +16,7 @@ public static class MagnetLinkExtensions
         }
     }
 
-    public static IEnumerable<string> AnnounceUrls(this string magnet)
+    public static IEnumerable<string>? AnnounceUrls(this string magnet)
     {
         try
         {
@@ -24,7 +24,7 @@ public static class MagnetLinkExtensions
         }
         catch
         {
-            return Enumerable.Empty<string>();
+            return null;
         }
     }
 }

@@ -54,7 +54,7 @@ public class TracksDatabase : ITracksDatabase
         _logger.LogInformation("TracksDB loaded: {Count} entries", _database.Count);
     }
 
-    public List<ffStream> GetStreams(string magnet, string[] types = null)
+    public List<ffStream>? GetStreams(string magnet, string[]? types = null)
     {
         if (IsExcludedType(types))
             return null;
@@ -89,7 +89,7 @@ public class TracksDatabase : ITracksDatabase
         return null;
     }
 
-    public async Task AddAsync(string magnet, string[] types = null)
+    public async Task AddAsync(string magnet, string[]? types = null)
     {
         if (IsExcludedType(types) || _tsuriEndpoints.Length == 0)
             return;

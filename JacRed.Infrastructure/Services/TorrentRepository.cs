@@ -1,223 +1,277 @@
+using Dapper;
 using JacRed.Core.Interfaces;
+using JacRed.Core.Models.Database;
 using JacRed.Core.Models.Details;
-using JacRed.Core.Utils;
+using JacRed.Core.Models.Tracks;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
+using Npgsql;
 
 namespace JacRed.Infrastructure.Services;
 
 /// <summary>
-///     Репозиторий для управления коллекциями торрентов, хранит данные в виде сериализованных файлов.
-///     Использует кэширование с ограничением времени жизни и автоматическую инвалидацию.
+/// Репозиторий для управления торрентами с использованием PostgreSQL и Dapper.
+/// Поддерживает кэширование коллекций на 30 минут.
 /// </summary>
 public class TorrentRepository : ITorrentRepository
 {
     private readonly ICacheService _cache;
-    private readonly IContentCatalog _contentCatalog;
     private readonly IKeyGenerator _keyGenerator;
-    private readonly IPathResolver _pathResolver;
     private readonly ITorrentEnricher _torrentEnricher;
+    private readonly ILogger<TorrentRepository> _logger;
+    private readonly string _connectionString;
 
     public TorrentRepository(
-        IContentCatalog contentCatalog,
         ICacheService cache,
-        IPathResolver pathResolver,
         IKeyGenerator keyGenerator,
-        ITorrentEnricher torrentEnricher)
+        ITorrentEnricher torrentEnricher,
+        ILogger<TorrentRepository> logger,
+        string connectionString)
     {
-        _contentCatalog = contentCatalog;
         _cache = cache;
-        _pathResolver = pathResolver;
         _keyGenerator = keyGenerator;
         _torrentEnricher = torrentEnricher;
+        _logger = logger;
+        _connectionString = connectionString;
     }
 
     public async Task AddOrUpdateAsync(IReadOnlyCollection<TorrentBaseDetails> torrents)
     {
-        var grouped = torrents.GroupBy(t => _keyGenerator.Build(t.Name, t.OriginalName));
-
-        foreach (var group in grouped)
+        foreach (var group in torrents.GroupBy(t => _keyGenerator.Build(t.Name, t.OriginalName)))
         {
             var key = group.Key;
-            var filePath = _pathResolver.GenerateFilePath(key);
-            var currentData = await LoadOrCreateCollectionAsync(key);
 
-            var hasChanges = false;
+            // Upsert master_db
+            await UpsertMasterDb(key);
 
             foreach (var torrent in group)
-                if (await UpdateOrAddTorrent(currentData, torrent))
-                    hasChanges = true;
-
-            if (hasChanges)
             {
-                await SaveCollectionToFileAsync(filePath, currentData);
-                await _cache.InvalidateAsync($"collection:{key}");
+                await UpsertTorrent(torrent);
             }
+
+            await _cache.InvalidateAsync($"collection:{key}");
         }
     }
 
     public async Task AddOrUpdateAsync<T>(
         IReadOnlyCollection<T> torrents,
-        Func<T, IReadOnlyDictionary<string, TorrentDetails>, Task<bool>> predicate
-    ) where T : TorrentBaseDetails
+        Func<T, IReadOnlyDictionary<string, TorrentDetails>, Task<bool>> predicate)
+        where T : TorrentBaseDetails
     {
-        var grouped = torrents.GroupBy(t => _keyGenerator.Build(t.Name, t.OriginalName));
-
-        foreach (var group in grouped)
+        foreach (var group in torrents.GroupBy(t => _keyGenerator.Build(t.Name, t.OriginalName)))
         {
             var key = group.Key;
-            var filePath = _pathResolver.GenerateFilePath(key);
-            var currentData = await LoadOrCreateCollectionAsync(key);
+            var currentData = await GetCollectionAsync(key, updateCache: false);
 
-            var hasChanges = false;
+            // Upsert master_db
+            await UpsertMasterDb(key);
 
             foreach (var torrent in group)
             {
-                if (predicate != null)
-                    if (!await predicate(torrent, currentData))
-                        continue;
+                if (predicate != null && !await predicate(torrent, currentData))
+                    continue;
 
                 await _torrentEnricher.EnrichAndConvertAsync(torrent);
-
-                if (await UpdateOrAddTorrent(currentData, torrent))
-                    hasChanges = true;
+                await UpsertTorrent(torrent);
             }
 
-            if (hasChanges)
-            {
-                await SaveCollectionToFileAsync(filePath, currentData);
-                await _cache.InvalidateAsync($"collection:{key}");
-            }
+            await _cache.InvalidateAsync($"collection:{key}");
         }
     }
 
-    public async Task<IReadOnlyDictionary<string, TorrentDetails>> GetCollectionAsync(string key,
-        bool updateCache = false)
+    public async Task<IReadOnlyDictionary<string, TorrentDetails>> GetCollectionAsync(string key, bool updateCache = false)
     {
         var cacheKey = $"collection:{key}";
 
         return await _cache.GetOrCreateAsync(
             cacheKey,
-            async () => await LoadOrCreateCollectionAsync(key),
-            TimeSpan.FromMinutes(10)
+            async () => await LoadCollectionFromDbAsync(key),
+            TimeSpan.FromMinutes(30)
         );
     }
 
-    public async Task SaveMasterIndexAsync()
+    #region Private Methods
+
+    private async Task UpsertMasterDb(string key)
     {
-        if (_contentCatalog is ContentCatalogService catalogService) await catalogService.SaveToFileAsync();
+        using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        const string upsertSql = @"
+            INSERT INTO public.master_db (key, update_time, file_time)
+            VALUES (@Key, @UpdateTime, @FileTime)
+            ON CONFLICT (key) 
+            DO UPDATE SET update_time = EXCLUDED.update_time, file_time = EXCLUDED.file_time";
+
+        await connection.ExecuteAsync(upsertSql, new
+        {
+            Key = key,
+            UpdateTime = DateTime.UtcNow,
+            FileTime = DateTime.UtcNow.ToFileTimeUtc()
+        });
     }
 
-    #region Helpers
-
-    private async Task<Dictionary<string, TorrentDetails>> LoadOrCreateCollectionAsync(string key)
+    private async Task UpsertTorrent(TorrentBaseDetails src)
     {
-        var filePath = _pathResolver.GenerateFilePath(key);
-        if (!File.Exists(filePath)) return new Dictionary<string, TorrentDetails>();
+        using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
 
-        try
+        var details = src as TorrentDetails;
+        var now = DateTime.UtcNow;
+
+        // Проверка на наличие
+        const string existsSql = @"SELECT 1 FROM public.torrents WHERE url = @Url";
+        var exists = await connection.QueryFirstOrDefaultAsync<int?>(existsSql, new { Url = src.Url }) == 1;
+
+        if (exists)
         {
-            return await Task.Run(() =>
-            {
-                using var stream = File.OpenRead(filePath);
-                return JsonStream.Read<Dictionary<string, TorrentDetails>>(stream);
-            }) ?? new Dictionary<string, TorrentDetails>();
+            const string updateSql = @"
+                UPDATE public.torrents SET
+                    tracker_name        = @TrackerName,
+                    types               = @Types,
+                    title               = @Title,
+                    sid                 = @Sid,
+                    pir                 = @Pir,
+                    size_name           = @SizeName,
+                    create_time         = @CreateTime,
+                    update_time         = @UpdateTime,
+                    check_time          = @CheckTime,
+                    magnet              = @Magnet,
+                    name                = @Name,
+                    original_name       = @OriginalName,
+                    relased             = @Relased,
+                    languages           = @Languages,
+                    ffprobe             = @Ffprobe,
+                    ffprobe_try_count   = @FfprobeTryCount,
+                    source_season_number = @SourceSeasonNumber,
+                    source_season_order  = @SourceSeasonOrder,
+                    size                = @Size,
+                    quality             = @Quality,
+                    video_type          = @VideoType,
+                    voices              = @Voices,
+                    seasons             = @Seasons
+                WHERE url = @Url";
+
+            await connection.ExecuteAsync(updateSql, MapToDbModel(src, now));
         }
-        catch
+        else
         {
-            return new Dictionary<string, TorrentDetails>();
+            const string insertSql = @"
+                INSERT INTO public.torrents
+                (id, tracker_name, types, url, title, sid, pir, size_name, 
+                 create_time, update_time, check_time, magnet, name, original_name, 
+                 relased, languages, ffprobe, ffprobe_try_count, source_season_number, 
+                 source_season_order, size, quality, video_type, voices, seasons)
+                VALUES
+                (@Id, @TrackerName, @Types, @Url, @Title, @Sid, @Pir, @SizeName,
+                 @CreateTime, @UpdateTime, @CheckTime, @Magnet, @Name, @OriginalName,
+                 @Relased, @Languages, @Ffprobe, @FfprobeTryCount, @SourceSeasonNumber,
+                 @SourceSeasonOrder, @Size, @Quality, @VideoType, @Voices, @Seasons)";
+
+            await connection.ExecuteAsync(insertSql, MapToDbModel(src, now, true));
         }
     }
 
-    private async Task<bool> UpdateOrAddTorrent(Dictionary<string, TorrentDetails> data, TorrentBaseDetails torrent)
+    private async Task<Dictionary<string, TorrentDetails>> LoadCollectionFromDbAsync(string key)
     {
-        return data.TryGetValue(torrent.Url, out var existing)
-            ? await UpdateExistingTorrent(existing, torrent)
-            : await AddNewTorrent(data, torrent);
+        using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        const string sql = @"
+            SELECT *
+            FROM public.torrents
+            WHERE EXISTS (
+                SELECT 1 FROM public.master_db
+                WHERE key = @Key
+            )";
+
+        var torrents = await connection.QueryAsync<Torrent>(sql, new { Key = key });
+
+        var dict = new Dictionary<string, TorrentDetails>();
+
+        foreach (var db in torrents)
+        {
+            var model = MapToDomainModel(db);
+            if (model != null)
+                dict[db.Url] = model;
+        }
+
+        return dict;
     }
 
-    private async Task<bool> UpdateExistingTorrent(TorrentDetails existing, TorrentBaseDetails torrent)
+    private Torrent MapToDbModel(TorrentBaseDetails src, DateTime now, bool isNew = false)
     {
-        var changed = false;
+        var details = src as TorrentDetails;
 
-        if (torrent.Types != null && !existing.Types?.SequenceEqual(torrent.Types) == true)
+        return new Torrent
         {
-            existing.Types = torrent.Types;
-            changed = true;
-        }
-
-        if (torrent.Title != existing.Title)
-        {
-            existing.Title = torrent.Title;
-            changed = true;
-        }
-
-        if (!string.IsNullOrWhiteSpace(torrent.Magnet) && torrent.Magnet != existing.Magnet)
-        {
-            existing.Magnet = torrent.Magnet;
-            existing.FfprobeTryCount = 0;
-            changed = true;
-        }
-
-        if (torrent.TrackerName != existing.TrackerName)
-        {
-            existing.TrackerName = torrent.TrackerName;
-            changed = true;
-        }
-
-        existing.UpdateTime = DateTime.UtcNow;
-        existing.CheckTime = DateTime.Now;
-
-        if (changed) await _torrentEnricher.EnrichAndConvertAsync(existing);
-
-        return changed;
-    }
-
-    private async Task<bool> AddNewTorrent(Dictionary<string, TorrentDetails> data, TorrentBaseDetails torrent)
-    {
-        if (string.IsNullOrWhiteSpace(torrent.Magnet) || torrent.Types == null || torrent.Types.Length == 0)
-            return false;
-
-        var newTorrent = new TorrentDetails
-        {
-            Url = torrent.Url,
-            Types = torrent.Types,
-            TrackerName = torrent.TrackerName,
-            CreateTime = torrent.CreateTime,
-            UpdateTime = torrent.UpdateTime,
-            Title = torrent.Title,
-            Name = torrent.Name,
-            OriginalName = torrent.OriginalName,
-            Magnet = torrent.Magnet,
-            Sid = torrent.Sid,
-            Pir = torrent.Pir,
-            Relased = torrent.Relased,
-            SizeName = torrent.SizeName,
-            Ffprobe = torrent.Ffprobe
+            Id = isNew ? Guid.NewGuid() : (details?.Id ?? Guid.NewGuid()),
+            TrackerName = src.TrackerName,
+            Types = src.Types,
+            Url = src.Url,
+            Title = src.Title,
+            Sid = src.Sid,
+            Pir = src.Pir,
+            SizeName = src.SizeName,
+            CreateTime = src.CreateTime,
+            UpdateTime = src.UpdateTime,
+            CheckTime = now,
+            Magnet = src.Magnet,
+            Name = src.Name,
+            OriginalName = src.OriginalName,
+            Relased = src.Relased,
+            Languages = src.Languages?.ToArray(),
+            Ffprobe = src.Ffprobe != null ? JToken.FromObject(src.Ffprobe) : null,
+            FfprobeTryCount = details?.FfprobeTryCount ?? 0,
+            SourceSeasonNumber = details?.SourceSeasonNumber,
+            SourceSeasonOrder = details?.SourceSeasonOrder,
+            Size = details?.Size ?? 0,
+            Quality = details?.Quality ?? 0,
+            VideoType = details?.VideoType,
+            Voices = details?.Voices?.ToArray(),
+            Seasons = details?.Seasons?.ToArray()
         };
-
-        await _torrentEnricher.EnrichAndConvertAsync(newTorrent);
-        data[torrent.Url] = newTorrent;
-
-        return true;
     }
 
-    private async Task SaveCollectionToFileAsync(string filePath, Dictionary<string, TorrentDetails> data)
+    private TorrentDetails? MapToDomainModel(Torrent db)
     {
-        if (data.Count == 0) return;
-
-        var dir = Path.GetDirectoryName(filePath);
-        if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-
         try
         {
-            await Task.Run(() =>
+            var model = new TorrentDetails
             {
-                using var fileStream = File.Create(filePath);
-                JsonStream.Write(fileStream, data);
-            });
+                Url = db.Url,
+                TrackerName = db.TrackerName,
+                Types = db.Types,
+                Title = db.Title,
+                Sid = db.Sid,
+                Pir = db.Pir,
+                SizeName = db.SizeName,
+                CreateTime = db.CreateTime,
+                UpdateTime = db.UpdateTime,
+                CheckTime = db.CheckTime,
+                Magnet = db.Magnet,
+                Name = db.Name,
+                OriginalName = db.OriginalName,
+                Relased = db.Relased,
+                Languages = db.Languages?.ToHashSet(),
+                Ffprobe = db.Ffprobe?.ToObject<List<ffStream>>(),
+                FfprobeTryCount = db.FfprobeTryCount,
+                SourceSeasonNumber = db.SourceSeasonNumber,
+                SourceSeasonOrder = db.SourceSeasonOrder,
+                Size = db.Size,
+                Quality = db.Quality,
+                VideoType = db.VideoType,
+                Voices = db.Voices?.ToHashSet(),
+                Seasons = db.Seasons?.ToHashSet(),
+                Id = db.Id
+            };
+
+            return model;
         }
-        catch
+        catch (Exception ex)
         {
-            // Логирование при необходимости
+            _logger.LogError(ex, "Failed to map torrent {Url}", db.Url);
+            return null;
         }
     }
 

@@ -15,19 +15,16 @@ namespace JacRed.Infrastructure.Services;
 
 public class MediaAnalyzerService : IMediaAnalyzerService
 {
-    private readonly IMemoryCache _cache;
     private readonly ConcurrentDictionary<string, ffprobemodel> _database;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<MediaAnalyzerService> _logger;
     private readonly string[] _tsuriEndpoints;
 
     public MediaAnalyzerService(
-        IMemoryCache cache,
         ILogger<MediaAnalyzerService> logger,
         IHttpClientFactory httpClientFactory,
         IConfiguration configuration)
     {
-        _cache = cache;
         _logger = logger;
         _httpClientFactory = httpClientFactory;
         _database = new ConcurrentDictionary<string, ffprobemodel>();
@@ -60,7 +57,7 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         }
     }
 
-    public async Task<List<ffStream>> GetStreamsAsync(string magnet, string[] types = null, bool onlyCache = false)
+    public async Task<List<ffStream>> GetStreamsAsync(string? magnet, string[]? types = null, bool onlyCache = false)
     {
         if (!ShouldAnalyze(types) || string.IsNullOrEmpty(magnet))
             return new List<ffStream>();
@@ -96,7 +93,7 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         return new List<ffStream>();
     }
 
-    public async Task AnalyzeAsync(string magnet, string[] types = null)
+    public async Task AnalyzeAsync(string magnet, string[]? types = null)
     {
         if (!ShouldAnalyze(types) || _tsuriEndpoints.Length == 0 || string.IsNullOrEmpty(magnet))
             return;
@@ -108,7 +105,7 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         var tsuri = _tsuriEndpoints[Random.Shared.Next(_tsuriEndpoints.Length)];
         var mediaUrl = $"{tsuri}/stream/file?link={HttpUtility.UrlEncode(magnet)}&index=1&play";
 
-        ffprobemodel result = null;
+        ffprobemodel? result = null;
 
         try
         {
@@ -121,7 +118,7 @@ public class MediaAnalyzerService : IMediaAnalyzerService
                 StandardOutputEncoding = Encoding.UTF8
             });
 
-            await process.WaitForExitAsync();
+            await process?.WaitForExitAsync()!;
             var output = await process.StandardOutput.ReadToEndAsync();
 
             result = JsonConvert.DeserializeObject<ffprobemodel>(output);
@@ -162,7 +159,7 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         }
     }
 
-    public async Task<HashSet<string>> ExtractLanguagesAsync(TorrentDetails torrent, List<ffStream> streams = null)
+    public async Task<HashSet<string>> ExtractLanguagesAsync(TorrentDetails torrent, List<ffStream>? streams = null)
     {
         var languages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -180,7 +177,7 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         return languages.Count > 0 ? languages : new HashSet<string>();
     }
 
-    public bool ShouldAnalyze(string[] types)
+    public bool ShouldAnalyze(string[]? types)
     {
         return types == null || types.Length == 0 ||
                (!types.Contains("sport", StringComparer.OrdinalIgnoreCase) &&
