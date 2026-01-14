@@ -6,7 +6,6 @@ using JacRed.Core.Models.Database;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Tracks;
 using JacRed.Core.Utils;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 
@@ -19,17 +18,20 @@ public class TorrentSearchService : ITorrentSearchService
 {
     private readonly IContentCatalog _contentCatalog;
     private readonly ITorrentRepository _torrentRepository;
+    private readonly ITracksDatabase _tracksDatabase;
     private readonly string _connectionString;
     private readonly ILogger<TorrentSearchService> _logger;
 
     public TorrentSearchService(
         IContentCatalog contentCatalog,
         ITorrentRepository torrentRepository,
+        ITracksDatabase tracksDatabase,
         string connectionString,
         ILogger<TorrentSearchService> logger)
     {
         _contentCatalog = contentCatalog;
         _torrentRepository = torrentRepository;
+        _tracksDatabase = tracksDatabase;
         _connectionString = connectionString;
         _logger = logger;
     }
@@ -102,11 +104,67 @@ public class TorrentSearchService : ITorrentSearchService
         return await SearchByFtsAndTrigramAsync(searchQuery, searchQuery, null, mediaType);
     }
 
-    public async Task<List<TorrentQuality>> GetQualityInfoAsync(string name, string originalName, string? type = null,
-        int page = 1, int take = 1000)
+    public async Task<Dictionary<string, Dictionary<int, TorrentQuality>>> GetQualityInfoAsync(
+        string name,
+        string originalName,
+        string? type = null,
+        int page = 1,
+        int take = 1000)
     {
-        // Реализация фильтрации по качеству
-        throw new NotImplementedException();
+        var db = _contentCatalog.GetAllKeys();
+        var results = new Dictionary<string, Dictionary<int, TorrentQuality>>();
+
+        var keys = BuildSearchKeys(name, originalName)
+            .Join(db.Keys, s => s, k => k, (_, k) => k);
+
+        if (!AppInit.conf.evercache.enable || AppInit.conf.evercache.validHour > 0)
+            keys = keys.Take(AppInit.conf.maxreadfile);
+
+        foreach (var key in keys)
+        {
+            var collection = await _torrentRepository.GetCollectionAsync(key, true);
+            foreach (var t in collection.Values.Where(t =>
+                         t.Types != null && !t.Types.Contains("sport") && t.Relased != 0))
+            {
+                if (!string.IsNullOrEmpty(type) && !t.Types.Contains(type)) continue;
+
+                var keyName = $"{StringConvert.SearchName(t.Name)}:{StringConvert.SearchName(t.OriginalName)}";
+                var langs = _tracksDatabase.GetLanguages(t, t.Ffprobe ?? _tracksDatabase.GetStreams(t.Magnet, t.Types));
+
+                var model = new TorrentQuality
+                {
+                    types = t.Types.ToHashSet(),
+                    createTime = t.CreateTime,
+                    updateTime = t.UpdateTime,
+                    languages = langs,
+                    qualitys = new HashSet<int> { t.Quality }
+                };
+
+                if (!results.TryGetValue(keyName, out var yearMap))
+                    results[keyName] = yearMap = new Dictionary<int, TorrentQuality>();
+
+                if (yearMap.TryGetValue(t.Relased, out var existing))
+                {
+                    existing.languages.UnionWith(langs);
+                    existing.types.UnionWith(t.Types);
+                    existing.qualitys.Add(t.Quality);
+                    existing.createTime = existing.createTime < t.CreateTime ? existing.createTime : t.CreateTime;
+                    existing.updateTime = existing.updateTime > t.UpdateTime ? existing.updateTime : t.UpdateTime;
+                }
+                else
+                {
+                    yearMap[t.Relased] = model;
+                }
+            }
+        }
+
+        if (take == -1)
+            return results;
+
+        return results
+            .Skip((page - 1) * take)
+            .Take(take)
+            .ToDictionary(k => k.Key, v => v.Value);
     }
 
     #region Private Methods
@@ -232,5 +290,14 @@ public class TorrentSearchService : ITorrentSearchService
             : t.Relased >= year - 1;
     }
 
+    private IEnumerable<string> BuildSearchKeys(string name, string original)
+    {
+        return new[] { name, original }
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(StringConvert.SearchName)
+            .Where(s => !string.IsNullOrWhiteSpace(s));
+    }
+
     #endregion
 }
+

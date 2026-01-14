@@ -17,7 +17,7 @@ public interface ITorrentSearchService
         int? mediaType = null,
         bool exact = false);
 
-    Task<List<TorrentQuality>> GetQualityInfoAsync(
+    Task<Dictionary<string, Dictionary<int, TorrentQuality>>> GetQualityInfoAsync(
         string name,
         string originalName,
         string? type = null,

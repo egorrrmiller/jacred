@@ -39,6 +39,23 @@ public class CacheService : ICacheService
         await Task.CompletedTask;
     }
 
+    public async Task SetAsync<T>(string key, T value, TimeSpan? expiry = null)
+    {
+        var options = new MemoryCacheEntryOptions
+        {
+            Size = 1024 * 1024 * 150
+        };
+
+        if (expiry.HasValue)
+            options.AbsoluteExpirationRelativeToNow = expiry.Value;
+        else
+            options.SlidingExpiration = TimeSpan.FromHours(1);
+
+        _cache.Set(key, value, options);
+
+        await Task.CompletedTask;
+    }
+
     public async Task ClearAsync()
     {
         if (_cache is MemoryCache memoryCache) memoryCache.Compact(1.0);

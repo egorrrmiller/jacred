@@ -5,7 +5,6 @@ using System.Web;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Tracks;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MonoTorrent;

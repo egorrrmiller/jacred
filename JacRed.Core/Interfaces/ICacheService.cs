@@ -14,4 +14,6 @@ public interface ICacheService
     ///     Инвалидирует значение в кэше
     /// </summary>
     Task InvalidateAsync(string key);
+
+    Task SetAsync<T>(string key, T value, TimeSpan? expiry = null);
 }
