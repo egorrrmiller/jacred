@@ -12,7 +12,6 @@ public static class ServicesConfiguration
             .AddSingleton<ITorrentRepository, TorrentRepository>()
             .AddSingleton<IContentCatalog, ContentCatalogService>()
             .AddSingleton<ICacheService, CacheService>()
-            .AddSingleton<IPathResolver, PathResolver>()
             .AddSingleton<IKeyGenerator, KeyGenerator>()
             .AddSingleton<IMediaAnalyzerService, MediaAnalyzerService>()
             .AddSingleton<ITorrentEnricher, TorrentEnricher>()

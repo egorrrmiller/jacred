@@ -5,5 +5,5 @@ namespace JacRed.Core.Interfaces;
 /// </summary>
 public interface IKeyGenerator
 {
-    string Build(string name, string originalname);
+    string Build(string name, string originalName);
 }

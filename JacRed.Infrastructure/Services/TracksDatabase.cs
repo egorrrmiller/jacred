@@ -183,7 +183,7 @@ public class TracksDatabase : ITracksDatabase
                 .Where(s => s.codec_type == "audio" && !string.IsNullOrEmpty(s.tags?.language))
                 .Select(s => s.tags.language));
 
-        return languages.Count > 0 ? languages : null;
+        return languages;
     }
 
     public bool IsExcludedType(string[]? types)

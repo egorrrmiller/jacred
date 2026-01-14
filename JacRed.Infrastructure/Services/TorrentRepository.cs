@@ -83,6 +83,9 @@ public class TorrentRepository : ITorrentRepository
     {
         var cacheKey = $"collection:{key}";
 
+        if (updateCache)
+            await _cache.InvalidateAsync(cacheKey);
+
         return await _cache.GetOrCreateAsync(
             cacheKey,
             async () => await LoadCollectionFromDbAsync(key),
@@ -174,6 +177,12 @@ public class TorrentRepository : ITorrentRepository
 
     private async Task<Dictionary<string, TorrentDetails>> LoadCollectionFromDbAsync(string key)
     {
+        var terms = ExtractKeyTerms(key);
+        if (terms.Length == 0)
+            return new Dictionary<string, TorrentDetails>();
+
+        var patterns = terms.Select(term => $"%{term}%").ToArray();
+
         using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
 
@@ -184,9 +193,17 @@ public class TorrentRepository : ITorrentRepository
                 SELECT 1 FROM public.master_db
                 WHERE key = @Key
             )
-            AND title ILIKE '%' || @Key || '%'";
+            AND (
+                regexp_replace(lower(coalesce(title, '')), '[^a-z0-9]+', '', 'g') LIKE ANY(@Patterns)
+                OR regexp_replace(lower(coalesce(name, '')), '[^a-z0-9]+', '', 'g') LIKE ANY(@Patterns)
+                OR regexp_replace(lower(coalesce(original_name, '')), '[^a-z0-9]+', '', 'g') LIKE ANY(@Patterns)
+            )";
 
-        var torrents = await connection.QueryAsync<Torrent>(sql, new { Key = key });
+        var torrents = await connection.QueryAsync<Torrent>(sql, new
+        {
+            Key = key,
+            Patterns = patterns
+        });
 
         var dict = new Dictionary<string, TorrentDetails>();
 
@@ -198,6 +215,19 @@ public class TorrentRepository : ITorrentRepository
         }
 
         return dict;
+    }
+
+    private static string[] ExtractKeyTerms(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            return Array.Empty<string>();
+
+        return key
+            .Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(term => term.ToLowerInvariant())
+            .Where(term => !string.IsNullOrWhiteSpace(term))
+            .Distinct()
+            .ToArray();
     }
 
     private Torrent MapToDbModel(TorrentBaseDetails src, DateTime now, bool isNew = false)

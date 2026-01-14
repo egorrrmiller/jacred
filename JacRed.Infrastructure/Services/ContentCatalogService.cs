@@ -15,6 +15,8 @@ namespace JacRed.Infrastructure.Services;
 /// </summary>
 public class ContentCatalogService : IContentCatalog
 {
+    private const string AllKeysCacheKey = "catalog:all_keys";
+    private const string FastIndexCacheKey = "catalog:fast_index";
     private readonly ICacheService _cache;
     private readonly ILogger<ContentCatalogService> _logger;
     private readonly IMemoryCache _memoryCache;
@@ -38,14 +40,12 @@ public class ContentCatalogService : IContentCatalog
     /// </summary>
     public ConcurrentDictionary<string, TorrentInfo>? GetAllKeys()
     {
-        const string cacheKey = "catalog:all_keys";
-
-        if (_memoryCache.TryGetValue<ConcurrentDictionary<string, TorrentInfo>>(cacheKey, out var value))
+        if (_memoryCache.TryGetValue<ConcurrentDictionary<string, TorrentInfo>>(AllKeysCacheKey, out var value))
             return value;
 
         value = LoadAllFromDatabase();
         var cacheEntryOptions = new MemoryCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromMinutes(30));
-        _memoryCache.Set(cacheKey, value, cacheEntryOptions);
+        _memoryCache.Set(AllKeysCacheKey, value, cacheEntryOptions);
 
         return value;
     }
@@ -55,12 +55,13 @@ public class ContentCatalogService : IContentCatalog
     /// </summary>
     public async Task<Dictionary<string, List<string>>> GetFastIndexes(bool forceUpdate = false)
     {
-        const string cacheKey = "catalog:fast_index";
-
         if (forceUpdate)
-            await _cache.InvalidateAsync(cacheKey);
+        {
+            await _cache.InvalidateAsync(FastIndexCacheKey);
+            _memoryCache.Remove(AllKeysCacheKey);
+        }
 
-        return await _cache.GetOrCreateAsync(cacheKey, () =>
+        return await _cache.GetOrCreateAsync(FastIndexCacheKey, () =>
         {
             var fastdb = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             var allKeys = GetAllKeys();
