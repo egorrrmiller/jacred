@@ -131,3 +131,59 @@ CREATE TRIGGER trg_torrents_search_tsv
     BEFORE INSERT OR UPDATE OF title, name, original_name
                      ON public.torrents
                          FOR EACH ROW EXECUTE FUNCTION public.torrents_update_search_tsv();
+
+--------------------------------------------------------------------------------
+-- Tracks (ffprobe)
+--------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.tracks
+(
+    infohash   text        PRIMARY KEY,
+    ffprobe    jsonb       NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE public.tracks IS 'ffprobe-результаты по infohash.';
+
+CREATE INDEX IF NOT EXISTS ix_tracks_updated_at
+    ON public.tracks (updated_at DESC);
+
+--------------------------------------------------------------------------------
+-- Tracker stats
+--------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.tracker_stats
+(
+    tracker_name text PRIMARY KEY,
+    last_new_tor timestamptz NOT NULL,
+    new_tor      integer     NOT NULL,
+    update_count integer     NOT NULL,
+    check_count  integer     NOT NULL,
+    all_torrents integer     NOT NULL,
+    tr_wait      integer     NOT NULL,
+    tr_confirm   integer     NOT NULL,
+    tr_error     integer     NOT NULL,
+    updated_at   timestamptz NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE public.tracker_stats IS 'Агрегированная статистика по трекерам.';
+
+--------------------------------------------------------------------------------
+-- Sync state
+--------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.sync_state
+(
+    id         text PRIMARY KEY,
+    last_sync  bigint      NOT NULL,
+    start_sync bigint      NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE public.sync_state IS 'Состояние синхронизации (last_sync/start_sync).';
+
+CREATE INDEX IF NOT EXISTS ix_tracker_stats_updated_at
+    ON public.tracker_stats (updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS ix_tracker_stats_last_new_tor
+    ON public.tracker_stats (last_new_tor DESC);
+
+CREATE INDEX IF NOT EXISTS ix_sync_state_updated_at
+    ON public.sync_state (updated_at DESC);

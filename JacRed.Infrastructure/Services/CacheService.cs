@@ -12,6 +12,7 @@ public class CacheService : ICacheService
         _cache = cache;
     }
 
+    /// <summary>Возвращает значение из кэша или создаёт и сохраняет его.</summary>
     public async Task<T> GetOrCreateAsync<T>(string key, Func<Task<T>> factory, TimeSpan? expiry = null)
     {
         if (_cache.TryGetValue(key, out T cached)) return cached;
@@ -33,12 +34,14 @@ public class CacheService : ICacheService
         return result;
     }
 
+    /// <summary>Удаляет запись из кэша по ключу.</summary>
     public async Task InvalidateAsync(string key)
     {
         _cache.Remove(key);
         await Task.CompletedTask;
     }
 
+    /// <summary>Сохраняет значение в кэш с заданным временем жизни.</summary>
     public async Task SetAsync<T>(string key, T value, TimeSpan? expiry = null)
     {
         var options = new MemoryCacheEntryOptions
@@ -56,6 +59,7 @@ public class CacheService : ICacheService
         await Task.CompletedTask;
     }
 
+    /// <summary>Очищает кэш через компактирование всех записей.</summary>
     public async Task ClearAsync()
     {
         if (_cache is MemoryCache memoryCache) memoryCache.Compact(1.0);

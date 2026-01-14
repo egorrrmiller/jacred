@@ -1601,6 +1601,7 @@ public class TorrentEnricher : ITorrentEnricher
         _mediaAnalyzer = mediaAnalyzer;
     }
 
+    /// <summary>Обогащает базовые данные торрента и дополняет медиа-информацией.</summary>
     public async Task<TorrentDetails> EnrichAndConvertAsync(TorrentBaseDetails torrent)
     {
         var details = EnrichAndConvert(torrent);

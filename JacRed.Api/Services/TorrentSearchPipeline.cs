@@ -37,6 +37,7 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
         _httpService = httpService;
     }
 
+    /// <summary>Единый пайплайн поиска: локально → трекеры → фильтры → сортировка → merge.</summary>
     public async Task<TorrentSearchPipelineResult> SearchAsync(
         TorrentSearchRequest request,
         CancellationToken cancellationToken = default)

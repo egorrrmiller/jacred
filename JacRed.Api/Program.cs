@@ -34,19 +34,6 @@ builder.WebHost.UseKestrel(options =>
     options.Listen(ip, AppInit.conf.listenport);
 });
 
-// --- Создание директорий ---
-var directories = new[]
-{
-    "Data/fdb",
-    "Data/temp",
-    "Data/log",
-    "Data/tracks"
-};
-
-foreach (var dir in directories)
-    if (!Directory.Exists(dir))
-        Directory.CreateDirectory(dir);
-
 // --- Глобальные настройки ---
 CultureInfo.CurrentCulture = new CultureInfo("ru-RU");
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -108,13 +95,6 @@ builder.Services.AddHttpClient<HttpService>(client =>
         ServerCertificateCustomValidationCallback = (_, _, _, _) => true // only if you need to ignore SSL
     });
 
-// --- Фоновые службы ---
-builder.Services.AddHostedService<TracksDatabaseInitializer>();
-builder.Services.AddHostedService<TracksAnalysisService>();
-//builder.Services.AddHostedService<TorrentSyncService>(); remove
-builder.Services.AddHostedService<SpidrSyncService>();
-builder.Services.AddHostedService<TrackersCronService>();
-builder.Services.AddHostedService<StatsCronService>();
 
 var app = builder.Build();
 

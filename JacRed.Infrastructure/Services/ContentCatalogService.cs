@@ -38,6 +38,7 @@ public class ContentCatalogService : IContentCatalog
     ///     Возвращает весь каталог (key → TorrentInfo).
     ///     Кэшируется в памяти на 30 минут. При отсутствии — загружается из БД.
     /// </summary>
+    /// <summary>Возвращает полный справочник ключей master_db из памяти или БД.</summary>
     public ConcurrentDictionary<string, TorrentInfo>? GetAllKeys()
     {
         if (_memoryCache.TryGetValue<ConcurrentDictionary<string, TorrentInfo>>(AllKeysCacheKey, out var value))
@@ -53,6 +54,7 @@ public class ContentCatalogService : IContentCatalog
     /// <summary>
     ///     Возвращает быстрый индекс для поиска: подстрока → список ключей.
     /// </summary>
+    /// <summary>Возвращает быстрый индекс для поиска, с опциональным пересчётом.</summary>
     public async Task<Dictionary<string, List<string>>> GetFastIndexes(bool forceUpdate = false)
     {
         if (forceUpdate)

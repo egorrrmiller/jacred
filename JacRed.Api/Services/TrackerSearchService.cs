@@ -33,11 +33,13 @@ public class TrackerSearchService : ITrackerSearchService
             StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>Возвращает список поддерживаемых трекеров.</summary>
     public IReadOnlyCollection<TrackerType> GetSupportedTrackers()
     {
         return _providers.Keys.OrderBy(t => t).ToArray();
     }
 
+    /// <summary>Ищет на выбранных трекерах и кэширует результат.</summary>
     public async Task<IReadOnlyCollection<TorrentBaseDetails>> SearchAsync(
         string query,
         IReadOnlyCollection<TrackerType>? trackers = null,

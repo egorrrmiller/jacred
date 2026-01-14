@@ -36,6 +36,7 @@ public class TorrentSearchService : ITorrentSearchService
         _logger = logger;
     }
 
+    /// <summary>Поиск торрентов по названию (локализованное/оригинальное), с опциональными фильтрами.</summary>
     public async Task<List<TorrentDetails>> SearchByTitleAsync(
         string title,
         string originalTitle,
@@ -63,6 +64,7 @@ public class TorrentSearchService : ITorrentSearchService
         return await SearchByFtsAndTrigramAsync(searchName, searchOriginal, year, mediaType);
     }
 
+    /// <summary>Поиск торрентов по свободному запросу.</summary>
     public async Task<List<TorrentDetails>> SearchByQueryAsync(
         string query,
         int? mediaType = null,
@@ -104,6 +106,7 @@ public class TorrentSearchService : ITorrentSearchService
         return await SearchByFtsAndTrigramAsync(searchQuery, searchQuery, null, mediaType);
     }
 
+    /// <summary>Сводка по качеству/языкам для найденных ключей.</summary>
     public async Task<Dictionary<string, Dictionary<int, TorrentQuality>>> GetQualityInfoAsync(
         string name,
         string originalName,

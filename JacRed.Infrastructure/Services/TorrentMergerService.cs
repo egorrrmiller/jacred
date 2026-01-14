@@ -8,6 +8,7 @@ namespace JacRed.Infrastructure.Services;
 
 public class TorrentMergerService : ITorrentMergerService
 {
+    /// <summary>Объединяет дубликаты торрентов по infohash и агрегирует метаданные.</summary>
     public Task<List<TorrentDetails>> MergeAsync(IEnumerable<TorrentDetails> torrents)
     {
         var result = torrents

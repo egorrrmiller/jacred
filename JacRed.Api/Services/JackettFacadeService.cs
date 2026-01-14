@@ -40,6 +40,7 @@ public class JackettFacadeService : IJackettFacadeService
         _searchPipeline = searchPipeline;
     }
 
+    /// <summary>Поиск для Jackett v2 с кэшированием результатов.</summary>
     public async Task<RootObject> SearchJackettAsync(
         string apikey,
         string query,
@@ -63,6 +64,7 @@ public class JackettFacadeService : IJackettFacadeService
             TimeSpan.FromMinutes(5));
     }
 
+    /// <summary>Поиск для API v1.0 с применением пайплайна и кэша.</summary>
     public async Task<IReadOnlyCollection<V1TorrentResponse>> SearchTorrentsAsync(
         string search,
         string altname,
@@ -122,6 +124,7 @@ public class JackettFacadeService : IJackettFacadeService
         return response;
     }
 
+    /// <summary>Возвращает сводку по качеству для LAMPA.</summary>
     public async Task<Dictionary<string, Dictionary<int, TorrentQuality>>> GetQualityInfoAsync(
         string name,
         string originalName,
@@ -132,6 +135,7 @@ public class JackettFacadeService : IJackettFacadeService
         return await _searchService.GetQualityInfoAsync(name, originalName, type, page, take);
     }
 
+    /// <summary>Возвращает время последнего обновления master_db.</summary>
     public DateTime GetLastUpdateDb()
     {
         var db = _contentCatalog.GetAllKeys();
@@ -371,3 +375,4 @@ public class JackettFacadeService : IJackettFacadeService
         return new RootObject { Results = jResult };
     }
 }
+

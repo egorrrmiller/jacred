@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
 using System.Web;
+using Dapper;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Tracks;
@@ -9,6 +10,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MonoTorrent;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Npgsql;
 
 namespace JacRed.Infrastructure.Services;
 
@@ -17,15 +20,18 @@ public class MediaAnalyzerService : IMediaAnalyzerService
     private readonly ConcurrentDictionary<string, ffprobemodel> _database;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<MediaAnalyzerService> _logger;
+    private readonly string _connectionString;
     private readonly string[] _tsuriEndpoints;
 
     public MediaAnalyzerService(
         ILogger<MediaAnalyzerService> logger,
         IHttpClientFactory httpClientFactory,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        string connectionString)
     {
         _logger = logger;
         _httpClientFactory = httpClientFactory;
+        _connectionString = connectionString;
         _database = new ConcurrentDictionary<string, ffprobemodel>();
         _tsuriEndpoints = (configuration["tsuri"]?.Split(',') ?? Array.Empty<string>())
             .Select(s => s.Trim())
@@ -33,29 +39,31 @@ public class MediaAnalyzerService : IMediaAnalyzerService
             .ToArray();
     }
 
+    /// <summary>Загружает уже сохранённые результаты ffprobe из БД в память.</summary>
     public async Task LoadExistingDataAsync()
     {
-        if (!Directory.Exists("Data/tracks")) return;
-
-        foreach (var file in Directory.EnumerateFiles("Data/tracks", "*", SearchOption.AllDirectories))
+        try
         {
-            var infohash = ExtractInfoHashFromPath(file);
-            if (string.IsNullOrEmpty(infohash)) continue;
+            using var connection = new NpgsqlConnection(_connectionString);
+            await connection.OpenAsync();
 
-            try
+            const string sql = "SELECT infohash, ffprobe FROM public.tracks";
+            var rows = await connection.QueryAsync<(string infohash, JToken ffprobe)>(sql);
+
+            foreach (var row in rows)
             {
-                var json = await File.ReadAllTextAsync(file);
-                var result = JsonConvert.DeserializeObject<ffprobemodel>(json);
+                var result = row.ffprobe?.ToObject<ffprobemodel>();
                 if (result?.streams?.Count > 0)
-                    _database.TryAdd(infohash, result);
+                    _database.TryAdd(row.infohash, result);
             }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to load track data for {infohash}", infohash);
-            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load track data from database");
         }
     }
 
+    /// <summary>Возвращает список потоков ffprobe для магнита, с опцией только кэш.</summary>
     public async Task<List<ffStream>> GetStreamsAsync(string? magnet, string[]? types = null, bool onlyCache = false)
     {
         if (!ShouldAnalyze(types) || string.IsNullOrEmpty(magnet))
@@ -71,14 +79,15 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         if (onlyCache)
             return new List<ffStream>();
 
-        var filePath = GetFilePath(infohash);
-        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
-            return new List<ffStream>();
-
         try
         {
-            var json = await File.ReadAllTextAsync(filePath);
-            result = JsonConvert.DeserializeObject<ffprobemodel>(json);
+            using var connection = new NpgsqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            const string sql = "SELECT ffprobe FROM public.tracks WHERE infohash = @InfoHash";
+            var token = await connection.QueryFirstOrDefaultAsync<JToken>(sql, new { InfoHash = infohash });
+            result = token?.ToObject<ffprobemodel>();
+
             if (result?.streams?.Count > 0)
             {
                 _database.TryAdd(infohash, result);
@@ -93,6 +102,7 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         return new List<ffStream>();
     }
 
+    /// <summary>Выполняет анализ ffprobe и сохраняет результат.</summary>
     public async Task AnalyzeAsync(string magnet, string[]? types = null)
     {
         if (!ShouldAnalyze(types) || _tsuriEndpoints.Length == 0 || string.IsNullOrEmpty(magnet))
@@ -137,7 +147,6 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         if (result?.streams?.Count <= 0)
             return;
 
-        // Cleanup torrent
         try
         {
             using var client = _httpClientFactory.CreateClient();
@@ -155,12 +164,20 @@ public class MediaAnalyzerService : IMediaAnalyzerService
 
         try
         {
-            var filePath = GetFilePath(infohash, true);
-            if (!string.IsNullOrEmpty(filePath))
+            using var connection = new NpgsqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            const string sql = @"
+                INSERT INTO public.tracks (infohash, ffprobe, updated_at)
+                VALUES (@InfoHash, @Ffprobe, now())
+                ON CONFLICT (infohash)
+                DO UPDATE SET ffprobe = EXCLUDED.ffprobe, updated_at = now()";
+
+            await connection.ExecuteAsync(sql, new
             {
-                var json = JsonConvert.SerializeObject(result, Formatting.Indented);
-                await File.WriteAllTextAsync(filePath, json);
-            }
+                InfoHash = infohash,
+                Ffprobe = JToken.FromObject(result)
+            });
         }
         catch (Exception ex)
         {
@@ -168,15 +185,14 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         }
     }
 
+    /// <summary>Извлекает языки из метаданных торрента и/или потоков.</summary>
     public async Task<HashSet<string>> ExtractLanguagesAsync(TorrentDetails torrent, List<ffStream>? streams = null)
     {
         var languages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // From torrent metadata
         if (torrent.Languages?.Count > 0)
             languages.UnionWith(torrent.Languages);
 
-        // From streams
         streams ??= await GetStreamsAsync(torrent.Magnet, torrent.Types);
         if (streams?.Count > 0)
             languages.UnionWith(streams
@@ -186,6 +202,7 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         return languages.Count > 0 ? languages : new HashSet<string>();
     }
 
+    /// <summary>Проверяет, подходит ли тип для анализа.</summary>
     public bool ShouldAnalyze(string[]? types)
     {
         return types == null || types.Length == 0 ||
@@ -204,25 +221,5 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         {
             return null;
         }
-    }
-
-    private string? ExtractInfoHashFromPath(string filePath)
-    {
-        var dir = Path.GetDirectoryName(filePath);
-        var folder2 = Path.GetFileName(dir);
-        var folder1 = Path.GetFileName(Path.GetDirectoryName(dir));
-        var file = Path.GetFileNameWithoutExtension(filePath);
-        return folder1 == null || folder2 == null || file == null ? null : folder1 + folder2 + file;
-    }
-
-    private string? GetFilePath(string infohash, bool createFolder = false)
-    {
-        if (string.IsNullOrWhiteSpace(infohash) || infohash.Length < 4)
-            return null;
-
-        var path = $"Data/tracks/{infohash.Substring(0, 2)}/{infohash[2]}/{infohash.Substring(3)}";
-        if (createFolder)
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
-        return path;
     }
 }

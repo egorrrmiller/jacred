@@ -35,6 +35,7 @@ public class TorrentRepository : ITorrentRepository
         _connectionString = connectionString;
     }
 
+    /// <summary>Добавляет/обновляет коллекцию торрентов без дополнительной фильтрации.</summary>
     public async Task AddOrUpdateAsync(IReadOnlyCollection<TorrentBaseDetails> torrents)
     {
         foreach (var group in torrents.GroupBy(t => _keyGenerator.Build(t.Name, t.OriginalName)))
@@ -53,6 +54,7 @@ public class TorrentRepository : ITorrentRepository
         }
     }
 
+    /// <summary>Добавляет/обновляет торренты с условной фильтрацией и обогащением.</summary>
     public async Task AddOrUpdateAsync<T>(
         IReadOnlyCollection<T> torrents,
         Func<T, IReadOnlyDictionary<string, TorrentDetails>, Task<bool>> predicate)
@@ -79,6 +81,7 @@ public class TorrentRepository : ITorrentRepository
         }
     }
 
+    /// <summary>Возвращает коллекцию торрентов по ключу, с опциональным обновлением кэша.</summary>
     public async Task<IReadOnlyDictionary<string, TorrentDetails>> GetCollectionAsync(string key, bool updateCache = false)
     {
         var cacheKey = $"collection:{key}";
