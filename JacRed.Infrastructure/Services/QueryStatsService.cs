@@ -5,6 +5,9 @@ using Npgsql;
 
 namespace JacRed.Infrastructure.Services;
 
+/// <summary>
+///     Учет и выдача статистики поисковых запросов.
+/// </summary>
 public class QueryStatsService : IQueryStatsService
 {
     private readonly string _connectionString;
@@ -14,6 +17,9 @@ public class QueryStatsService : IQueryStatsService
         _connectionString = connectionString;
     }
 
+    /// <summary>
+    ///     Сохраняет (инкрементирует) статистику для запроса.
+    /// </summary>
     public async Task TrackAsync(string query, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
@@ -37,6 +43,9 @@ public class QueryStatsService : IQueryStatsService
         await connection.ExecuteAsync(sql, new { Normalized = normalized, Raw = query });
     }
 
+    /// <summary>
+    ///     Возвращает топ популярных запросов.
+    /// </summary>
     public async Task<IReadOnlyCollection<string>> GetTopQueriesAsync(int take,
         CancellationToken cancellationToken = default)
     {
@@ -56,6 +65,9 @@ public class QueryStatsService : IQueryStatsService
         return results.Where(q => !string.IsNullOrWhiteSpace(q)).ToArray();
     }
 
+    /// <summary>
+    ///     Нормализует строку запроса (нижний регистр, убирает лишние символы).
+    /// </summary>
     private static string NormalizeQuery(string query)
     {
         if (string.IsNullOrWhiteSpace(query))

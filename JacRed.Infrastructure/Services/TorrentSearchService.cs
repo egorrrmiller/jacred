@@ -12,7 +12,7 @@ using Npgsql;
 namespace JacRed.Infrastructure.Services;
 
 /// <summary>
-///     Сервис полнотекстового и быстрого поиска по торрентам.
+///     Сервис полнотекстового и быстрого поиска по торрентам с использованием кэшей индексов.
 /// </summary>
 public class TorrentSearchService : ITorrentSearchService
 {
@@ -36,7 +36,9 @@ public class TorrentSearchService : ITorrentSearchService
         _logger = logger;
     }
 
-    /// <summary>Поиск торрентов по названию (локализованное/оригинальное), с опциональными фильтрами.</summary>
+    /// <summary>
+    ///     Поиск по названию (локализованному и оригинальному) с фильтрами по году, типу и точностью.
+    /// </summary>
     public async Task<List<TorrentDetails>> SearchByTitleAsync(
         string title,
         string originalTitle,
@@ -65,7 +67,9 @@ public class TorrentSearchService : ITorrentSearchService
         return await SearchByFtsAndTrigramAsync(searchName, searchOriginal, webTerm, year, mediaType);
     }
 
-    /// <summary>Поиск торрентов по свободному запросу.</summary>
+    /// <summary>
+    ///     Поиск по произвольной строке (быстрый индекс при exact или FTS/триграммы).
+    /// </summary>
     public async Task<List<TorrentDetails>> SearchByQueryAsync(
         string query,
         int? mediaType = null,
@@ -107,7 +111,9 @@ public class TorrentSearchService : ITorrentSearchService
         return await SearchByFtsAndTrigramAsync(searchQuery, searchQuery, query, null, mediaType);
     }
 
-    /// <summary>Сводка по качеству/языкам для найденных ключей.</summary>
+    /// <summary>
+    ///     Агрегирует информацию о качестве/языках раздач по найденным ключам (с пагинацией).
+    /// </summary>
     public async Task<Dictionary<string, Dictionary<int, TorrentQuality>>> GetQualityInfoAsync(
         string name,
         string originalName,
@@ -173,6 +179,9 @@ public class TorrentSearchService : ITorrentSearchService
 
     #region Private Methods
 
+    /// <summary>
+    ///     Выполняет SQL-запрос с FTS/LIKE/триграммами и применяет фильтры по году/типу.
+    /// </summary>
     private async Task<List<TorrentDetails>> SearchByFtsAndTrigramAsync(
         string? searchName,
         string? searchOriginal,
@@ -261,6 +270,9 @@ public class TorrentSearchService : ITorrentSearchService
             .ToList();
     }
 
+    /// <summary>
+    ///     Преобразует запись БД в доменную модель TorrentDetails.
+    /// </summary>
     private TorrentDetails? MapToDomainModel(Torrent db)
     {
         try
@@ -301,12 +313,18 @@ public class TorrentSearchService : ITorrentSearchService
         }
     }
 
+    /// <summary>
+    ///     Проверяет, удовлетворяет ли раздача фильтрам по году и типу.
+    /// </summary>
     private bool MatchesFilters(TorrentDetails t, int? year, int? mediaType)
     {
         return (!year.HasValue || MatchesYear(t, year.Value)) &&
                MatchesType(t, mediaType);
     }
 
+    /// <summary>
+    ///     Проверяет принадлежность раздачи к указанному типу (фильм/сериал/аниме/док и т.п.).
+    /// </summary>
     private bool MatchesType(TorrentDetails t, int? mediaType)
     {
         return mediaType switch
@@ -325,6 +343,9 @@ public class TorrentSearchService : ITorrentSearchService
         };
     }
 
+    /// <summary>
+    ///     Проверяет соответствие года релиза (для кино допускает ±1 год).
+    /// </summary>
     private bool MatchesYear(TorrentDetails t, int year)
     {
         var isMovieType = t.Types?.Contains("movie") == true ||
@@ -336,6 +357,9 @@ public class TorrentSearchService : ITorrentSearchService
             : t.Relased >= year - 1;
     }
 
+    /// <summary>
+    ///     Строит нормализованные ключи поиска из локализованного и оригинального названия.
+    /// </summary>
     private IEnumerable<string> BuildSearchKeys(string name, string original)
     {
         return new[] { name, original }

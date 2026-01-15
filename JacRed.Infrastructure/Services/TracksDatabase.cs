@@ -10,6 +10,9 @@ using Npgsql;
 
 namespace JacRed.Infrastructure.Services;
 
+/// <summary>
+///     Хранилище ffprobe-данных по infohash с локальным кэшем.
+/// </summary>
 public class TracksDatabase : ITracksDatabase
 {
     private readonly string _connectionString;
@@ -24,7 +27,9 @@ public class TracksDatabase : ITracksDatabase
         _connectionString = connectionString;
     }
 
-    /// <summary>���������� ������ ffprobe �� ������ ��� �� �� ������-������.</summary>
+    /// <summary>
+    ///     Возвращает потоки из кэша или БД по магнету, если тип не исключён.
+    /// </summary>
     public List<ffStream>? GetStreams(string magnet, string[]? types = null)
     {
         if (IsExcludedType(types))
@@ -60,7 +65,9 @@ public class TracksDatabase : ITracksDatabase
         return null;
     }
 
-    /// <summary>��������� ����� �� ���������� �������� � �������.</summary>
+    /// <summary>
+    ///     Возвращает набор языков аудиодорожек на основе торрента и списка потоков.
+    /// </summary>
     public HashSet<string> GetLanguages(TorrentDetails torrent, List<ffStream> streams)
     {
         var languages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -76,7 +83,9 @@ public class TracksDatabase : ITracksDatabase
         return languages;
     }
 
-    /// <summary>���������� ����, ��� ������� ������ �� �����������.</summary>
+    /// <summary>
+    ///     Проверяет, нужно ли исключить анализ по типу (спорт/ток-шоу/док-сериалы).
+    /// </summary>
     public bool IsExcludedType(string[]? types)
     {
         if (types == null || types.Length == 0)
@@ -87,6 +96,9 @@ public class TracksDatabase : ITracksDatabase
                types.Contains("docuserial", StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    ///     Достаёт infohash из magent-ссылки.
+    /// </summary>
     private string? ExtractInfoHash(string magnet)
     {
         try

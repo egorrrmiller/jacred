@@ -11,7 +11,7 @@ using Npgsql;
 namespace JacRed.Infrastructure.Services;
 
 /// <summary>
-///     Сервис для управления глобальным каталогом торрентов (key → TorrentInfo).
+///     Каталог контента: кеширует список всех ключей раздач и строит быстрые индексы по ним.
 /// </summary>
 public class ContentCatalogService : IContentCatalog
 {
@@ -35,10 +35,8 @@ public class ContentCatalogService : IContentCatalog
     }
 
     /// <summary>
-    ///     Возвращает весь каталог (key → TorrentInfo).
-    ///     Кэшируется в памяти на 30 минут. При отсутствии — загружается из БД.
+    ///     Возвращает кешированный словарь всех ключей (Key → TorrentInfo), обновляя каждые 30 минут.
     /// </summary>
-    /// <summary>Возвращает полный справочник ключей master_db из памяти или БД.</summary>
     public ConcurrentDictionary<string, TorrentInfo>? GetAllKeys()
     {
         if (_memoryCache.TryGetValue<ConcurrentDictionary<string, TorrentInfo>>(AllKeysCacheKey, out var value))
@@ -52,9 +50,8 @@ public class ContentCatalogService : IContentCatalog
     }
 
     /// <summary>
-    ///     Возвращает быстрый индекс для поиска: подстрока → список ключей.
+    ///     Строит быстрые индексы по частям ключей, с возможностью принудительного обновления.
     /// </summary>
-    /// <summary>Возвращает быстрый индекс для поиска, с опциональным пересчётом.</summary>
     public async Task<Dictionary<string, List<string>>> GetFastIndexes(bool forceUpdate = false)
     {
         if (forceUpdate)
@@ -70,13 +67,16 @@ public class ContentCatalogService : IContentCatalog
 
             BuildFastIndex(fastdb, allKeys);
 
-            _logger.LogInformation("Создан быстрый индекс: {Count} уникальных ключей", fastdb.Count);
+            _logger.LogInformation("Построен быстрый индекс: {Count} сегментов ключей", fastdb.Count);
             return Task.FromResult(fastdb);
         }, TimeSpan.FromMinutes(30));
     }
 
     #region Private Methods
 
+    /// <summary>
+    ///     Загружает все записи из master_db и формирует словарь ключей.
+    /// </summary>
     private ConcurrentDictionary<string, TorrentInfo> LoadAllFromDatabase()
     {
         const string sql = @"SELECT ""Key"", ""UpdateTime"", ""FileTime"" FROM public.master_db";
@@ -98,8 +98,7 @@ public class ContentCatalogService : IContentCatalog
     }
 
     /// <summary>
-    ///     Построение индекса — избегает Span в async-контексте.
-    ///     Передаётся только строка, а не Span — безопасно для yield/await.
+    ///     Строит быстрый индекс по частям ключей (split по ':') для ускоренного поиска.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void BuildFastIndex(Dictionary<string, List<string>> fastdb,

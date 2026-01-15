@@ -15,6 +15,9 @@ using Npgsql;
 
 namespace JacRed.Infrastructure.Services;
 
+/// <summary>
+///     Анализ медиапотоков: загрузка ffprobe из кеша/БД, запуск ffprobe, извлечение языков.
+/// </summary>
 public class MediaAnalyzerService : IMediaAnalyzerService
 {
     private readonly string _connectionString;
@@ -39,7 +42,9 @@ public class MediaAnalyzerService : IMediaAnalyzerService
             .ToArray();
     }
 
-    /// <summary>��������� ��� ����������� ���������� ffprobe �� �� � ������.</summary>
+    /// <summary>
+    ///     Загружает сохранённые ffprobe-данные из БД в память.
+    /// </summary>
     public async Task LoadExistingDataAsync()
     {
         try
@@ -63,7 +68,9 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         }
     }
 
-    /// <summary>���������� ������ ������� ffprobe ��� �������, � ������ ������ ���.</summary>
+    /// <summary>
+    ///     Возвращает потоки из кэша/БД по магнету; при onlyCache=true не выполняет запросы к БД.
+    /// </summary>
     public async Task<List<ffStream>> GetStreamsAsync(string? magnet, string[]? types = null, bool onlyCache = false)
     {
         if (!ShouldAnalyze(types) || string.IsNullOrEmpty(magnet))
@@ -102,7 +109,9 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         return new List<ffStream>();
     }
 
-    /// <summary>��������� ������ ffprobe � ��������� ���������.</summary>
+    /// <summary>
+    ///     Запускает ffprobe для магнета через tsuri-эндпоинт и сохраняет результаты.
+    /// </summary>
     public async Task AnalyzeAsync(string magnet, string[]? types = null)
     {
         if (!ShouldAnalyze(types) || _tsuriEndpoints.Length == 0 || string.IsNullOrEmpty(magnet))
@@ -185,7 +194,9 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         }
     }
 
-    /// <summary>��������� ����� �� ���������� �������� �/��� �������.</summary>
+    /// <summary>
+    ///     Извлекает языки из торрента и потоков (если они есть).
+    /// </summary>
     public async Task<HashSet<string>> ExtractLanguagesAsync(TorrentDetails torrent, List<ffStream>? streams = null)
     {
         var languages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -202,7 +213,9 @@ public class MediaAnalyzerService : IMediaAnalyzerService
         return languages.Count > 0 ? languages : new HashSet<string>();
     }
 
-    /// <summary>���������, �������� �� ��� ��� �������.</summary>
+    /// <summary>
+    ///     Проверяет, нужно ли анализировать медиапотоки для указанных типов.
+    /// </summary>
     public bool ShouldAnalyze(string[]? types)
     {
         return types == null || types.Length == 0 ||
@@ -211,6 +224,9 @@ public class MediaAnalyzerService : IMediaAnalyzerService
                 !types.Contains("docuserial", StringComparer.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    ///     Достаёт infohash из magnet-ссылки.
+    /// </summary>
     private string? ExtractInfoHash(string magnet)
     {
         try

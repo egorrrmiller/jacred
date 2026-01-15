@@ -11,8 +11,7 @@ using Npgsql;
 namespace JacRed.Infrastructure.Services;
 
 /// <summary>
-///     Репозиторий для управления торрентами с использованием PostgreSQL и Dapper.
-///     Поддерживает кэширование коллекций на 30 минут.
+///     Репозиторий торрентов на PostgreSQL/Dapper: upsert коллекций и чтение по ключам.
 /// </summary>
 public class TorrentRepository : ITorrentRepository
 {
@@ -36,14 +35,15 @@ public class TorrentRepository : ITorrentRepository
         _connectionString = connectionString;
     }
 
-    /// <summary>Добавляет/обновляет коллекцию торрентов без дополнительной фильтрации.</summary>
+    /// <summary>
+    ///     Добавляет или обновляет торренты, группируя по ключу name:originalname.
+    /// </summary>
     public async Task AddOrUpdateAsync(IReadOnlyCollection<TorrentDetails> torrents)
     {
         foreach (var group in torrents.GroupBy(t => _keyGenerator.Build(t.Name, t.OriginalName)))
         {
             var key = group.Key;
 
-            // Upsert master_db
             await UpsertMasterDb(key);
 
             foreach (var torrent in group) await UpsertTorrent(torrent);
@@ -52,7 +52,9 @@ public class TorrentRepository : ITorrentRepository
         }
     }
 
-    /// <summary>Добавляет/обновляет торренты с условной фильтрацией и обогащением.</summary>
+    /// <summary>
+    ///     Добавляет/обновляет торренты с дополнительной проверкой через предикат.
+    /// </summary>
     public async Task AddOrUpdateAsync<T>(
         IReadOnlyCollection<T> torrents,
         Func<T, IReadOnlyDictionary<string, TorrentDetails>, Task<bool>> predicate)
@@ -63,7 +65,6 @@ public class TorrentRepository : ITorrentRepository
             var key = group.Key;
             var currentData = await GetCollectionAsync(key, false);
 
-            // Upsert master_db
             await UpsertMasterDb(key);
 
             foreach (var torrent in group)
@@ -79,7 +80,9 @@ public class TorrentRepository : ITorrentRepository
         }
     }
 
-    /// <summary>Возвращает коллекцию торрентов по ключу, с опциональным обновлением кэша.</summary>
+    /// <summary>
+    ///     Возвращает коллекцию торрентов по ключу, при необходимости обновляя кэш.
+    /// </summary>
     public async Task<IReadOnlyDictionary<string, TorrentDetails>> GetCollectionAsync(string key,
         bool updateCache = false)
     {
@@ -97,6 +100,9 @@ public class TorrentRepository : ITorrentRepository
 
     #region Private Methods
 
+    /// <summary>
+    ///     Обновляет master_db (timestamp/filetime) для указанного ключа.
+    /// </summary>
     private async Task UpsertMasterDb(string key)
     {
         using var connection = new NpgsqlConnection(_connectionString);
@@ -116,6 +122,9 @@ public class TorrentRepository : ITorrentRepository
         });
     }
 
+    /// <summary>
+    ///     Добавляет или обновляет одну запись в таблице torrents.
+    /// </summary>
     private async Task UpsertTorrent(TorrentDetails src)
     {
         using var connection = new NpgsqlConnection(_connectionString);
@@ -124,7 +133,6 @@ public class TorrentRepository : ITorrentRepository
         var details = src;
         var now = DateTime.UtcNow;
 
-        // Проверка на наличие
         const string existsSql = @"SELECT 1 FROM public.torrents WHERE url = @Url";
         var exists = await connection.QueryFirstOrDefaultAsync<int?>(existsSql, new { src.Url }) == 1;
 
@@ -179,6 +187,9 @@ public class TorrentRepository : ITorrentRepository
         }
     }
 
+    /// <summary>
+    ///     Загружает коллекцию торрентов из БД по ключу.
+    /// </summary>
     private async Task<Dictionary<string, TorrentDetails>> LoadCollectionFromDbAsync(string key)
     {
         var terms = ExtractKeyTerms(key);
@@ -220,6 +231,9 @@ public class TorrentRepository : ITorrentRepository
         return dict;
     }
 
+    /// <summary>
+    ///     Разбивает ключ name:originalname на части для LIKE-поиска.
+    /// </summary>
     private static string[] ExtractKeyTerms(string key)
     {
         if (string.IsNullOrWhiteSpace(key))
@@ -233,6 +247,9 @@ public class TorrentRepository : ITorrentRepository
             .ToArray();
     }
 
+    /// <summary>
+    ///     Маппинг доменной модели в БД-модель.
+    /// </summary>
     private Torrent MapToDbModel(TorrentDetails src, DateTime now, bool isNew = false)
     {
         var details = src;
@@ -271,6 +288,9 @@ public class TorrentRepository : ITorrentRepository
         };
     }
 
+    /// <summary>
+    ///     Маппинг БД-модели в доменную с обработкой ошибок.
+    /// </summary>
     private TorrentDetails? MapToDomainModel(Torrent db)
     {
         try

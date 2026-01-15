@@ -3,9 +3,14 @@ using JacRed.Core.Utils;
 
 namespace JacRed.Infrastructure.Services;
 
+/// <summary>
+///     Генератор стабильных ключей поиска на основе названий.
+/// </summary>
 public class KeyGenerator : IKeyGenerator
 {
-    /// <summary>Формирует ключ поиска на основе названий.</summary>
+    /// <summary>
+    ///     Строит ключ из локализованного и оригинального названия в формате "search_name:search_originalname".
+    /// </summary>
     public string Build(string name, string originalName)
     {
         var searchName = StringConvert.SearchName(name);

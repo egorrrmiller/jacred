@@ -6,9 +6,14 @@ using MonoTorrent;
 
 namespace JacRed.Infrastructure.Services;
 
+/// <summary>
+///     Объединяет дублирующиеся торренты, собирая лучшую информацию и единый magnet.
+/// </summary>
 public class TorrentMergerService : ITorrentMergerService
 {
-    /// <summary>Объединяет дубликаты торрентов по infohash и агрегирует метаданные.</summary>
+    /// <summary>
+    ///     Схлопывает коллекцию торрентов по infohash, объединяя метаданные.
+    /// </summary>
     public Task<List<TorrentDetails>> MergeAsync(IEnumerable<TorrentDetails> torrents)
     {
         var result = torrents
@@ -21,6 +26,9 @@ public class TorrentMergerService : ITorrentMergerService
         return Task.FromResult(result);
     }
 
+    /// <summary>
+    ///     Объединяет одну группу дублей в единый объект.
+    /// </summary>
     private TorrentDetails MergeGroup(List<TorrentDetails> group)
     {
         var first = group.First();
@@ -39,16 +47,14 @@ public class TorrentMergerService : ITorrentMergerService
             ? first.Magnet.AnnounceName()
             : null;
 
-        // === Обработка остальных торрентов в группе ===
+        // Сведение метаданных
         foreach (var t in group.Skip(1))
         {
-            // Announce URLs
             var tAnnounceUrls = t.Magnet?.AnnounceUrls();
             if (tAnnounceUrls?.Any() == true)
                 foreach (var url in tAnnounceUrls)
                     announceUrls.Add(url);
 
-            // Voices
             if (t.Voices?.Any() == true)
             {
                 foreach (var v in t.Voices)
@@ -57,63 +63,50 @@ public class TorrentMergerService : ITorrentMergerService
                     titleOverride = t.Title;
             }
 
-            // Languages
             if (t.Languages?.Any() == true)
                 foreach (var lang in t.Languages)
                     languages.Add(lang);
 
-            // Seasons
             if (t.Seasons?.Any() == true)
                 foreach (var s in t.Seasons)
                     seasons.Add(s);
 
-            // Title override (kinozal priority)
             if (t.TrackerName == "kinozal")
                 titleOverride = t.Title;
 
-            // Torrent name
             if (string.IsNullOrWhiteSpace(torrentName) && !string.IsNullOrWhiteSpace(t.Magnet?.AnnounceName()))
                 torrentName = t.Magnet?.AnnounceName();
 
-            // Ffprobe
             if (merged.Ffprobe == null && t.Ffprobe?.Any() == true)
-                merged.Ffprobe = t.Ffprobe; // List<ffStream>
+                merged.Ffprobe = t.Ffprobe;
 
-            // ffprobe_tryingdata
             if (merged.FfprobeTryCount == 0 && t.FfprobeTryCount > 0)
                 merged.FfprobeTryCount = t.FfprobeTryCount;
 
-            // relased
             if (merged.Relased == 0 && t.Relased > 0)
                 merged.Relased = t.Relased;
 
-            // quality
             if (merged.Quality == 0 && t.Quality > 0)
                 merged.Quality = t.Quality;
 
-            // videotype
             if (string.IsNullOrWhiteSpace(merged.VideoType) && !string.IsNullOrWhiteSpace(t.VideoType))
                 merged.VideoType = t.VideoType;
 
-            // size / sizeName
             if (merged.Size == 0.0 && t.Size > 0)
             {
                 merged.Size = t.Size;
                 merged.SizeName = t.SizeName;
             }
 
-            // name / originalname
             if (string.IsNullOrWhiteSpace(merged.Name) && !string.IsNullOrWhiteSpace(t.Name))
                 merged.Name = t.Name;
 
             if (string.IsNullOrWhiteSpace(merged.OriginalName) && !string.IsNullOrWhiteSpace(t.OriginalName))
                 merged.OriginalName = t.OriginalName;
 
-            // types
             if (merged.Types == null && t.Types?.Any() == true)
                 merged.Types = t.Types;
 
-            // _sn / _so
             if (string.IsNullOrWhiteSpace(merged.SourceSeasonNumber) &&
                 !string.IsNullOrWhiteSpace(t.SourceSeasonNumber))
                 merged.SourceSeasonNumber = t.SourceSeasonNumber;
@@ -121,24 +114,20 @@ public class TorrentMergerService : ITorrentMergerService
             if (string.IsNullOrWhiteSpace(merged.SourceSeasonOrder) && !string.IsNullOrWhiteSpace(t.SourceSeasonOrder))
                 merged.SourceSeasonOrder = t.SourceSeasonOrder;
 
-            // S&P (кроме selezen)
             if (t.TrackerName != "selezen")
             {
                 if (t.Sid > merged.Sid) merged.Sid = t.Sid;
                 if (t.Pir > merged.Pir) merged.Pir = t.Pir;
             }
 
-            // Время
             if (t.CreateTime > merged.CreateTime)
                 merged.CreateTime = t.CreateTime;
         }
 
-        // === Сборка магнита ===
         var mergedMagnet = BuildMagnet(GetInfoHash(merged.Magnet), torrentName, announceUrls);
         if (!string.IsNullOrWhiteSpace(mergedMagnet))
             merged.Magnet = mergedMagnet;
 
-        // === Формирование заголовка ===
         if (!string.IsNullOrWhiteSpace(titleOverride))
         {
             merged.Title = titleOverride;
@@ -146,7 +135,6 @@ public class TorrentMergerService : ITorrentMergerService
                 merged.Title += $" | {string.Join(" | ", voices)}";
         }
 
-        // === Финальное присваивание ===
         merged.Voices = voices;
         merged.Languages = languages;
         merged.Seasons = seasons;
@@ -154,6 +142,9 @@ public class TorrentMergerService : ITorrentMergerService
         return merged;
     }
 
+    /// <summary>
+    ///     Достаёт infohash из магнита, при ошибке возвращает исходную строку.
+    /// </summary>
     private string GetInfoHash(string magnet)
     {
         try
@@ -162,10 +153,13 @@ public class TorrentMergerService : ITorrentMergerService
         }
         catch
         {
-            return magnet; // fallback
+            return magnet;
         }
     }
 
+    /// <summary>
+    ///     Собирает новую magnet-ссылку из infohash, имени и списка трекеров.
+    /// </summary>
     private string? BuildMagnet(string infoHash, string name, HashSet<string> announceUrls)
     {
         if (string.IsNullOrWhiteSpace(infoHash))
