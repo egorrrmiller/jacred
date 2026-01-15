@@ -1,9 +1,9 @@
 using JacRed.Core;
 using JacRed.Core.Enums;
 
-namespace JacRed.Api.Services.Trackers;
+namespace JacRed.Infrastructure.Services.Trackers;
 
-public sealed class TolokaTrackerSearchProvider : BaseTrackerSearchProvider
+public sealed class Toloka : BaseTrackerSearch
 {
     public override TrackerType Tracker => TrackerType.Toloka;
     public override string TrackerName => "toloka";

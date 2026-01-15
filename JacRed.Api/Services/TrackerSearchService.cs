@@ -18,11 +18,11 @@ public class TrackerSearchService : ITrackerSearchService
     private readonly ICacheService _cacheService;
     private readonly HashSet<string> _disabledTrackers;
     private readonly ILogger<TrackerSearchService> _logger;
-    private readonly IReadOnlyDictionary<TrackerType, ITrackerSearchProvider> _providers;
+    private readonly IReadOnlyDictionary<TrackerType, ITrackerSearch> _providers;
 
     public TrackerSearchService(
         ICacheService cacheService,
-        IEnumerable<ITrackerSearchProvider> providers,
+        IEnumerable<ITrackerSearch> providers,
         ILogger<TrackerSearchService> logger)
     {
         _cacheService = cacheService;

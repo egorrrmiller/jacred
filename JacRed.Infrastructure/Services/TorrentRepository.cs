@@ -3,6 +3,7 @@ using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Database;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Tracks;
+using JacRed.Core.Utils;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using Npgsql;
@@ -155,7 +156,9 @@ public class TorrentRepository : ITorrentRepository
                     quality             = @Quality,
                     video_type          = @VideoType,
                     voices              = @Voices,
-                    seasons             = @Seasons
+                    seasons             = @Seasons,
+                    search_name         = @SearchName,
+                    original_search_name = @OriginalSearchName
                 WHERE url = @Url";
 
             await connection.ExecuteAsync(updateSql, MapToDbModel(src, now));
@@ -167,12 +170,12 @@ public class TorrentRepository : ITorrentRepository
                 (id, tracker_name, types, url, title, sid, pir, size_name, 
                  create_time, update_time, check_time, magnet, name, original_name, 
                  relased, languages, ffprobe, ffprobe_try_count, source_season_number, 
-                 source_season_order, size, quality, video_type, voices, seasons)
+                 source_season_order, size, quality, video_type, voices, seasons, search_name, original_search_name)
                 VALUES
                 (@Id, @TrackerName, @Types, @Url, @Title, @Sid, @Pir, @SizeName,
                  @CreateTime, @UpdateTime, @CheckTime, @Magnet, @Name, @OriginalName,
                  @Relased, @Languages, @Ffprobe, @FfprobeTryCount, @SourceSeasonNumber,
-                 @SourceSeasonOrder, @Size, @Quality, @VideoType, @Voices, @Seasons)";
+                 @SourceSeasonOrder, @Size, @Quality, @VideoType, @Voices, @Seasons, @SearchName, @OriginalSearchName)";
 
             await connection.ExecuteAsync(insertSql, MapToDbModel(src, now, true));
         }
@@ -197,9 +200,8 @@ public class TorrentRepository : ITorrentRepository
                 WHERE key = @Key
             )
             AND (
-                regexp_replace(lower(coalesce(title, '')), '[^a-z0-9]+', '', 'g') LIKE ANY(@Patterns)
-                OR regexp_replace(lower(coalesce(name, '')), '[^a-z0-9]+', '', 'g') LIKE ANY(@Patterns)
-                OR regexp_replace(lower(coalesce(original_name, '')), '[^a-z0-9]+', '', 'g') LIKE ANY(@Patterns)
+                coalesce(search_name, regexp_replace(lower(coalesce(name, '')), '[^a-z0-9]+', '', 'g')) LIKE ANY(@Patterns)
+                OR coalesce(original_search_name, regexp_replace(lower(coalesce(original_name, '')), '[^a-z0-9]+', '', 'g')) LIKE ANY(@Patterns)
             )";
 
         var torrents = await connection.QueryAsync<Torrent>(sql, new
@@ -236,6 +238,8 @@ public class TorrentRepository : ITorrentRepository
     private Torrent MapToDbModel(TorrentDetails src, DateTime now, bool isNew = false)
     {
         var details = src as TorrentDetails;
+        var searchName = StringConvert.SearchName(src.Name) ?? StringConvert.SearchName(src.Title);
+        var originalSearchName = StringConvert.SearchName(src.OriginalName) ?? StringConvert.SearchName(src.Title);
 
         return new Torrent
         {
@@ -263,7 +267,9 @@ public class TorrentRepository : ITorrentRepository
             Quality = details?.Quality ?? 0,
             VideoType = details?.VideoType,
             Voices = details?.Voices?.ToArray(),
-            Seasons = details?.Seasons?.ToArray()
+            Seasons = details?.Seasons?.ToArray(),
+            SearchName = searchName,
+            OriginalSearchName = originalSearchName
         };
     }
 

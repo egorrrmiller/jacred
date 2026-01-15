@@ -1,15 +1,12 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
+using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 
-namespace JacRed.Api.Services.Trackers;
+namespace JacRed.Infrastructure.Services.Trackers;
 
-public abstract class BaseTrackerSearchProvider : ITrackerSearchProvider
+public abstract class BaseTrackerSearch : ITrackerSearch
 {
-    public abstract Core.Enums.TrackerType Tracker { get; }
+    public abstract TrackerType Tracker { get; }
     public abstract string TrackerName { get; }
     public abstract string Host { get; }
 

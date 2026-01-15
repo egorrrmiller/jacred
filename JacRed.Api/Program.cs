@@ -1,12 +1,12 @@
 using System;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Dapper;
 using JacRed.Api.Configuration;
 using JacRed.Api.Engine;
 using JacRed.Api.Services;
@@ -24,6 +24,9 @@ using Microsoft.Extensions.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Dapper: сопоставление snake_case колонок с PascalCase свойствами
+DefaultTypeMap.MatchNamesWithUnderscores = true;
+
 // --- Настройка Kestrel ---
 builder.WebHost.UseKestrel(options =>
 {
@@ -39,12 +42,7 @@ CultureInfo.CurrentCulture = new CultureInfo("ru-RU");
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 // --- Сервисы ---
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-        options.JsonSerializerOptions.PropertyNamingPolicy = null;
-    });
+builder.Services.AddControllers();
 
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
@@ -72,6 +70,8 @@ builder.Services.AddResponseCompression(options =>
 });
 
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
+
+builder.Services.AddHostedService<TrackerCatalogPrefetchService>();
 
 // --- Регистрация зависимостей ---
 builder.Services.RegisterServices();

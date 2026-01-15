@@ -1,9 +1,9 @@
 using JacRed.Core;
 using JacRed.Core.Enums;
 
-namespace JacRed.Api.Services.Trackers;
+namespace JacRed.Infrastructure.Services.Trackers;
 
-public sealed class NNMClubTrackerSearchProvider : BaseTrackerSearchProvider
+public sealed class NnmClub : BaseTrackerSearch
 {
     public override TrackerType Tracker => TrackerType.NNMClub;
     public override string TrackerName => "nnmclub";

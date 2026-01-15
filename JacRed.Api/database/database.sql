@@ -75,7 +75,9 @@ CREATE TABLE IF NOT EXISTS public.torrents
     seasons             integer[]        NULL,               -- Seasons (HashSet<int>)
 
 -- Полнотекстовый индексируемый столбец (для произвольного поиска)
-    search_tsv          tsvector         NULL
+    search_tsv          tsvector         NULL,
+    search_name         text             NULL,
+    original_search_name text            NULL
     );
 
 COMMENT ON TABLE public.torrents IS 'Раздачи (TorrentDetails). Поиск по произвольному тексту через search_tsv + trigram.';
@@ -104,6 +106,12 @@ CREATE INDEX IF NOT EXISTS ix_torrents_name_trgm
 
 CREATE INDEX IF NOT EXISTS ix_torrents_original_name_trgm
     ON public.torrents USING gin (original_name gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS ix_torrents_search_name_trgm
+    ON public.torrents USING gin (search_name gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS ix_torrents_original_search_name_trgm
+    ON public.torrents USING gin (original_search_name gin_trgm_ops);
 
 -- FTS индекс
 CREATE INDEX IF NOT EXISTS ix_torrents_search_tsv

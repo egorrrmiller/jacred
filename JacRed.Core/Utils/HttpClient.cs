@@ -112,17 +112,17 @@ public class HttpService
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
-            _httpClient.MaxResponseContentBufferSize = maxResponseSize == 0 ? 10_000_000 : maxResponseSize;
             using var response = await _httpClient
                 .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
 
             if (response.StatusCode != HttpStatusCode.OK)
                 return (null, response);
 
-            var stream = await response.Content.ReadAsStreamAsync(cts.Token).ConfigureAwait(false);
-            using var reader = new StreamReader(stream, encoding ?? Encoding.UTF8, detectEncodingFromByteOrderMarks: true, 8192, leaveOpen: true);
-
-            var content = await reader.ReadToEndAsync(cts.Token).ConfigureAwait(false);
+            var content = await ReadContentAsStringAsync(
+                response,
+                encoding ?? Encoding.UTF8,
+                maxResponseSize,
+                cts.Token).ConfigureAwait(false);
             if (content.Length == 0) return (null, response);
 
             return string.IsNullOrWhiteSpace(content) ? (null, response) : (content, response);
@@ -193,7 +193,7 @@ public class HttpService
         bool useProxy = false)
     {
         var content = new StringContent(data, Encoding.UTF8, "application/x-www-form-urlencoded");
-        return Post(url, content, cookie, timeoutSeconds, addHeaders, useProxy);
+        return Post(url, content, cookie, timeoutSeconds, addHeaders, useProxy, null, maxResponseSize);
     }
 
     public async ValueTask<string> Post(
@@ -203,7 +203,8 @@ public class HttpService
         int timeoutSeconds = 15,
         List<(string name, string val)>? addHeaders = null,
         bool useProxy = false,
-        Encoding? encoding = null)
+        Encoding? encoding = null,
+        int maxResponseSize = 10_000_000)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
         request.Headers.UserAgent.ParseAdd(UserAgent);
@@ -222,10 +223,12 @@ public class HttpService
             if (response.StatusCode != HttpStatusCode.OK)
                 return string.Empty;
 
-            var bytes = await response.Content.ReadAsByteArrayAsync(cts.Token).ConfigureAwait(false);
-            if (bytes.Length == 0) return string.Empty;
-
-            return encoding != null ? encoding.GetString(bytes) : Encoding.UTF8.GetString(bytes);
+            var text = await ReadContentAsStringAsync(
+                response,
+                encoding ?? Encoding.UTF8,
+                maxResponseSize,
+                cts.Token).ConfigureAwait(false);
+            return string.IsNullOrEmpty(text) ? string.Empty : text;
         }
         catch
         {
@@ -245,10 +248,11 @@ public class HttpService
         List<(string name, string val)>? addHeaders = null,
         bool useProxy = false,
         Encoding? encoding = null,
-        bool ignoreDeserializeErrors = false)
+        bool ignoreDeserializeErrors = false,
+        int maxResponseSize = 10_000_000)
     {
         var content = new StringContent(data, Encoding.UTF8, "application/x-www-form-urlencoded");
-        return await Post<T>(url, content, cookie, timeoutSeconds, addHeaders, useProxy, encoding, ignoreDeserializeErrors);
+        return await Post<T>(url, content, cookie, timeoutSeconds, addHeaders, useProxy, encoding, ignoreDeserializeErrors, maxResponseSize);
     }
 
     public async ValueTask<T> Post<T>(
@@ -259,11 +263,12 @@ public class HttpService
         List<(string name, string val)>? addHeaders = null,
         bool useProxy = false,
         Encoding? encoding = null,
-        bool ignoreDeserializeErrors = false)
+        bool ignoreDeserializeErrors = false,
+        int maxResponseSize = 10_000_000)
     {
         try
         {
-            var json = await Post(url, content, cookie, timeoutSeconds, addHeaders, useProxy, encoding);
+            var json = await Post(url, content, cookie, timeoutSeconds, addHeaders, useProxy, encoding, maxResponseSize);
             if (string.IsNullOrEmpty(json)) return default!;
             var settings = ignoreDeserializeErrors
                 ? new JsonSerializerSettings { Error = (se, ev) => ev.ErrorContext.Handled = true }
@@ -285,6 +290,41 @@ public class HttpService
             StatusCode = code,
             RequestMessage = new HttpRequestMessage(HttpMethod.Get, url)
         };
+    }
+
+    private static async Task<string> ReadContentAsStringAsync(
+        HttpResponseMessage response,
+        Encoding encoding,
+        int maxResponseSize,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using var reader = new StreamReader(
+            stream,
+            encoding,
+            detectEncodingFromByteOrderMarks: true,
+            bufferSize: 8192,
+            leaveOpen: true);
+
+        var builder = new StringBuilder();
+        var buffer = new char[4096];
+        var limitBytes = maxResponseSize > 0 ? maxResponseSize : int.MaxValue;
+        var currentBytes = 0;
+
+        while (true)
+        {
+            var read = await reader.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false);
+            if (read == 0)
+                break;
+
+            currentBytes += read * sizeof(char);
+            if (currentBytes > limitBytes)
+                return string.Empty;
+
+            builder.Append(buffer, 0, read);
+        }
+
+        return builder.ToString();
     }
 
     #region ProxyHandler

@@ -61,7 +61,8 @@ public class TorrentSearchService : ITorrentSearchService
                 .ToList();
         }
 
-        return await SearchByFtsAndTrigramAsync(searchName, searchOriginal, year, mediaType);
+        var webTerm = !string.IsNullOrWhiteSpace(title) ? title : originalTitle;
+        return await SearchByFtsAndTrigramAsync(searchName, searchOriginal, webTerm, year, mediaType);
     }
 
     /// <summary>Поиск торрентов по свободному запросу.</summary>
@@ -103,7 +104,7 @@ public class TorrentSearchService : ITorrentSearchService
             return new List<TorrentDetails>();
         }
 
-        return await SearchByFtsAndTrigramAsync(searchQuery, searchQuery, null, mediaType);
+        return await SearchByFtsAndTrigramAsync(searchQuery, searchQuery, query, null, mediaType);
     }
 
     /// <summary>Сводка по качеству/языкам для найденных ключей.</summary>
@@ -173,33 +174,75 @@ public class TorrentSearchService : ITorrentSearchService
     #region Private Methods
 
     private async Task<List<TorrentDetails>> SearchByFtsAndTrigramAsync(
-        string searchName,
-        string searchOriginal,
+        string? searchName,
+        string? searchOriginal,
+        string? webTerm,
         int? year,
         int? mediaType)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
 
+        var patterns = new[] { searchName, searchOriginal }
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => $"%{s}%")
+            .Distinct()
+            .ToArray();
+
+        var hasWeb = !string.IsNullOrWhiteSpace(webTerm);
+
         var sql = """
 
-                              SELECT *
+                              SELECT 
+                                  id                      AS "Id",
+                                  tracker_name            AS "TrackerName",
+                                  types                   AS "Types",
+                                  url                     AS "Url",
+                                  title                   AS "Title",
+                                  sid                     AS "Sid",
+                                  pir                     AS "Pir",
+                                  size_name               AS "SizeName",
+                                  create_time             AS "CreateTime",
+                                  update_time             AS "UpdateTime",
+                                  check_time              AS "CheckTime",
+                                  magnet                  AS "Magnet",
+                                  name                    AS "Name",
+                                  original_name           AS "OriginalName",
+                                  relased                 AS "Relased",
+                                  languages               AS "Languages",
+                                  ffprobe                 AS "Ffprobe",
+                                  ffprobe_try_count       AS "FfprobeTryCount",
+                                  source_season_number    AS "SourceSeasonNumber",
+                                  source_season_order     AS "SourceSeasonOrder",
+                                  size                    AS "Size",
+                                  quality                 AS "Quality",
+                                  video_type              AS "VideoType",
+                                  voices                  AS "Voices",
+                                  seasons                 AS "Seasons",
+                                  search_tsv              AS "SearchTsv",
+                                  search_name             AS "SearchName",
+                                  original_search_name    AS "OriginalSearchName"
                               FROM public.torrents
                               WHERE 
-                                  -- Trigram или FTS
-                                  (title ILIKE '%' || @SearchTerm || '%' OR
-                                   name    ILIKE '%' || @SearchTerm || '%' OR
-                                   original_name ILIKE '%' || @SearchTerm || '%' OR
-                                   search_tsv @@ websearch_to_tsquery('russian', @SearchTerm))
+                                  (
+                                     (array_length(@Patterns, 1) IS NOT NULL AND (
+                                         (search_name IS NOT NULL AND search_name LIKE ANY(@Patterns)) OR
+                                         (original_search_name IS NOT NULL AND original_search_name LIKE ANY(@Patterns)) OR
+                                         (search_name IS NULL AND regexp_replace(lower(coalesce(name, '')), '[^a-z0-9]+', '', 'g') LIKE ANY(@Patterns)) OR
+                                         (original_search_name IS NULL AND regexp_replace(lower(coalesce(original_name, '')), '[^a-z0-9]+', '', 'g') LIKE ANY(@Patterns))
+                                     ))
+                                     OR (@HasWeb AND search_tsv @@ websearch_to_tsquery('russian', @WebTerm))
+                                  )
                                   AND @MaxRead > 0
-                              ORDER BY ts_rank(search_tsv, websearch_to_tsquery('russian', @SearchTerm)) DESC,
-                                       sid DESC, update_time DESC
+                              ORDER BY sid DESC, update_time DESC
                               LIMIT @MaxRead
                   """;
 
         var torrents = await connection.QueryAsync<Torrent>(sql, new
         {
-            SearchTerm = !string.IsNullOrEmpty(searchName) ? searchName : searchOriginal,
+            Patterns = patterns.Length > 0 ? patterns : Array.Empty<string>(),
+            WebTerm = hasWeb ? webTerm : string.Empty,
+            HasWeb = hasWeb,
             MaxRead = AppInit.conf.maxreadfile
         });
 

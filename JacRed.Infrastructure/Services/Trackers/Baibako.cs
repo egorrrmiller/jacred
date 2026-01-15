@@ -1,9 +1,9 @@
 using JacRed.Core;
 using JacRed.Core.Enums;
 
-namespace JacRed.Api.Services.Trackers;
+namespace JacRed.Infrastructure.Services.Trackers;
 
-public sealed class BaibakoTrackerSearchProvider : BaseTrackerSearchProvider
+public sealed class Baibako : BaseTrackerSearch
 {
     public override TrackerType Tracker => TrackerType.Baibako;
     public override string TrackerName => "baibako";

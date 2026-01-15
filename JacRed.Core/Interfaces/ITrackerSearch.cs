@@ -3,7 +3,7 @@ using JacRed.Core.Models.Details;
 
 namespace JacRed.Core.Interfaces;
 
-public interface ITrackerSearchProvider
+public interface ITrackerSearch
 {
     TrackerType Tracker { get; }
     string TrackerName { get; }

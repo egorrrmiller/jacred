@@ -1,9 +1,9 @@
 using JacRed.Core;
 using JacRed.Core.Enums;
 
-namespace JacRed.Api.Services.Trackers;
+namespace JacRed.Infrastructure.Services.Trackers;
 
-public sealed class RutrackerTrackerSearchProvider : BaseTrackerSearchProvider
+public sealed class Rutracker : BaseTrackerSearch
 {
     public override TrackerType Tracker => TrackerType.Rutracker;
     public override string TrackerName => "rutracker";
