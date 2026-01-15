@@ -1,12 +1,7 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 using JacRed.Core;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
@@ -14,9 +9,12 @@ using JacRed.Core.Models.Details;
 using JacRed.Core.Utils;
 using Microsoft.Extensions.Logging;
 
-namespace JacRed.Api.Services.Trackers;
+namespace JacRed.Infrastructure.Services.Trackers.RuTracker;
 
-public sealed class RutrackerCatalogProvider : ITrackerCatalogProvider, ITrackerCatalogEnricher
+/// <summary>
+/// 
+/// </summary>
+public class RuTrackerCron : ITrackerCronProvider, ITrackerCatalogEnricher
 {
     #region Category map
 
@@ -85,13 +83,13 @@ public sealed class RutrackerCatalogProvider : ITrackerCatalogProvider, ITracker
     private static readonly Encoding RuEncoding = Encoding.GetEncoding("windows-1251");
 
     private readonly HttpService _httpService;
-    private readonly ILogger<RutrackerCatalogProvider> _logger;
+    private readonly ILogger<RuTrackerCron> _logger;
     private const int MaxPagesPerCategory = 5;
     private static readonly Regex MaxPageRegex =
         new("\u0421\u0442\u0440\u0430\u043d\u0438\u0446\u0430 <b>1</b> \u0438\u0437 <b>(?<pages>\\d+)</b>",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    public RutrackerCatalogProvider(HttpService httpService, ILogger<RutrackerCatalogProvider> logger)
+    public RuTrackerCron(HttpService httpService, ILogger<RuTrackerCron> logger)
     {
         _httpService = httpService;
         _logger = logger;
@@ -105,6 +103,7 @@ public sealed class RutrackerCatalogProvider : ITrackerCatalogProvider, ITracker
         var results = new Dictionary<string, TorrentDetails>(StringComparer.OrdinalIgnoreCase);
         var now = DateTime.UtcNow;
         var host = AppInit.conf.Rutracker.host;
+        var cookie = AppInit.conf.Rutracker.cookie;
         var requestHost = AppInit.conf.Rutracker.rqHost();
 
         foreach (var category in CategoryMap.Keys)
@@ -114,7 +113,7 @@ public sealed class RutrackerCatalogProvider : ITrackerCatalogProvider, ITracker
             var url = BuildCategoryUrl(requestHost, category, 0);
             var html = await _httpService.Get(
                 url,
-                cookie: "bb_guid=2hR0qoQAO75s; bb_ssl=1; bb_session=0-44979854-uwt30nnllxWp2KjHA9aH; bb_t=a%3A1%3A%7Bi%3A6799360%3Bi%3A1768325678%3B%7D; cf_clearance=vTaGdw432XmJnTsRLQSnFi36jhuc9KEtzUcFUQRIySM-1768469762-1.2.1.1-Ki2RnZr3tV.MGJ9brpGlIZf9t40joTdrKLbemJq6zB1f_WlIxpKlGQUm5XKHR2j.hQeonEyDnvngQ6UfYMRNPrzBB0y_W01xQA.iLCBiZWGWDmzo3GZqBpaMTa0XoOr_a9h6o_FyRGbCiMBnia0B.uI.3J6W02HjGovuXNBi2DWWE59tnZUespedxp8vEbc_lTn866yEEGfcR7qWmFGHCBlUpmOTEPyiYAMUxh5C99c",
+                cookie: cookie,
                 encoding: RuEncoding,
                 timeoutSeconds: 10,
                 useProxy: AppInit.conf.Rutracker.useproxy);
@@ -136,7 +135,7 @@ public sealed class RutrackerCatalogProvider : ITrackerCatalogProvider, ITracker
                 var pageUrl = BuildCategoryUrl(requestHost, category, page);
                 var pageHtml = await _httpService.Get(
                     pageUrl,
-                    cookie: "bb_guid=2hR0qoQAO75s; bb_ssl=1; bb_session=0-44979854-uwt30nnllxWp2KjHA9aH; bb_t=a%3A1%3A%7Bi%3A6799360%3Bi%3A1768325678%3B%7D; cf_clearance=vTaGdw432XmJnTsRLQSnFi36jhuc9KEtzUcFUQRIySM-1768469762-1.2.1.1-Ki2RnZr3tV.MGJ9brpGlIZf9t40joTdrKLbemJq6zB1f_WlIxpKlGQUm5XKHR2j.hQeonEyDnvngQ6UfYMRNPrzBB0y_W01xQA.iLCBiZWGWDmzo3GZqBpaMTa0XoOr_a9h6o_FyRGbCiMBnia0B.uI.3J6W02HjGovuXNBi2DWWE59tnZUespedxp8vEbc_lTn866yEEGfcR7qWmFGHCBlUpmOTEPyiYAMUxh5C99c",
+                    cookie: cookie,
                     encoding: RuEncoding,
                     timeoutSeconds: 10,
                     useProxy: AppInit.conf.Rutracker.useproxy);
@@ -403,23 +402,6 @@ public sealed class RutrackerCatalogProvider : ITrackerCatalogProvider, ITracker
             .Replace("\u0449", "\u0448");
     }
 
-    private static string MatchValue(Regex regex, string input, string groupName)
-    {
-        var match = regex.Match(input);
-        return match.Success ? match.Groups[groupName].Value.Trim() : string.Empty;
-    }
-
-    private static DateTime ParseForumDate(string raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-            return default;
-
-        if (DateTime.TryParseExact(raw.Trim(), "yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
-            return parsed;
-
-        return DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsed) ? parsed : default;
-    }
-
     private static int ParseInt(string raw)
     {
         return int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : 0;
@@ -439,19 +421,6 @@ public sealed class RutrackerCatalogProvider : ITrackerCatalogProvider, ITracker
             return string.Empty;
 
         return TagRegex.Replace(text, string.Empty);
-    }
-
-    private static string NormalizeSizeName(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return string.Empty;
-
-        return value
-            .Replace("\u0422\u0411", "TB")
-            .Replace("\u0413\u0411", "GB")
-            .Replace("\u041c\u0411", "MB")
-            .Replace("\u041a\u0411", "KB")
-            .Trim();
     }
 
     private static IReadOnlyDictionary<string, CategoryInfo> BuildCategoryMap()

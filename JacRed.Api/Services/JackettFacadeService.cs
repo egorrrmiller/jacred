@@ -1,4 +1,4 @@
-using System;
+п»їusing System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -23,6 +23,8 @@ public class JackettFacadeService : IJackettFacadeService
     private readonly ITorrentSearchPipeline _searchPipeline;
     private readonly ITorrentSearchService _searchService;
     private readonly ITracksDatabase _tracksDatabase;
+    private readonly ITrackerSearchService _trackerSearchService;
+    private readonly ITorrentRepository _torrentRepository;
 
     public JackettFacadeService(
         IContentCatalog contentCatalog,
@@ -30,7 +32,9 @@ public class JackettFacadeService : IJackettFacadeService
         ITorrentMergerService mergeService,
         ITracksDatabase tracksDatabase,
         ITorrentSearchService searchService,
-        ITorrentSearchPipeline searchPipeline)
+        ITorrentSearchPipeline searchPipeline,
+        ITrackerSearchService trackerSearchService,
+        ITorrentRepository torrentRepository)
     {
         _contentCatalog = contentCatalog;
         _cacheService = cacheService;
@@ -38,9 +42,11 @@ public class JackettFacadeService : IJackettFacadeService
         _tracksDatabase = tracksDatabase;
         _searchService = searchService;
         _searchPipeline = searchPipeline;
+        _trackerSearchService = trackerSearchService;
+        _torrentRepository = torrentRepository;
     }
 
-    /// <summary>Поиск для Jackett v2 с кэшированием результатов.</summary>
+    /// <summary>РџРѕРёСЃРє РґР»СЏ Jackett v2 СЃ РєСЌС€РёСЂРѕРІР°РЅРёРµРј СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ.</summary>
     public async Task<RootObject> SearchJackettAsync(
         string apikey,
         string query,
@@ -64,7 +70,7 @@ public class JackettFacadeService : IJackettFacadeService
             TimeSpan.FromMinutes(5));
     }
 
-    /// <summary>Поиск для API v1.0 с применением пайплайна и кэша.</summary>
+    /// <summary>РџРѕРёСЃРє РґР»СЏ API v1.0 СЃ РїСЂРёРјРµРЅРµРЅРёРµРј РїР°Р№РїР»Р°Р№РЅР° Рё РєСЌС€Р°.</summary>
     public async Task<IReadOnlyCollection<V1TorrentResponse>> SearchTorrentsAsync(
         string search,
         string altname,
@@ -124,7 +130,7 @@ public class JackettFacadeService : IJackettFacadeService
         return response;
     }
 
-    /// <summary>Возвращает сводку по качеству для LAMPA.</summary>
+    /// <summary>Р’РѕР·РІСЂР°С‰Р°РµС‚ СЃРІРѕРґРєСѓ РїРѕ РєР°С‡РµСЃС‚РІСѓ РґР»СЏ LAMPA.</summary>
     public async Task<Dictionary<string, Dictionary<int, TorrentQuality>>> GetQualityInfoAsync(
         string name,
         string originalName,
@@ -135,7 +141,7 @@ public class JackettFacadeService : IJackettFacadeService
         return await _searchService.GetQualityInfoAsync(name, originalName, type, page, take);
     }
 
-    /// <summary>Возвращает время последнего обновления master_db.</summary>
+    /// <summary>Р’РѕР·РІСЂР°С‰Р°РµС‚ РІСЂРµРјСЏ РїРѕСЃР»РµРґРЅРµРіРѕ РѕР±РЅРѕРІР»РµРЅРёСЏ master_db.</summary>
     public DateTime GetLastUpdateDb()
     {
         var db = _contentCatalog.GetAllKeys();
@@ -300,7 +306,7 @@ public class JackettFacadeService : IJackettFacadeService
     {
         if (!isNum || query == null) return (title, orig, year);
 
-        var m = Regex.Match(query, @"^([^a-z-A-Z]+) ([^а-я-А-я]+)(?: ([0-9]{4}))?$");
+        var m = Regex.Match(query, @"^([^a-z-A-Z]+) ([^Р°-СЏ-Рђ-СЏ]+)(?: ([0-9]{4}))?$");
         if (!m.Success) return (title, orig, year);
 
         var g = m.Groups.Values.Skip(1).ToArray();
@@ -354,7 +360,7 @@ public class JackettFacadeService : IJackettFacadeService
             !string.IsNullOrWhiteSpace(query))
         {
             var parts = query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length > 0 && !parts[0].Any(c => (c >= 'а' && c <= 'я') || (c >= 'А' && c <= 'Я')))
+            if (parts.Length > 0 && !parts[0].Any(c => (c >= 'Р°' && c <= 'СЏ') || (c >= 'Рђ' && c <= 'РЇ')))
                 title = parts[0];
             else
                 title = query;
@@ -363,6 +369,26 @@ public class JackettFacadeService : IJackettFacadeService
         var torrents = string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(titleOriginal)
             ? await _searchService.SearchByQueryAsync(query, contentType)
             : await _searchService.SearchByTitleAsync(title, titleOriginal, year, contentType, true);
+
+        if (torrents.Count == 0)
+        {
+            var trackerQuery = BuildTrackerQuery(query, title, titleOriginal);
+            if (!string.IsNullOrWhiteSpace(trackerQuery))
+            {
+                var fetched = await _trackerSearchService.SearchAsync(
+                    trackerQuery,
+                    _trackerSearchService.GetSupportedTrackers(),
+                    CancellationToken.None);
+
+                if (fetched.Count > 0)
+                {
+                    await _torrentRepository.AddOrUpdateAsync(fetched);
+                    torrents = string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(titleOriginal)
+                        ? await _searchService.SearchByQueryAsync(query, contentType)
+                        : await _searchService.SearchByTitleAsync(title, titleOriginal, year, contentType, true);
+                }
+            }
+        }
 
         var result = await _mergeService.MergeAsync(torrents);
 
@@ -374,5 +400,14 @@ public class JackettFacadeService : IJackettFacadeService
         var jResult = await BuildJackettResults(result, isNumRequest);
         return new RootObject { Results = jResult };
     }
+
+    private static string BuildTrackerQuery(string query, string title, string titleOriginal)
+    {
+        if (!string.IsNullOrWhiteSpace(query))
+            return query.Trim();
+
+        return $"{title} {titleOriginal}".Trim();
+    }
 }
+
 

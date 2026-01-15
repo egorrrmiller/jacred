@@ -15,17 +15,17 @@ public sealed class TrackerCatalogPrefetchService : BackgroundService
 {
     private const int DefaultIntervalMinutes = 15;
 
-    private readonly IReadOnlyCollection<ITrackerCatalogProvider> _providers;
+    private readonly IReadOnlyCollection<ITrackerCronProvider> _providers;
     private readonly ITorrentRepository _torrentRepository;
     private readonly ILogger<TrackerCatalogPrefetchService> _logger;
     private readonly HashSet<string> _disabledTrackers;
 
     public TrackerCatalogPrefetchService(
-        IEnumerable<ITrackerCatalogProvider> providers,
+        IEnumerable<ITrackerCronProvider> providers,
         ITorrentRepository torrentRepository,
         ILogger<TrackerCatalogPrefetchService> logger)
     {
-        _providers = (providers ?? Array.Empty<ITrackerCatalogProvider>())
+        _providers = (providers ?? Array.Empty<ITrackerCronProvider>())
             .Where(p => p != null)
             .ToArray();
         _torrentRepository = torrentRepository;
@@ -75,7 +75,7 @@ public sealed class TrackerCatalogPrefetchService : BackgroundService
                 {
                     await _torrentRepository.AddOrUpdateAsync(
                         items,
-                        (TorrentDetails torrent, IReadOnlyDictionary<string, TorrentDetails> existing) =>
+                        (torrent, existing) =>
                             enricher.TryEnrichAsync(torrent, existing, cancellationToken));
                 }
                 else

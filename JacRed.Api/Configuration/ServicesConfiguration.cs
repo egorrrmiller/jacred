@@ -1,8 +1,8 @@
 using JacRed.Api.Services;
-using JacRed.Api.Services.Trackers;
 using JacRed.Core.Interfaces;
 using JacRed.Infrastructure.Services;
 using JacRed.Infrastructure.Services.Trackers;
+using JacRed.Infrastructure.Services.Trackers.RuTracker;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace JacRed.Api.Configuration;
@@ -32,11 +32,11 @@ public static class ServicesConfiguration
             .AddSingleton<ITrackerSearch, Megapeer>()
             .AddSingleton<ITrackerSearch, NnmClub>()
             .AddSingleton<ITrackerSearch, Rutor>()
-            .AddSingleton<ITrackerSearch, Rutracker>()
+            .AddSingleton<ITrackerSearch, RuTrackerSearch>()
             .AddSingleton<ITrackerSearch, Selezen>()
             .AddSingleton<ITrackerSearch, Toloka>()
             .AddSingleton<ITrackerSearch, TorrentBy>()
-            .AddSingleton<ITrackerCatalogProvider, RutrackerCatalogProvider>()
+            .AddSingleton<ITrackerCronProvider, RuTrackerCron>()
             .AddMemoryCache()
             .AddHttpClient();
     }
