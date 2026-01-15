@@ -1,15 +1,10 @@
 using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Text;
 using Dapper;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Tracks;
-using JacRed.Core.Utils;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MonoTorrent;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Npgsql;
 
