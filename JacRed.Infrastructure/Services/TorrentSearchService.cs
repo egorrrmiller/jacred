@@ -12,15 +12,15 @@ using Npgsql;
 namespace JacRed.Infrastructure.Services;
 
 /// <summary>
-/// Сервис полнотекстового и быстрого поиска по торрентам.
+///     Сервис полнотекстового и быстрого поиска по торрентам.
 /// </summary>
 public class TorrentSearchService : ITorrentSearchService
 {
+    private readonly string _connectionString;
     private readonly IContentCatalog _contentCatalog;
+    private readonly ILogger<TorrentSearchService> _logger;
     private readonly ITorrentRepository _torrentRepository;
     private readonly ITracksDatabase _tracksDatabase;
-    private readonly string _connectionString;
-    private readonly ILogger<TorrentSearchService> _logger;
 
     public TorrentSearchService(
         IContentCatalog contentCatalog,
@@ -53,7 +53,7 @@ public class TorrentSearchService : ITorrentSearchService
         if (exact)
         {
             var key = $"{searchName}:{searchOriginal}";
-            var cached = await _torrentRepository.GetCollectionAsync(key, updateCache: false);
+            var cached = await _torrentRepository.GetCollectionAsync(key, false);
             return cached.Values
                 .Where(t => MatchesFilters(t, year, mediaType))
                 .OrderByDescending(t => t.Sid)
@@ -346,4 +346,3 @@ public class TorrentSearchService : ITorrentSearchService
 
     #endregion
 }
-

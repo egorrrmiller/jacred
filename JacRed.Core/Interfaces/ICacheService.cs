@@ -16,4 +16,6 @@ public interface ICacheService
     Task InvalidateAsync(string key);
 
     Task SetAsync<T>(string key, T value, TimeSpan? expiry = null);
+
+    bool TryGetValue<T>(string key, out T? value);
 }

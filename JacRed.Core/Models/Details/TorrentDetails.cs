@@ -8,10 +8,10 @@ namespace JacRed.Core.Models.Details;
 public class TorrentDetails : ICloneable
 {
     /// <summary>
-    /// Идентификатор раздачи.
+    ///     Идентификатор раздачи.
     /// </summary>
     public Guid Id { get; set; }
-    
+
     /// <summary>
     ///     Название трекера (например: "rutor", "kinozal"). Используется для идентификации источника и отображения иконки.
     /// </summary>

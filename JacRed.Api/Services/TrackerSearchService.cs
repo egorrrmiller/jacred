@@ -87,10 +87,8 @@ public class TrackerSearchService : ITrackerSearchService
 
         var merged = new List<TorrentDetails>();
         foreach (var list in results)
-        {
             if (list.Count > 0)
                 merged.AddRange(list);
-        }
 
         return merged;
     }

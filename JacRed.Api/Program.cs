@@ -5,8 +5,8 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Dapper;
+using JacRed.Api;
 using JacRed.Api.Configuration;
 using JacRed.Api.Engine;
 using JacRed.Api.Services;
@@ -18,9 +18,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -78,7 +78,7 @@ builder.Services.RegisterServices();
 
 // --- Регистрация PostgreSQL ---
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+                       ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
 // Регистрация строки подключения как именованной строки (если нужно)
 builder.Services.AddSingleton(connectionString);
@@ -134,13 +134,16 @@ app.MapControllers();
 await app.RunAsync();
 
 // --- Вспомогательные методы ---
-internal static class Extensions
+namespace JacRed.Api
 {
-    public static string ToJson(this object obj)
+    internal static class Extensions
     {
-        return JsonSerializer.Serialize(obj, new JsonSerializerOptions
+        public static string ToJson(this object obj)
         {
-            PropertyNamingPolicy = null
-        });
+            return JsonSerializer.Serialize(obj, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = null
+            });
+        }
     }
 }

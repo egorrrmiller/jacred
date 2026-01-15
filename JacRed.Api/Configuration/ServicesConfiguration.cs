@@ -1,8 +1,18 @@
 using JacRed.Api.Services;
 using JacRed.Core.Interfaces;
 using JacRed.Infrastructure.Services;
-using JacRed.Infrastructure.Services.Trackers;
+using JacRed.Infrastructure.Services.Trackers.Animelayer;
+using JacRed.Infrastructure.Services.Trackers.Baibako;
+using JacRed.Infrastructure.Services.Trackers.Bitru;
+using JacRed.Infrastructure.Services.Trackers.Kinozal;
+using JacRed.Infrastructure.Services.Trackers.Lostfilm;
+using JacRed.Infrastructure.Services.Trackers.Megapeer;
+using JacRed.Infrastructure.Services.Trackers.NnmClub;
+using JacRed.Infrastructure.Services.Trackers.Rutor;
 using JacRed.Infrastructure.Services.Trackers.RuTracker;
+using JacRed.Infrastructure.Services.Trackers.Selezen;
+using JacRed.Infrastructure.Services.Trackers.Toloka;
+using JacRed.Infrastructure.Services.Trackers.TorrentBy;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace JacRed.Api.Configuration;
@@ -24,19 +34,19 @@ public static class ServicesConfiguration
             .AddSingleton<IJackettFacadeService, JackettFacadeService>()
             .AddSingleton<ITorrentSearchPipeline, TorrentSearchPipeline>()
             .AddSingleton<ITrackerSearchService, TrackerSearchService>()
-            .AddSingleton<ITrackerSearch, Animelayer>()
-            .AddSingleton<ITrackerSearch, Baibako>()
-            .AddSingleton<ITrackerSearch, Bitru>()
-            .AddSingleton<ITrackerSearch, Kinozal>()
-            .AddSingleton<ITrackerSearch, Lostfilm>()
-            .AddSingleton<ITrackerSearch, Megapeer>()
-            .AddSingleton<ITrackerSearch, NnmClub>()
-            .AddSingleton<ITrackerSearch, Rutor>()
+            .AddSingleton<ITrackerSearch, AnimelayerSearch>()
+            .AddSingleton<ITrackerSearch, BaibakoSearch>()
+            .AddSingleton<ITrackerSearch, BitruSearch>()
+            .AddSingleton<ITrackerSearch, KinozalSearch>()
+            .AddSingleton<ITrackerSearch, LostfilmSearch>()
+            .AddSingleton<ITrackerSearch, MegapeerSearch>()
+            .AddSingleton<ITrackerSearch, NnmClubSearch>()
+            .AddSingleton<ITrackerSearch, RutorSearch>()
             .AddSingleton<ITrackerSearch, RuTrackerSearch>()
-            .AddSingleton<ITrackerSearch, Selezen>()
-            .AddSingleton<ITrackerSearch, Toloka>()
-            .AddSingleton<ITrackerSearch, TorrentBy>()
-            .AddSingleton<ITrackerCronProvider, RuTrackerCron>()
+            .AddSingleton<ITrackerSearch, SelezenSearch>()
+            .AddSingleton<ITrackerSearch, TolokaSearch>()
+            .AddSingleton<ITrackerSearch, TorrentBySearch>()
+            .AddSingleton<ITrackerCronProvider, RuTrackerTopSeededSync>()
             .AddMemoryCache()
             .AddHttpClient();
     }

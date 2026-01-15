@@ -1,9 +1,9 @@
 using JacRed.Core;
 using JacRed.Core.Enums;
 
-namespace JacRed.Infrastructure.Services.Trackers;
+namespace JacRed.Infrastructure.Services.Trackers.Bitru;
 
-public sealed class Bitru : BaseTrackerSearch
+public sealed class BitruSearch : BaseTrackerSearch
 {
     public override TrackerType Tracker => TrackerType.Bitru;
     public override string TrackerName => "bitru";

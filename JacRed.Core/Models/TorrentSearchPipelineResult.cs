@@ -1,8 +1,6 @@
-using System;
-using System.Collections.Generic;
 using JacRed.Core.Models.Details;
 
-namespace JacRed.Api.Services;
+namespace JacRed.Core.Models;
 
 public class TorrentSearchPipelineResult
 {

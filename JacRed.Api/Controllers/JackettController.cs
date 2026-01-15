@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using JacRed.Api.Services;
 using JacRed.Core;
+using JacRed.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JacRed.Api.Controllers;

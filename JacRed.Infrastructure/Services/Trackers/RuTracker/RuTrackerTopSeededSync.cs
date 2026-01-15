@@ -2,160 +2,47 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Web;
 using JacRed.Core;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Utils;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace JacRed.Infrastructure.Services.Trackers.RuTracker;
 
 /// <summary>
-/// 
+///     Джоба для синхронизации популярных раздач RuTracker
 /// </summary>
-public class RuTrackerCron : ITrackerCronProvider, ITrackerCatalogEnricher
+public class RuTrackerTopSeededSync : ITrackerCronProvider, ITrackerCatalogEnricher
 {
-    #region Category map
+    private const int MaxPagesPerCategory = 5;
 
-    private enum CategoryParser
-    {
-        Default,
-        Movie,
-        Serial,
-        Generic
-    }
-
-    private sealed record CategoryInfo(string[] Types, CategoryParser Parser);
+    private const string CookieKey = "rutracker:cookie";
 
     private static readonly IReadOnlyDictionary<string, CategoryInfo> CategoryMap = BuildCategoryMap();
-
-    #endregion
-
-    #region Regex helpers
-
-    private static readonly Regex RowRegex =
-        new("<tr[^>]*class=\"[^\"]*\\bhl-tr\\b[^\"]*\"[^>]*>.*?</tr>",
-            RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
-
-    private static readonly Regex LinkRegex =
-        new("<a(?=[^>]*\\bclass=[\"'][^\"']*\\btLink\\b[^\"']*[\"'])(?=[^>]*\\bhref=[\"'](?<url>[^\"']+)[\"'])[^>]*>(?<title>.*?)</a>",
-            RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
-
-    private static readonly Regex SeedRegex =
-        new("class=\"seed[^\"]*\"[^>]*>\\s*(?:<b>)?(?<value>\\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex LeechRegex =
-        new("class=\"leech[^\"]*\"[^>]*>\\s*(?<value>\\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex SizeBytesRegex =
-        new("tor-size[^>]*data-ts_text=\"(?<bytes>\\d+)\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex SizeTextRegex =
-        new("(?<value>\\d+(?:[\\.,]\\d+)?)\\s*(?<unit>TB|GB|MB|KB|ТБ|ГБ|МБ|КБ)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex DateRegex =
-        new("tor-date[^>]*data-ts_text=\"(?<ts>\\d+)\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex TagRegex =
-        new("<[^>]+>", RegexOptions.Singleline | RegexOptions.Compiled);
-
-    private static readonly Regex WhitespaceRegex =
-        new("[\\n\\r\\t\\u00A0]+", RegexOptions.Compiled);
-
-    private static readonly Regex SeasonMarkerRegex =
-        new("(\u0421\u0435\u0437\u043e\u043d|\u0421\u0435\u0440\u0438\u0438)",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex TopicDateRegex =
-        new("<a class=\"p-link small\" href=\"viewtopic\\.php\\?t=[^\"]+\">(?<date>[^<]+)</a>",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex MagnetRegex =
-        new("href=\"(?<magnet>magnet:[^\"]+)\" class=\"(med )?magnet-link\"",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex YearRegex =
-        new("(?<!\\d)(19\\d{2}|20\\d{2})(?!\\d)", RegexOptions.Compiled);
-
-    #endregion
-
     private static readonly Encoding RuEncoding = Encoding.GetEncoding("windows-1251");
 
-    private readonly HttpService _httpService;
-    private readonly ILogger<RuTrackerCron> _logger;
-    private const int MaxPagesPerCategory = 5;
     private static readonly Regex MaxPageRegex =
         new("\u0421\u0442\u0440\u0430\u043d\u0438\u0446\u0430 <b>1</b> \u0438\u0437 <b>(?<pages>\\d+)</b>",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    public RuTrackerCron(HttpService httpService, ILogger<RuTrackerCron> logger)
+    private readonly ICacheService _cacheService;
+
+    private readonly HttpService _httpService;
+    private readonly ILogger<RuTrackerTopSeededSync> _logger;
+
+    public RuTrackerTopSeededSync(HttpService httpService, ILogger<RuTrackerTopSeededSync> logger,
+        ICacheService cacheService)
     {
         _httpService = httpService;
         _logger = logger;
+        _cacheService = cacheService;
     }
 
-    public TrackerType Tracker => TrackerType.Rutracker;
-    public string TrackerName => "rutracker";
-
-    public async Task<IReadOnlyCollection<TorrentDetails>> FetchCatalogAsync(CancellationToken cancellationToken = default)
-    {
-        var results = new Dictionary<string, TorrentDetails>(StringComparer.OrdinalIgnoreCase);
-        var now = DateTime.UtcNow;
-        var host = AppInit.conf.Rutracker.host;
-        var cookie = AppInit.conf.Rutracker.cookie;
-        var requestHost = AppInit.conf.Rutracker.rqHost();
-
-        foreach (var category in CategoryMap.Keys)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var url = BuildCategoryUrl(requestHost, category, 0);
-            var html = await _httpService.Get(
-                url,
-                cookie: cookie,
-                encoding: RuEncoding,
-                timeoutSeconds: 10,
-                useProxy: AppInit.conf.Rutracker.useproxy);
-
-            if (string.IsNullOrWhiteSpace(html))
-                continue;
-
-            var maxPages = GetMaxPages(html);
-            var parsed = ParseForumPage(html, category, host, now);
-            foreach (var item in parsed)
-                results[item.Url] = item;
-
-            var totalPages = Math.Min(maxPages, MaxPagesPerCategory);
-            var delayMs = AppInit.conf.Rutracker.parseDelay == 0 ? 1500 : AppInit.conf.Rutracker.parseDelay;
-            for (var page = 1; page <= totalPages; page++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var pageUrl = BuildCategoryUrl(requestHost, category, page);
-                var pageHtml = await _httpService.Get(
-                    pageUrl,
-                    cookie: cookie,
-                    encoding: RuEncoding,
-                    timeoutSeconds: 10,
-                    useProxy: AppInit.conf.Rutracker.useproxy);
-
-                if (string.IsNullOrWhiteSpace(pageHtml))
-                    continue;
-
-                var pageParsed = ParseForumPage(pageHtml, category, host, now);
-                foreach (var item in pageParsed)
-                    results[item.Url] = item;
-                
-                if (delayMs > 0)
-                    await Task.Delay(delayMs, cancellationToken);
-            }
-            if (delayMs > 0)
-                await Task.Delay(delayMs, cancellationToken);
-        }
-
-        return results.Values.ToArray();
-    }
+    private string LoginUrl => Url + "forum/login.php";
 
     public async Task<bool> TryEnrichAsync(
         TorrentDetails torrent,
@@ -191,6 +78,159 @@ public class RuTrackerCron : ITrackerCronProvider, ITrackerCatalogEnricher
             torrent.CreateTime = createTime;
 
         return !string.IsNullOrWhiteSpace(torrent.Magnet);
+    }
+
+    public TrackerType Tracker => TrackerType.Rutracker;
+    public string TrackerName => "rutracker";
+
+    public string Url => "https://rutracker.org/";
+
+    public async Task<IReadOnlyCollection<TorrentDetails>> FetchCatalogAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var results = new Dictionary<string, TorrentDetails>(StringComparer.OrdinalIgnoreCase);
+        var now = DateTime.UtcNow;
+        var cookie = AppInit.conf.Rutracker.cookie;
+        var requestHost = AppInit.conf.Rutracker.rqHost();
+
+        foreach (var category in CategoryMap.Keys)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var url = BuildCategoryUrl(requestHost, category, 0);
+            var html = await Get(
+                url,
+                RuEncoding,
+                timeoutSeconds: 10,
+                useProxy: AppInit.conf.Rutracker.useproxy,
+                cancellationToken: cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(html))
+                continue;
+
+            var maxPages = GetMaxPages(html);
+            var parsed = ParseForumPage(html, category, Url, now);
+            foreach (var item in parsed)
+                results[item.Url] = item;
+
+            var totalPages = Math.Min(maxPages, MaxPagesPerCategory);
+            var delayMs = AppInit.conf.Rutracker.parseDelay == 0 ? 1500 : AppInit.conf.Rutracker.parseDelay;
+            for (var page = 1; page <= totalPages; page++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var pageUrl = BuildCategoryUrl(requestHost, category, page);
+                var pageHtml = await Get(
+                    pageUrl,
+                    RuEncoding,
+                    timeoutSeconds: 10,
+                    useProxy: AppInit.conf.Rutracker.useproxy,
+                    cancellationToken: cancellationToken);
+
+                if (string.IsNullOrWhiteSpace(pageHtml))
+                    continue;
+
+                var pageParsed = ParseForumPage(pageHtml, category, Url, now);
+                foreach (var item in pageParsed)
+                    results[item.Url] = item;
+
+                if (delayMs > 0)
+                    await Task.Delay(delayMs, cancellationToken);
+            }
+
+            if (delayMs > 0)
+                await Task.Delay(delayMs, cancellationToken);
+        }
+
+        return results.Values.ToArray();
+    }
+
+    private async Task<string> Get(
+        string url,
+        Encoding? encoding = null,
+        string? referer = null,
+        int timeoutSeconds = 15,
+        int maxResponseSize = 10_000_000,
+        List<(string name, string val)>? addHeaders = null,
+        bool useProxy = false,
+        int httpVersion = 1,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+
+        if (!_cacheService.TryGetValue(CookieKey, out string? cookie))
+            cookie = await Authorize(cancellationToken: cancellationToken);
+
+        var html = await _httpService.Get(
+            url,
+            encoding,
+            cookie,
+            referer,
+            timeoutSeconds,
+            maxResponseSize,
+            addHeaders,
+            useProxy);
+
+        if (string.IsNullOrWhiteSpace(html))
+        {
+            cookie = await Authorize(true, cancellationToken);
+            html = await _httpService.Get(
+                url,
+                encoding,
+                cookie,
+                referer,
+                timeoutSeconds,
+                maxResponseSize,
+                addHeaders,
+                useProxy);
+        }
+
+        return html ?? string.Empty;
+    }
+
+    private async Task<string> Authorize(bool reAuth = false, CancellationToken cancellationToken = default)
+    {
+        // todo нет проверки на id="logged-in-username"
+
+        var handler = new HttpClientHandler
+        {
+            AllowAutoRedirect = false,
+            UseCookies = true,
+            CookieContainer = new CookieContainer()
+        };
+        var client = new HttpClient(handler);
+        var http = new HttpService(client, NullLogger<HttpService>.Instance);
+
+        var pairs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "login_username", AppInit.conf.Rutracker.login.u },
+            { "login_password", AppInit.conf.Rutracker.login.p },
+            { "login", "Login" }
+        };
+
+        var formEncoded = string.Join("&",
+            pairs.Select(kv => $"{HttpUtility.UrlEncode(kv.Key)}={HttpUtility.UrlEncode(kv.Value)}"));
+
+        var response = await http.PostResponse(
+            LoginUrl,
+            new StringContent(formEncoded, Encoding.Default, "application/x-www-form-urlencoded"),
+            allowRedirect: false);
+
+        if (response.StatusCode is not HttpStatusCode.Found)
+        {
+            if (reAuth)
+                throw new OperationCanceledException("RuTracker authorization failed twice", cancellationToken);
+
+            return await Authorize(true, cancellationToken);
+        }
+
+        var cookies = response.Headers.TryGetValues("Set-Cookie", out var v) ? v : Array.Empty<string>();
+        var cookie = string.Join("; ", cookies);
+
+        await _cacheService.SetAsync(CookieKey, cookie, TimeSpan.FromDays(3));
+
+        return cookie;
     }
 
     private static IReadOnlyCollection<TorrentDetails> ParseForumPage(
@@ -349,7 +389,8 @@ public class RuTrackerCron : ITrackerCronProvider, ITrackerCatalogEnricher
         if (string.IsNullOrWhiteSpace(name))
             return (title.Trim(), null, ExtractYear(title));
 
-        if (Regex.IsMatch(name, "(\\u0421\\u0435\\u0437\\u043e\\u043d|\\u0421\\u0435\\u0440\\u0438\\u0438)", RegexOptions.IgnoreCase))
+        if (Regex.IsMatch(name, "(\\u0421\\u0435\\u0437\\u043e\\u043d|\\u0421\\u0435\\u0440\\u0438\\u0438)",
+                RegexOptions.IgnoreCase))
             return (null, null, 0);
 
         var relased = 0;
@@ -360,7 +401,8 @@ public class RuTrackerCron : ITrackerCronProvider, ITrackerCatalogEnricher
         return (name.Trim(), null, relased);
     }
 
-    private static (string? name, string? originalName, int relased) NormalizeMovie(string name, string? original, string year)
+    private static (string? name, string? originalName, int relased) NormalizeMovie(string name, string? original,
+        string year)
     {
         var relased = ParseYear(year);
         name = name?.Replace("\u0432 3\u0414", string.Empty, StringComparison.OrdinalIgnoreCase).Trim();
@@ -371,7 +413,8 @@ public class RuTrackerCron : ITrackerCronProvider, ITrackerCatalogEnricher
         return (name, original, relased);
     }
 
-    private static (string? name, string? originalName, int relased) NormalizeSerial(string name, string? original, string year)
+    private static (string? name, string? originalName, int relased) NormalizeSerial(string name, string? original,
+        string year)
     {
         var relased = ParseYear(year);
         return (name?.Trim(), original?.Trim(), relased);
@@ -396,7 +439,8 @@ public class RuTrackerCron : ITrackerCronProvider, ITrackerCatalogEnricher
     private static string ReplaceBadNames(string html)
     {
         return html
-            .Replace("\u0412\u0430\u043d\u0434\u0430/\u0412\u0438\u0436\u043d ", "\u0412\u0430\u043d\u0434\u0430\u0412\u0438\u0436\u043d ")
+            .Replace("\u0412\u0430\u043d\u0434\u0430/\u0412\u0438\u0436\u043d ",
+                "\u0412\u0430\u043d\u0434\u0430\u0412\u0438\u0436\u043d ")
             .Replace("\u0401", "\u0415")
             .Replace("\u0451", "\u0435")
             .Replace("\u0449", "\u0448");
@@ -425,6 +469,7 @@ public class RuTrackerCron : ITrackerCronProvider, ITrackerCatalogEnricher
 
     private static IReadOnlyDictionary<string, CategoryInfo> BuildCategoryMap()
     {
+        // todo тянуть все категории из конфига в будущем
         var map = new Dictionary<string, CategoryInfo>(StringComparer.OrdinalIgnoreCase);
 
         Add(map, CategoryParser.Movie, new[] { "movie" },
@@ -446,7 +491,8 @@ public class RuTrackerCron : ITrackerCronProvider, ITrackerCatalogEnricher
             "46", "671", "2177", "2538", "251", "98", "97", "851", "2178", "821", "2076", "56", "2123",
             "876", "2139", "1467", "1469", "249", "552", "500", "2112", "1327", "1468", "2168", "2160",
             "314", "1281", "2110", "979", "2169", "2164", "2166", "2163");
-        Add(map, CategoryParser.Generic, new[] { "tvshow" }, "24", "1959", "939", "1481", "113", "115", "882", "1482", "393", "2537", "532", "827");
+        Add(map, CategoryParser.Generic, new[] { "tvshow" }, "24", "1959", "939", "1481", "113", "115", "882", "1482",
+            "393", "2537", "532", "827");
         Add(map, CategoryParser.Generic, new[] { "sport" },
             "2103", "2522", "2485", "2486", "2479", "2089", "1794", "845", "2312", "343", "2111",
             "1527", "2069", "1323", "2009", "2000", "2010", "2006", "2007", "2005", "259", "2004",
@@ -461,7 +507,8 @@ public class RuTrackerCron : ITrackerCronProvider, ITrackerCatalogEnricher
         return map;
     }
 
-    private static void Add(Dictionary<string, CategoryInfo> map, CategoryParser parser, string[] types, params string[] categories)
+    private static void Add(Dictionary<string, CategoryInfo> map, CategoryParser parser, string[] types,
+        params string[] categories)
     {
         foreach (var category in categories)
             map[category] = new CategoryInfo(types, parser);
@@ -481,13 +528,12 @@ public class RuTrackerCron : ITrackerCronProvider, ITrackerCatalogEnricher
             if (cancellationToken.IsCancellationRequested)
                 return (null, default);
 
-            var html = await _httpService.Get(
+            var html = await Get(
                 url,
-                encoding: RuEncoding,
-                cookie: AppInit.conf.Rutracker.cookie,
-                referer: url,
-                timeoutSeconds: 7,
-                useProxy: AppInit.conf.Rutracker.useproxy);
+                RuEncoding,
+                url,
+                7,
+                useProxy: AppInit.conf.Rutracker.useproxy, cancellationToken: cancellationToken);
 
             if (string.IsNullOrWhiteSpace(html))
                 return (null, default);
@@ -640,9 +686,7 @@ public class RuTrackerCron : ITrackerCronProvider, ITrackerCatalogEnricher
                 CultureInfo.GetCultureInfo("ru-RU"),
                 DateTimeStyles.None,
                 out var parsed))
-        {
             return parsed;
-        }
 
         return DateTime.TryParse(
             normalized,
@@ -704,4 +748,68 @@ public class RuTrackerCron : ITrackerCronProvider, ITrackerCatalogEnricher
     {
         return Regex.Replace(value, $"\\s{monthPattern}\\.?(\\s|$)", $"{replacement} ", RegexOptions.IgnoreCase);
     }
+
+    #region Category map
+
+    private enum CategoryParser
+    {
+        Default,
+        Movie,
+        Serial,
+        Generic
+    }
+
+    private sealed record CategoryInfo(string[] Types, CategoryParser Parser);
+
+    #endregion
+
+    #region Regex helpers
+
+    private static readonly Regex RowRegex =
+        new("<tr[^>]*class=\"[^\"]*\\bhl-tr\\b[^\"]*\"[^>]*>.*?</tr>",
+            RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+
+    private static readonly Regex LinkRegex =
+        new(
+            "<a(?=[^>]*\\bclass=[\"'][^\"']*\\btLink\\b[^\"']*[\"'])(?=[^>]*\\bhref=[\"'](?<url>[^\"']+)[\"'])[^>]*>(?<title>.*?)</a>",
+            RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+
+    private static readonly Regex SeedRegex =
+        new("class=\"seed[^\"]*\"[^>]*>\\s*(?:<b>)?(?<value>\\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex LeechRegex =
+        new("class=\"leech[^\"]*\"[^>]*>\\s*(?<value>\\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex SizeBytesRegex =
+        new("tor-size[^>]*data-ts_text=\"(?<bytes>\\d+)\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex SizeTextRegex =
+        new("(?<value>\\d+(?:[\\.,]\\d+)?)\\s*(?<unit>TB|GB|MB|KB|ТБ|ГБ|МБ|КБ)",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex DateRegex =
+        new("tor-date[^>]*data-ts_text=\"(?<ts>\\d+)\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex TagRegex =
+        new("<[^>]+>", RegexOptions.Singleline | RegexOptions.Compiled);
+
+    private static readonly Regex WhitespaceRegex =
+        new("[\\n\\r\\t\\u00A0]+", RegexOptions.Compiled);
+
+    private static readonly Regex SeasonMarkerRegex =
+        new("(\u0421\u0435\u0437\u043e\u043d|\u0421\u0435\u0440\u0438\u0438)",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex TopicDateRegex =
+        new("<a class=\"p-link small\" href=\"viewtopic\\.php\\?t=[^\"]+\">(?<date>[^<]+)</a>",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex MagnetRegex =
+        new("href=\"(?<magnet>magnet:[^\"]+)\" class=\"(med )?magnet-link\"",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex YearRegex =
+        new("(?<!\\d)(19\\d{2}|20\\d{2})(?!\\d)", RegexOptions.Compiled);
+
+    #endregion
 }

@@ -22,9 +22,9 @@ public class JackettFacadeService : IJackettFacadeService
     private readonly ITorrentMergerService _mergeService;
     private readonly ITorrentSearchPipeline _searchPipeline;
     private readonly ITorrentSearchService _searchService;
-    private readonly ITracksDatabase _tracksDatabase;
-    private readonly ITrackerSearchService _trackerSearchService;
     private readonly ITorrentRepository _torrentRepository;
+    private readonly ITrackerSearchService _trackerSearchService;
+    private readonly ITracksDatabase _tracksDatabase;
 
     public JackettFacadeService(
         IContentCatalog contentCatalog,
@@ -409,5 +409,3 @@ public class JackettFacadeService : IJackettFacadeService
         return $"{title} {titleOriginal}".Trim();
     }
 }
-
-

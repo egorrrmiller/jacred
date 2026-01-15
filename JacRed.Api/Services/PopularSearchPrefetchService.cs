@@ -12,11 +12,11 @@ public sealed class PopularSearchPrefetchService : BackgroundService
     private const int DefaultIntervalMinutes = 10;
     private const int DefaultTopQueries = 50;
     private const int PerQueryDelayMs = 200;
+    private readonly ILogger<PopularSearchPrefetchService> _logger;
 
     private readonly IQueryStatsService _queryStatsService;
-    private readonly ITrackerSearchService _trackerSearchService;
     private readonly ITorrentRepository _torrentRepository;
-    private readonly ILogger<PopularSearchPrefetchService> _logger;
+    private readonly ITrackerSearchService _trackerSearchService;
 
     public PopularSearchPrefetchService(
         IQueryStatsService queryStatsService,
@@ -34,7 +34,6 @@ public sealed class PopularSearchPrefetchService : BackgroundService
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(DefaultIntervalMinutes));
         while (await timer.WaitForNextTickAsync(stoppingToken))
-        {
             try
             {
                 await PrefetchOnceAsync(stoppingToken);
@@ -47,7 +46,6 @@ public sealed class PopularSearchPrefetchService : BackgroundService
             {
                 _logger.LogWarning(ex, "Popular search prefetch failed");
             }
-        }
     }
 
     private async Task PrefetchOnceAsync(CancellationToken cancellationToken)

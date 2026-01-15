@@ -25,13 +25,11 @@ public class TorrentMergerService : ITorrentMergerService
     {
         var first = group.First();
         var merged = (TorrentDetails)first.Clone();
-        
+
         var announceUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrWhiteSpace(first.Magnet))
-        {
             foreach (var url in first.Magnet.AnnounceUrls() ?? [])
                 announceUrls.Add(url);
-        }
         var voices = new HashSet<string>(first.Voices ?? [], StringComparer.OrdinalIgnoreCase);
         var languages = new HashSet<string>(first.Languages ?? [], StringComparer.OrdinalIgnoreCase);
         var seasons = new HashSet<int>(first.Seasons ?? []);

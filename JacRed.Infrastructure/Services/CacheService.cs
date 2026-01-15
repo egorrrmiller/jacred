@@ -59,6 +59,11 @@ public class CacheService : ICacheService
         await Task.CompletedTask;
     }
 
+    public bool TryGetValue<T>(string key, out T? value)
+    {
+        return _cache.TryGetValue(key, out value);
+    }
+
     /// <summary>Очищает кэш через компактирование всех записей.</summary>
     public async Task ClearAsync()
     {

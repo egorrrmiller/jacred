@@ -4,7 +4,7 @@ using NpgsqlTypes;
 namespace JacRed.Core.Models.Database;
 
 /// <summary>
-/// Модель хранения торрента (TorrentDetails) в БД.
+///     Модель хранения торрента (TorrentDetails) в БД.
 /// </summary>
 public class Torrent
 {

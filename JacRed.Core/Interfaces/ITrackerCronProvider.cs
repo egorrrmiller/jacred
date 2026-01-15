@@ -7,5 +7,6 @@ public interface ITrackerCronProvider
 {
     TrackerType Tracker { get; }
     string TrackerName { get; }
+    string Url { get; }
     Task<IReadOnlyCollection<TorrentDetails>> FetchCatalogAsync(CancellationToken cancellationToken = default);
 }

@@ -1,9 +1,9 @@
 using JacRed.Core;
 using JacRed.Core.Enums;
 
-namespace JacRed.Infrastructure.Services.Trackers;
+namespace JacRed.Infrastructure.Services.Trackers.Megapeer;
 
-public sealed class Megapeer : BaseTrackerSearch
+public sealed class MegapeerSearch : BaseTrackerSearch
 {
     public override TrackerType Tracker => TrackerType.Megapeer;
     public override string TrackerName => "megapeer";

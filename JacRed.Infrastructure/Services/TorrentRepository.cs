@@ -11,16 +11,16 @@ using Npgsql;
 namespace JacRed.Infrastructure.Services;
 
 /// <summary>
-/// Репозиторий для управления торрентами с использованием PostgreSQL и Dapper.
-/// Поддерживает кэширование коллекций на 30 минут.
+///     Репозиторий для управления торрентами с использованием PostgreSQL и Dapper.
+///     Поддерживает кэширование коллекций на 30 минут.
 /// </summary>
 public class TorrentRepository : ITorrentRepository
 {
     private readonly ICacheService _cache;
-    private readonly IKeyGenerator _keyGenerator;
-    private readonly ITorrentEnricher _torrentEnricher;
-    private readonly ILogger<TorrentRepository> _logger;
     private readonly string _connectionString;
+    private readonly IKeyGenerator _keyGenerator;
+    private readonly ILogger<TorrentRepository> _logger;
+    private readonly ITorrentEnricher _torrentEnricher;
 
     public TorrentRepository(
         ICacheService cache,
@@ -46,10 +46,7 @@ public class TorrentRepository : ITorrentRepository
             // Upsert master_db
             await UpsertMasterDb(key);
 
-            foreach (var torrent in group)
-            {
-                await UpsertTorrent(torrent);
-            }
+            foreach (var torrent in group) await UpsertTorrent(torrent);
 
             await _cache.InvalidateAsync($"collection:{key}");
         }
@@ -64,7 +61,7 @@ public class TorrentRepository : ITorrentRepository
         foreach (var group in torrents.GroupBy(t => _keyGenerator.Build(t.Name, t.OriginalName)))
         {
             var key = group.Key;
-            var currentData = await GetCollectionAsync(key, updateCache: false);
+            var currentData = await GetCollectionAsync(key, false);
 
             // Upsert master_db
             await UpsertMasterDb(key);
@@ -83,7 +80,8 @@ public class TorrentRepository : ITorrentRepository
     }
 
     /// <summary>Возвращает коллекцию торрентов по ключу, с опциональным обновлением кэша.</summary>
-    public async Task<IReadOnlyDictionary<string, TorrentDetails>> GetCollectionAsync(string key, bool updateCache = false)
+    public async Task<IReadOnlyDictionary<string, TorrentDetails>> GetCollectionAsync(string key,
+        bool updateCache = false)
     {
         var cacheKey = $"collection:{key}";
 
@@ -123,12 +121,12 @@ public class TorrentRepository : ITorrentRepository
         using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
 
-        var details = src as TorrentDetails;
+        var details = src;
         var now = DateTime.UtcNow;
 
         // Проверка на наличие
         const string existsSql = @"SELECT 1 FROM public.torrents WHERE url = @Url";
-        var exists = await connection.QueryFirstOrDefaultAsync<int?>(existsSql, new { Url = src.Url }) == 1;
+        var exists = await connection.QueryFirstOrDefaultAsync<int?>(existsSql, new { src.Url }) == 1;
 
         if (exists)
         {
@@ -237,13 +235,13 @@ public class TorrentRepository : ITorrentRepository
 
     private Torrent MapToDbModel(TorrentDetails src, DateTime now, bool isNew = false)
     {
-        var details = src as TorrentDetails;
+        var details = src;
         var searchName = StringConvert.SearchName(src.Name) ?? StringConvert.SearchName(src.Title);
         var originalSearchName = StringConvert.SearchName(src.OriginalName) ?? StringConvert.SearchName(src.Title);
 
         return new Torrent
         {
-            Id = isNew ? Guid.NewGuid() : (details?.Id ?? Guid.NewGuid()),
+            Id = isNew ? Guid.NewGuid() : details?.Id ?? Guid.NewGuid(),
             TrackerName = src.TrackerName,
             Types = src.Types,
             Url = src.Url,

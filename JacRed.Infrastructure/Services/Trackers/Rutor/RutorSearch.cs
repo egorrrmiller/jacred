@@ -1,9 +1,9 @@
 using JacRed.Core;
 using JacRed.Core.Enums;
 
-namespace JacRed.Infrastructure.Services.Trackers;
+namespace JacRed.Infrastructure.Services.Trackers.Rutor;
 
-public sealed class Rutor : BaseTrackerSearch
+public sealed class RutorSearch : BaseTrackerSearch
 {
     public override TrackerType Tracker => TrackerType.Rutor;
     public override string TrackerName => "rutor";

@@ -1,9 +1,9 @@
 using JacRed.Core;
 using JacRed.Core.Enums;
 
-namespace JacRed.Infrastructure.Services.Trackers;
+namespace JacRed.Infrastructure.Services.Trackers.Lostfilm;
 
-public sealed class Lostfilm : BaseTrackerSearch
+public sealed class LostfilmSearch : BaseTrackerSearch
 {
     public override TrackerType Tracker => TrackerType.Lostfilm;
     public override string TrackerName => "lostfilm";

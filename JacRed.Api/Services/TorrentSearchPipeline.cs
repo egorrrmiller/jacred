@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using JacRed.Core.Interfaces;
+using JacRed.Core.Models;
 using JacRed.Core.Models.Api;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Utils;
@@ -17,8 +18,8 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
     private readonly ICacheService _cacheService;
     private readonly HttpService _httpService;
     private readonly ITorrentMergerService _mergeService;
-    private readonly ITorrentRepository _torrentRepository;
     private readonly ITorrentSearchService _searchService;
+    private readonly ITorrentRepository _torrentRepository;
     private readonly ITrackerSearchService _trackerSearchService;
 
     public TorrentSearchPipeline(

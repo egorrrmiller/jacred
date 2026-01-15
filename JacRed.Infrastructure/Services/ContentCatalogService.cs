@@ -18,9 +18,9 @@ public class ContentCatalogService : IContentCatalog
     private const string AllKeysCacheKey = "catalog:all_keys";
     private const string FastIndexCacheKey = "catalog:fast_index";
     private readonly ICacheService _cache;
+    private readonly string _connectionString;
     private readonly ILogger<ContentCatalogService> _logger;
     private readonly IMemoryCache _memoryCache;
-    private readonly string _connectionString;
 
     public ContentCatalogService(
         ICacheService cache,
@@ -87,13 +87,11 @@ public class ContentCatalogService : IContentCatalog
         var dict = new ConcurrentDictionary<string, TorrentInfo>();
 
         foreach (var item in result)
-        {
             dict.TryAdd(item.Key, new TorrentInfo
             {
                 updateTime = item.UpdateTime,
                 fileTime = item.FileTime
             });
-        }
 
         _logger.LogInformation("Загружено {Count} записей из master_db", dict.Count);
         return dict;

@@ -1607,7 +1607,7 @@ public class TorrentEnricher : ITorrentEnricher
         var details = EnrichAndConvert(torrent);
 
         if (!_mediaAnalyzer.ShouldAnalyze(details.Types)) return details;
-        
+
         var streams = await _mediaAnalyzer.GetStreamsAsync(details.Magnet ?? string.Empty, details.Types);
         var languages = await _mediaAnalyzer.ExtractLanguagesAsync(details, streams);
 
@@ -1723,8 +1723,8 @@ public class TorrentEnricher : ITorrentEnricher
         var titlelower = title.ToLower();
 
         if (Regex.IsMatch(titlelower, "(\\[| )hdr?(10\\+?)( |\\]|,|$)") ||
-            Regex.IsMatch(titlelower, "(10-bit|10 bit|10-бит|10 бит)") &&
-            !Regex.IsMatch(titlelower, "(\\[| )sdr( |\\]|,|$)"))
+            (Regex.IsMatch(titlelower, "(10-bit|10 bit|10-бит|10 бит)") &&
+             !Regex.IsMatch(titlelower, "(\\[| )sdr( |\\]|,|$)")))
             return "hdr";
 
         return "sdr";

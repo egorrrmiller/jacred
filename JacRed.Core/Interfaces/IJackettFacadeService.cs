@@ -1,11 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using JacRed.Core.Models;
 using JacRed.Core.Models.Api;
 
-namespace JacRed.Api.Services;
+namespace JacRed.Core.Interfaces;
 
 public interface IJackettFacadeService
 {
