@@ -26,8 +26,7 @@ public class RuTrackerTopSeededSync : ITrackerCronProvider, ITrackerCatalogEnric
     private static readonly Encoding RuEncoding = Encoding.GetEncoding("windows-1251");
 
     private static readonly Regex MaxPageRegex =
-        new("\u0421\u0442\u0440\u0430\u043d\u0438\u0446\u0430 <b>1</b> \u0438\u0437 <b>(?<pages>\\d+)</b>",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        new("Страница <b>1</b> из <b>(?<pages>\\d+)</b>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private readonly ICacheService _cacheService;
 
@@ -343,7 +342,7 @@ public class RuTrackerTopSeededSync : ITrackerCronProvider, ITrackerCatalogEnric
 
     private static (string? name, string? originalName, int relased) ParseSerial(string title)
     {
-        var seasonPattern = Regex.Escape("\u0421\u0435\u0437\u043e\u043d");
+        var seasonPattern = Regex.Escape("Сезон");
         var g = Regex.Match(title,
             $"^([^/\\(\\[]+) / [^/\\(\\[]+ / [^/\\(\\[]+ / ([^/\\(\\[]+) / {seasonPattern}: [^/]+ / [^\\(\\[]+ \\([^\\)]+\\) \\[([0-9]+)(,|-)",
             RegexOptions.IgnoreCase).Groups;
@@ -389,8 +388,7 @@ public class RuTrackerTopSeededSync : ITrackerCronProvider, ITrackerCatalogEnric
         if (string.IsNullOrWhiteSpace(name))
             return (title.Trim(), null, ExtractYear(title));
 
-        if (Regex.IsMatch(name, "(\\u0421\\u0435\\u0437\\u043e\\u043d|\\u0421\\u0435\\u0440\\u0438\\u0438)",
-                RegexOptions.IgnoreCase))
+        if (Regex.IsMatch(name, "(Сезон|Серии)", RegexOptions.IgnoreCase))
             return (null, null, 0);
 
         var relased = 0;
@@ -405,7 +403,7 @@ public class RuTrackerTopSeededSync : ITrackerCronProvider, ITrackerCatalogEnric
         string year)
     {
         var relased = ParseYear(year);
-        name = name?.Replace("\u0432 3\u0414", string.Empty, StringComparison.OrdinalIgnoreCase).Trim();
+        name = name?.Replace("в 3Д", string.Empty, StringComparison.OrdinalIgnoreCase).Trim();
         original = original?.Replace(" in 3D", string.Empty, StringComparison.OrdinalIgnoreCase)
             .Replace(" 3D", string.Empty, StringComparison.OrdinalIgnoreCase)
             .Trim();
@@ -439,11 +437,10 @@ public class RuTrackerTopSeededSync : ITrackerCronProvider, ITrackerCatalogEnric
     private static string ReplaceBadNames(string html)
     {
         return html
-            .Replace("\u0412\u0430\u043d\u0434\u0430/\u0412\u0438\u0436\u043d ",
-                "\u0412\u0430\u043d\u0434\u0430\u0412\u0438\u0436\u043d ")
-            .Replace("\u0401", "\u0415")
-            .Replace("\u0451", "\u0435")
-            .Replace("\u0449", "\u0448");
+            .Replace("Ванда/Вижн ", "ВандаВижн ")
+            .Replace("Ё", "Е")
+            .Replace("ё", "е")
+            .Replace("щ", "ш");
     }
 
     private static int ParseInt(string raw)
@@ -699,31 +696,31 @@ public class RuTrackerTopSeededSync : ITrackerCronProvider, ITrackerCatalogEnric
 
     private static string NormalizeDate(string value)
     {
-        value = ReplaceMonth(value, "\u044f\u043d\u0432", ".01.");
-        value = ReplaceMonth(value, "\u0444\u0435\u0432\u0440?", ".02.");
-        value = ReplaceMonth(value, "\u043c\u0430\u0440\u0442?", ".03.");
-        value = ReplaceMonth(value, "\u0430\u043f\u0440", ".04.");
-        value = ReplaceMonth(value, "\u043c\u0430\u0439", ".05.");
-        value = ReplaceMonth(value, "\u0438\u044e\u043d\u044c?", ".06.");
-        value = ReplaceMonth(value, "\u0438\u044e\u043b\u044c?", ".07.");
-        value = ReplaceMonth(value, "\u0430\u0432\u0433", ".08.");
-        value = ReplaceMonth(value, "\u0441\u0435\u043d\u0442?", ".09.");
-        value = ReplaceMonth(value, "\u043e\u043a\u0442", ".10.");
-        value = ReplaceMonth(value, "\u043d\u043e\u044f\u0431?", ".11.");
-        value = ReplaceMonth(value, "\u0434\u0435\u043a", ".12.");
+        value = ReplaceMonth(value, "янв", ".01.");
+        value = ReplaceMonth(value, "февр?", ".02.");
+        value = ReplaceMonth(value, "март?", ".03.");
+        value = ReplaceMonth(value, "апр", ".04.");
+        value = ReplaceMonth(value, "май", ".05.");
+        value = ReplaceMonth(value, "июнь?", ".06.");
+        value = ReplaceMonth(value, "июль?", ".07.");
+        value = ReplaceMonth(value, "авг", ".08.");
+        value = ReplaceMonth(value, "сент?", ".09.");
+        value = ReplaceMonth(value, "окт", ".10.");
+        value = ReplaceMonth(value, "нояб?", ".11.");
+        value = ReplaceMonth(value, "дек", ".12.");
 
-        value = ReplaceMonth(value, "\u044f\u043d\u0432\u0430\u0440(\u044c|\u044f)?", ".01.");
-        value = ReplaceMonth(value, "\u0444\u0435\u0432\u0440\u0430\u043b(\u044c|\u044f)?", ".02.");
-        value = ReplaceMonth(value, "\u043c\u0430\u0440\u0442\u0430?", ".03.");
-        value = ReplaceMonth(value, "\u0430\u043f\u0440\u0435\u043b(\u044c|\u044f)?", ".04.");
-        value = ReplaceMonth(value, "\u043c\u0430\u0439?\u044f?", ".05.");
-        value = ReplaceMonth(value, "\u0438\u044e\u043d(\u044c|\u044f)?", ".06.");
-        value = ReplaceMonth(value, "\u0438\u044e\u043b(\u044c|\u044f)?", ".07.");
-        value = ReplaceMonth(value, "\u0430\u0432\u0433\u0443\u0441\u0442\u0430?", ".08.");
-        value = ReplaceMonth(value, "\u0441\u0435\u043d\u0442\u044f\u0431\u0440(\u044c|\u044f)?", ".09.");
-        value = ReplaceMonth(value, "\u043e\u043a\u0442\u044f\u0431\u0440(\u044c|\u044f)?", ".10.");
-        value = ReplaceMonth(value, "\u043d\u043e\u044f\u0431\u0440(\u044c|\u044f)?", ".11.");
-        value = ReplaceMonth(value, "\u0434\u0435\u043a\u0430\u0431\u0440(\u044c|\u044f)?", ".12.");
+        value = ReplaceMonth(value, "январ(ь|я)?", ".01.");
+        value = ReplaceMonth(value, "феврал(ь|я)?", ".02.");
+        value = ReplaceMonth(value, "марта?", ".03.");
+        value = ReplaceMonth(value, "апрел(ь|я)?", ".04.");
+        value = ReplaceMonth(value, "май?я?", ".05.");
+        value = ReplaceMonth(value, "июн(ь|я)?", ".06.");
+        value = ReplaceMonth(value, "июл(ь|я)?", ".07.");
+        value = ReplaceMonth(value, "августа?", ".08.");
+        value = ReplaceMonth(value, "сентябр(ь|я)?", ".09.");
+        value = ReplaceMonth(value, "октябр(ь|я)?", ".10.");
+        value = ReplaceMonth(value, "ноябр(ь|я)?", ".11.");
+        value = ReplaceMonth(value, "декабр(ь|я)?", ".12.");
 
         value = ReplaceMonth(value, "Jan", ".01.");
         value = ReplaceMonth(value, "Feb", ".02.");
@@ -794,11 +791,10 @@ public class RuTrackerTopSeededSync : ITrackerCronProvider, ITrackerCatalogEnric
         new("<[^>]+>", RegexOptions.Singleline | RegexOptions.Compiled);
 
     private static readonly Regex WhitespaceRegex =
-        new("[\\n\\r\\t\\u00A0]+", RegexOptions.Compiled);
+        new(@"[\n\r\t ]+", RegexOptions.Compiled);
 
     private static readonly Regex SeasonMarkerRegex =
-        new("(\u0421\u0435\u0437\u043e\u043d|\u0421\u0435\u0440\u0438\u0438)",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        new("(Сезон|Серии)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex TopicDateRegex =
         new("<a class=\"p-link small\" href=\"viewtopic\\.php\\?t=[^\"]+\">(?<date>[^<]+)</a>",
