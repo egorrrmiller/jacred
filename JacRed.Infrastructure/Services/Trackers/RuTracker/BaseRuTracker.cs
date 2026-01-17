@@ -61,7 +61,7 @@ public class BaseRuTracker : ITrackerCatalogEnricher
                 return true;
         }
 
-        var (magnet, createTime) = await FetchTopicDetailsAsync(torrent.Url, cancellationToken);
+        var (magnet, createTime) = await FetchTopicDetailsAsync(torrent.Url);
         if (!string.IsNullOrWhiteSpace(magnet))
             torrent.Magnet = magnet;
 
@@ -78,13 +78,11 @@ public class BaseRuTracker : ITrackerCatalogEnricher
         int timeoutSeconds = 15,
         int maxResponseSize = 10_000_000,
         List<(string name, string val)>? addHeaders = null,
-        bool useProxy = false,
-        CancellationToken cancellationToken = default)
+        bool useProxy = false)
     {
-        cancellationToken.ThrowIfCancellationRequested();
 
         if (!_cacheService.TryGetValue(CookieKey, out string? cookie))
-            cookie = await Authorize(cancellationToken: cancellationToken);
+            cookie = await Authorize(false);
 
         var html = await _httpService.Get(
             url,
@@ -98,7 +96,7 @@ public class BaseRuTracker : ITrackerCatalogEnricher
 
         if (string.IsNullOrWhiteSpace(html) || !html.Contains("id=\"logged-in-username\""))
         {
-            cookie = await Authorize(true, cancellationToken);
+            cookie = await Authorize(true);
             html = await _httpService.Get(
                 url,
                 encoding,
@@ -113,7 +111,7 @@ public class BaseRuTracker : ITrackerCatalogEnricher
         return html;
     }
 
-    private async Task<string> Authorize(bool reAuth = false, CancellationToken cancellationToken = default)
+    private async Task<string> Authorize(bool reAuth = false)
     {
         var handler = new HttpClientHandler
         {
@@ -145,9 +143,9 @@ public class BaseRuTracker : ITrackerCatalogEnricher
         if (response.StatusCode is not HttpStatusCode.Found)
         {
             if (reAuth)
-                throw new OperationCanceledException("RuTracker authorization failed twice", cancellationToken);
+                throw new InvalidOperationException("RuTracker authorization failed twice");
 
-            return await Authorize(true, cancellationToken);
+            return await Authorize(true);
         }
 
         var cookies = response.Headers.TryGetValues("Set-Cookie", out var v) ? v : Array.Empty<string>();
@@ -199,8 +197,15 @@ public class BaseRuTracker : ITrackerCatalogEnricher
 
             var publishDate = TryParsePublishDate(row) ?? now;
 
-            if (!TryGetCategory(categoryId, out var category))
-                continue;
+            var rowCategoryId = categoryId;
+            if (!TryGetCategory(rowCategoryId, out var category))
+            {
+                rowCategoryId = ExtractCategoryId(row);
+                if (!TryGetCategory(rowCategoryId, out category))
+                {
+                    category = new CategoryInfo(Array.Empty<string>(), CategoryParser.Default);
+                }
+            }
 
             var (name, originalName, relased) = ParseTitle(title, category);
             if (category.Parser == CategoryParser.Generic && SeasonMarkerRegex.IsMatch(title))
@@ -443,20 +448,16 @@ public class BaseRuTracker : ITrackerCatalogEnricher
     }
 
     private async Task<(string? magnet, DateTime createTime)> FetchTopicDetailsAsync(
-        string url,
-        CancellationToken cancellationToken)
+        string url)
     {
         try
         {
-            if (cancellationToken.IsCancellationRequested)
-                return (null, default);
-
             var html = await Get(
                 url,
                 RuEncoding,
                 url,
                 7,
-                useProxy: AppInit.conf.Rutracker.useproxy, cancellationToken: cancellationToken);
+                useProxy: AppInit.conf.Rutracker.useproxy);
 
             if (string.IsNullOrWhiteSpace(html))
                 return (null, default);
@@ -479,13 +480,13 @@ public class BaseRuTracker : ITrackerCatalogEnricher
 
     protected static string BuildCategoryUrl(string host, string categoryId, int page)
     {
-        var baseUrl = $"{host.TrimEnd('/')}/forum/tracker.php?f[]={categoryId}";
+        var baseUrl = $"{host.TrimEnd('/')}/forum/tracker.php?f[]={categoryId}&o=10&s=2";
         return page <= 0 ? baseUrl : $"{baseUrl}&start={page * 50}";
     }
 
     protected static string BuildQueryUrl(string host, string query, int page)
     {
-        var baseUrl = $"{host.TrimEnd('/')}/forum/tracker.php?nm={query}";
+        var baseUrl = $"{host.TrimEnd('/')}/forum/tracker.php?nm={query}&o=10&s=2";
         return page <= 0 ? baseUrl : $"{baseUrl}&start={page * 50}";
     }
 
@@ -496,9 +497,9 @@ public class BaseRuTracker : ITrackerCatalogEnricher
 
         var match = MaxPageRegex.Match(html);
         if (!match.Success)
-            return 1;
+            return 0;
 
-        return int.TryParse(match.Groups["pages"].Value, out var pages) ? pages : 1;
+        return int.TryParse(match.Groups["pages"].Value, out var pages) ? pages : 0;
     }
 
     private static bool TryParseSize(string row, out string sizeName, out long sizeBytes)
@@ -601,6 +602,16 @@ public class BaseRuTracker : ITrackerCatalogEnricher
         return href;
     }
 
+    private static string ExtractCategoryId(string row)
+    {
+        var match = ForumIdRegex.Match(row);
+        if (match.Success)
+            return match.Groups["id"].Value;
+
+        match = ForumHrefRegex.Match(row);
+        return match.Success ? match.Groups["id"].Value : string.Empty;
+    }
+
     private static DateTime ParseTopicDate(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
@@ -694,8 +705,7 @@ public class BaseRuTracker : ITrackerCatalogEnricher
     #region Regex helpers
 
     private static readonly Regex RowRegex =
-        new("<tr[^>]*class=\"[^\"]*\\bhl-tr\\b[^\"]*\"[^>]*>.*?</tr>",
-            RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+        new("<tr[^>]*>.*?\\btLink\\b.*?</tr>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
 
     private static readonly Regex LinkRegex =
         new(
@@ -734,6 +744,12 @@ public class BaseRuTracker : ITrackerCatalogEnricher
     private static readonly Regex MagnetRegex =
         new("href=\"(?<magnet>magnet:[^\"]+)\" class=\"(med )?magnet-link\"",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex ForumIdRegex =
+        new("data-forum_id=\"(?<id>\\d+)\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex ForumHrefRegex =
+        new("viewforum\\.php\\?f=(?<id>\\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex YearRegex =
         new("(?<!\\d)(19\\d{2}|20\\d{2})(?!\\d)", RegexOptions.Compiled);

@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Dapper;
 using JacRed.Core;
 using JacRed.Core.Interfaces;
@@ -318,8 +319,14 @@ public class TorrentSearchService : ITorrentSearchService
     /// </summary>
     private bool MatchesFilters(TorrentDetails t, int? year, int? mediaType)
     {
-        return (!year.HasValue || MatchesYear(t, year.Value)) &&
-               MatchesType(t, mediaType);
+        var typeOk = MatchesType(t, mediaType);
+        if (!typeOk)
+            return false;
+
+        if (mediaType == 1 && IsMovieType(t) && SeasonTitleRegex.IsMatch(t.Title ?? string.Empty))
+            return false;
+
+        return !year.HasValue || MatchesYear(t, year.Value);
     }
 
     /// <summary>
@@ -329,12 +336,12 @@ public class TorrentSearchService : ITorrentSearchService
     {
         return mediaType switch
         {
-            1 => t.Types?.Contains("movie") == true ||
-                 t.Types?.Contains("multfilm") == true ||
-                 t.Types?.Contains("documovie") == true,
+            1 => IsMovieType(t),
             2 => t.Types?.Contains("serial") == true ||
                  t.Types?.Contains("multserial") == true ||
-                 t.Types?.Contains("tvshow") == true,
+                 t.Types?.Contains("tvshow") == true ||
+                 t.Types?.Contains("anime") == true ||
+                 t.Types?.Contains("docuserial") == true,
             3 => t.Types?.Contains("tvshow") == true,
             4 => t.Types?.Contains("docuserial") == true ||
                  t.Types?.Contains("documovie") == true,
@@ -348,14 +355,23 @@ public class TorrentSearchService : ITorrentSearchService
     /// </summary>
     private bool MatchesYear(TorrentDetails t, int year)
     {
-        var isMovieType = t.Types?.Contains("movie") == true ||
-                          t.Types?.Contains("multfilm") == true ||
-                          t.Types?.Contains("documovie") == true;
+        var isMovieType = IsMovieType(t);
 
         return isMovieType
             ? t.Relased == year || t.Relased == year - 1 || t.Relased == year + 1
             : t.Relased >= year - 1;
     }
+
+    private static bool IsMovieType(TorrentDetails t)
+    {
+        return t.Types?.Contains("movie") == true ||
+               t.Types?.Contains("multfilm") == true ||
+               t.Types?.Contains("documovie") == true ||
+               t.Types?.Contains("anime") == true;
+    }
+
+    private static readonly Regex SeasonTitleRegex =
+        new("(сезон|сери(и|я|й))", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     /// <summary>
     ///     Строит нормализованные ключи поиска из локализованного и оригинального названия.

@@ -37,8 +37,7 @@ public class RuTrackerTopSeededSync : BaseRuTracker, ITrackerCronProvider
                 url,
                 RuEncoding,
                 timeoutSeconds: 10,
-                useProxy: AppInit.conf.Rutracker.useproxy,
-                cancellationToken: cancellationToken);
+                useProxy: AppInit.conf.Rutracker.useproxy);
 
             if (string.IsNullOrWhiteSpace(html))
                 continue;
@@ -59,8 +58,7 @@ public class RuTrackerTopSeededSync : BaseRuTracker, ITrackerCronProvider
                     pageUrl,
                     RuEncoding,
                     timeoutSeconds: 10,
-                    useProxy: AppInit.conf.Rutracker.useproxy,
-                    cancellationToken: cancellationToken);
+                    useProxy: AppInit.conf.Rutracker.useproxy);
 
                 if (string.IsNullOrWhiteSpace(pageHtml))
                     continue;

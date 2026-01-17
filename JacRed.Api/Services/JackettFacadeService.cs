@@ -214,6 +214,17 @@ public class JackettFacadeService : IJackettFacadeService
         return streams;
     }
 
+    private static bool IsAllowedTracker(TorrentDetails t)
+    {
+        if (AppInit.conf.synctrackers != null && !AppInit.conf.synctrackers.Contains(t.TrackerName))
+            return false;
+
+        if (AppInit.conf.disable_trackers != null && AppInit.conf.disable_trackers.Contains(t.TrackerName))
+            return false;
+
+        return true;
+    }
+
     private HashSet<int> GetCategoryIds(TorrentDetails t, out string? desc)
     {
         desc = null;
@@ -221,34 +232,44 @@ public class JackettFacadeService : IJackettFacadeService
         if (t.Types == null || t.Types.Length == 0)
             return new HashSet<int>();
 
-        switch (t.Types[0])
+        var set = new HashSet<int>();
+
+        foreach (var type in t.Types)
         {
-            case "movie":
-            case "multfilm":
-            case "documovie":
-                desc = "Movies";
-                return new HashSet<int> { 2000 };
+            switch (type)
+            {
+                case "movie":
+                case "multfilm":
+                    desc ??= "Movies";
+                    set.Add(2000);
+                    break;
 
-            case "serial":
-            case "multserial":
-                desc = "TV";
-                return new HashSet<int> { 5000 };
+                case "serial":
+                case "multserial":
+                    desc ??= "TV";
+                    set.Add(5000);
+                    break;
 
-            case "docuserial":
-                desc = "TV/Documentary";
-                return new HashSet<int> { 5080 };
+                case "documovie":
+                case "docuserial":
+                    desc ??= "TV/Documentary";
+                    set.Add(5080);
+                    break;
 
-            case "tvshow":
-                desc = "TV/Foreign";
-                return new HashSet<int> { 5020, 2010 };
+                case "tvshow":
+                    desc ??= "TV/Foreign";
+                    set.Add(5020);
+                    set.Add(2010);
+                    break;
 
-            case "anime":
-                desc = "TV/Anime";
-                return new HashSet<int> { 5070 };
-
-            default:
-                return new HashSet<int>();
+                case "anime":
+                    desc ??= "TV/Anime";
+                    set.Add(5070);
+                    break;
+            }
         }
+
+        return set;
     }
 
     private string GenerateCacheKey(string query, string title, string orig, int year, Dictionary<string, string> cat,
@@ -320,7 +341,9 @@ public class JackettFacadeService : IJackettFacadeService
 
     private int? DetermineContentType(int isSerial, Dictionary<string, string> category)
     {
-        if (category?.Count > 0)
+        // Старое поведение: категории влияют только когда is_serial == 0,
+        // -1 иные значения не трогаем.
+        if (isSerial == 0 && category?.Count > 0)
         {
             var cat = category.First().Value;
             if (cat.Contains("5020") || cat.Contains("2010")) return 3;
@@ -353,7 +376,7 @@ public class JackettFacadeService : IJackettFacadeService
         string queryString)
     {
         var isNumRequest = IsNumRequest(query, userAgent, queryString);
-        var contentType = DetermineContentType(isSerial, category) ?? -1;
+        var contentType = DetermineContentType(isSerial, category);
         (title, titleOriginal, year) = ApplyNumQueryHeuristic(query, title, titleOriginal, year, isNumRequest);
 
         if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(titleOriginal) &&
@@ -366,9 +389,22 @@ public class JackettFacadeService : IJackettFacadeService
                 title = query;
         }
 
-        var torrents = string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(titleOriginal)
-            ? await _searchService.SearchByQueryAsync(query, contentType)
-            : await _searchService.SearchByTitleAsync(title, titleOriginal, year, contentType, true);
+        var hasTitles = !string.IsNullOrWhiteSpace(title) || !string.IsNullOrWhiteSpace(titleOriginal);
+
+        var torrents = hasTitles
+            ? await _searchService.SearchByTitleAsync(title, titleOriginal, year, contentType, true)
+            : await _searchService.SearchByQueryAsync(query, contentType);
+
+        if (hasTitles && torrents.Count == 0)
+        {
+            var combined = $"{title} {titleOriginal}".Trim();
+            torrents = await _searchService.SearchByQueryAsync(combined, contentType);
+        }
+
+        torrents = torrents
+            .Where(IsAllowedTracker)
+            .Where(t => t.Types != null && !(t.Title?.Contains(" КПК") ?? false))
+            .ToList();
 
         if (torrents.Count == 0)
         {
@@ -386,6 +422,11 @@ public class JackettFacadeService : IJackettFacadeService
                     torrents = string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(titleOriginal)
                         ? await _searchService.SearchByQueryAsync(query, contentType)
                         : await _searchService.SearchByTitleAsync(title, titleOriginal, year, contentType, true);
+
+                    torrents = torrents
+                        .Where(IsAllowedTracker)
+                        .Where(t => t.Types != null && !(t.Title?.Contains(" КПК") ?? false))
+                        .ToList();
                 }
             }
         }

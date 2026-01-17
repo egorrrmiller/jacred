@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models;
 using JacRed.Core.Models.Api;
@@ -44,10 +45,20 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
         CancellationToken cancellationToken = default)
     {
         var (search, altname) = await ResolveKpImdb(request.Search, request.AltName);
-        var mediaType = TypeToId(request.Type);
 
-        var torrents = await SearchLocalAsync(search, altname, mediaType, request.Exact);
+        // В старой ручке /api/v1.0/torrents типы фильтровались после выборки.
+        // Чтобы не отсекать результаты (например, фильмы с пометкой "сезон"),
+        // не передаем mediaType в поиск и фильтруем по type ниже.
+        var torrents = await SearchLocalAsync(search, altname, mediaType: null, exact: request.Exact);
+        torrents = FilterAllowedTrackers(torrents).ToList();
         var usedFallback = false;
+
+        // Если точный поиск ничего не дал — пробуем нестрогий вариант локально (как в старой логике).
+        if (request.Exact && torrents.Count == 0)
+        {
+            torrents = await SearchLocalAsync(search, altname, mediaType: null, exact: false);
+            torrents = FilterAllowedTrackers(torrents).ToList();
+        }
 
         if (torrents.Count == 0)
         {
@@ -63,13 +74,21 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
                 {
                     await _torrentRepository.AddOrUpdateAsync(fetched);
                     usedFallback = true;
-                    torrents = await SearchLocalAsync(search, altname, mediaType, request.Exact);
+                    torrents = await SearchLocalAsync(search, altname, null, request.Exact);
+                    torrents = FilterAllowedTrackers(torrents).ToList();
+
+                    if (request.Exact && torrents.Count == 0)
+                    {
+                        torrents = await SearchLocalAsync(search, altname, null, exact: false);
+                        torrents = FilterAllowedTrackers(torrents).ToList();
+                    }
                 }
             }
         }
 
         var filtered = ApplyFilters(
             torrents,
+            request.Type,
             request.Tracker,
             request.Relased,
             request.Quality,
@@ -129,6 +148,7 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
 
     private static IEnumerable<TorrentDetails> ApplyFilters(
         IEnumerable<TorrentDetails> source,
+        string? type,
         string? tracker,
         long relased,
         long quality,
@@ -137,6 +157,9 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
         long season)
     {
         var query = source;
+
+        if (!string.IsNullOrWhiteSpace(type))
+            query = query.Where(t => t.Types?.Contains(type) == true);
 
         if (!string.IsNullOrWhiteSpace(tracker))
             query = query.Where(t => t.TrackerName == tracker);
@@ -190,5 +213,12 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
             "anime" => 5,
             _ => null
         };
+    }
+
+    private static IEnumerable<TorrentDetails> FilterAllowedTrackers(IEnumerable<TorrentDetails> source)
+    {
+        return source.Where(t =>
+            (AppInit.conf.synctrackers == null || AppInit.conf.synctrackers.Contains(t.TrackerName)) &&
+            (AppInit.conf.disable_trackers == null || !AppInit.conf.disable_trackers.Contains(t.TrackerName)));
     }
 }

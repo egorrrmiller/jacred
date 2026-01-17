@@ -1,4 +1,5 @@
 using Dapper;
+using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Database;
 using JacRed.Core.Models.Details;
@@ -201,22 +202,20 @@ public class TorrentRepository : ITorrentRepository
         using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
 
-        const string sql = @"
+        var sql = @"
             SELECT *
             FROM public.torrents
-            WHERE EXISTS (
-                SELECT 1 FROM public.master_db
-                WHERE key = @Key
+            WHERE (
+                coalesce(search_name, regexp_replace(lower(coalesce(name, '')), '[^a-z0-9а-яё]+', '', 'g')) LIKE ANY(@Patterns)
+                OR coalesce(original_search_name, regexp_replace(lower(coalesce(original_name, '')), '[^a-z0-9а-яё]+', '', 'g')) LIKE ANY(@Patterns)
             )
-            AND (
-                coalesce(search_name, regexp_replace(lower(coalesce(name, '')), '[^a-z0-9]+', '', 'g')) LIKE ANY(@Patterns)
-                OR coalesce(original_search_name, regexp_replace(lower(coalesce(original_name, '')), '[^a-z0-9]+', '', 'g')) LIKE ANY(@Patterns)
-            )";
+            ORDER BY sid DESC, update_time DESC
+            LIMIT @MaxRead";
 
         var torrents = await connection.QueryAsync<Torrent>(sql, new
         {
-            Key = key,
-            Patterns = patterns
+            Patterns = patterns,
+            MaxRead = AppInit.conf.maxreadfile
         });
 
         var dict = new Dictionary<string, TorrentDetails>();

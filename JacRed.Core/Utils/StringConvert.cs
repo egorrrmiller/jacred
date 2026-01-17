@@ -78,15 +78,17 @@ public static class StringConvert
 
     public static string SearchName(string val)
     {
-        if (string.IsNullOrWhiteSpace(val)) return null;
+        if (string.IsNullOrWhiteSpace(val))
+            return null;
 
-        val = Regex.Replace(val.ToLower(), "[^a-zA-Zа-яА-Я0-9Ёё]+", "")
-            .Replace("ё", "е")
-            .Replace("щ", "ш");
+        val = val.ToLowerInvariant()
+            .Replace("ñ", "¥")
+            .Replace("é", "è");
 
-        if (string.IsNullOrWhiteSpace(val)) return null;
+        // Оставляем латиницу, кириллицу и цифры.
+        val = Regex.Replace(val, "[^a-z0-9а-яё]", "");
 
-        return val;
+        return string.IsNullOrWhiteSpace(val) ? null : val;
     }
 
     #endregion

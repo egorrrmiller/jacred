@@ -8,8 +8,11 @@ namespace JacRed.Infrastructure.Services.Trackers.RuTracker;
 
 public sealed class RuTrackerSearch : BaseRuTracker, ITrackerSearch
 {
-    public RuTrackerSearch(ICacheService cacheService, HttpService httpService) : base(cacheService, httpService)
+    private readonly ITorrentRepository _torrentRepository;
+    
+    public RuTrackerSearch(ICacheService cacheService, HttpService httpService, ITorrentRepository torrentRepository) : base(cacheService, httpService)
     {
+        _torrentRepository = torrentRepository;
     }
 
     public TrackerType Tracker => TrackerType.Rutracker;
@@ -19,8 +22,6 @@ public sealed class RuTrackerSearch : BaseRuTracker, ITrackerSearch
     public async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(string query,
         CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        
         var results = new Dictionary<string, TorrentDetails>(StringComparer.OrdinalIgnoreCase);
         var now = DateTime.UtcNow;
         var requestHost = AppInit.conf.Rutracker.rqHost();
@@ -30,8 +31,7 @@ public sealed class RuTrackerSearch : BaseRuTracker, ITrackerSearch
             url,
             RuEncoding,
             timeoutSeconds: 10,
-            useProxy: AppInit.conf.Rutracker.useproxy,
-            cancellationToken: cancellationToken);
+            useProxy: AppInit.conf.Rutracker.useproxy);
 
         if (string.IsNullOrWhiteSpace(html))
             return new List<TorrentDetails>();
@@ -45,15 +45,15 @@ public sealed class RuTrackerSearch : BaseRuTracker, ITrackerSearch
         var delayMs = AppInit.conf.Rutracker.parseDelay == 0 ? 3000 : AppInit.conf.Rutracker.parseDelay;
         for (var page = 1; page <= totalPages; page++)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            /*if (cancellationToken.IsCancellationRequested)
+                break;*/
 
-            var pageUrl = BuildCategoryUrl(requestHost, query, page);
+            var pageUrl = BuildQueryUrl(requestHost, query, page);
             var pageHtml = await Get(
                 pageUrl,
                 RuEncoding,
                 timeoutSeconds: 10,
-                useProxy: AppInit.conf.Rutracker.useproxy,
-                cancellationToken: cancellationToken);
+                useProxy: AppInit.conf.Rutracker.useproxy);
 
             if (string.IsNullOrWhiteSpace(pageHtml))
                 continue;
@@ -63,12 +63,23 @@ public sealed class RuTrackerSearch : BaseRuTracker, ITrackerSearch
                 results[item.Url] = item;
 
             if (delayMs > 0)
-                await Task.Delay(delayMs, cancellationToken);
+            {
+                try
+                {
+                    await Task.Delay(delayMs);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
         }
-
-        if (delayMs > 0)
-            await Task.Delay(delayMs, cancellationToken);
         
+        await _torrentRepository.AddOrUpdateAsync(
+            results.Values,
+            (torrent, existing) =>
+                TryEnrichAsync(torrent, existing, cancellationToken));
+
         return results.Values.ToList();
     }
 }
