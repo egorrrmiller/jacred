@@ -18,4 +18,9 @@ public interface ITorrentRepository
     Task AddOrUpdateAsync<T>(
         IReadOnlyCollection<T> torrents,
         Func<T, IReadOnlyDictionary<string, TorrentDetails>, Task<bool>> predicate) where T : TorrentDetails;
+
+    /// <summary>
+    ///     Возвращает торренты, не обновлявшиеся дольше указанного порога.
+    /// </summary>
+    Task<List<TorrentDetails>> GetStaleAsync(TimeSpan olderThan, int limit, CancellationToken cancellationToken = default);
 }

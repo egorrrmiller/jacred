@@ -69,7 +69,6 @@ COMMENT
 ON TABLE public.torrents IS 'Раздачи (TorrentDetails). Поиск по произвольному тексту через search_tsv + trigram.';
 COMMENT
 ON COLUMN public.torrents.types IS 'Types из модели (например: {serial,hd}).';
-COMMENT
 
 -- Индексы под сортировки/фильтры
 CREATE INDEX IF NOT EXISTS ix_torrents_sid
@@ -161,12 +160,6 @@ CREATE TABLE IF NOT EXISTS public.sync_state
 
 COMMENT
 ON TABLE public.sync_state IS '��������� ������������� (last_sync/start_sync).';
-
-CREATE INDEX IF NOT EXISTS ix_tracker_stats_updated_at
-    ON public.tracker_stats (updated_at DESC);
-
-CREATE INDEX IF NOT EXISTS ix_tracker_stats_last_new_tor
-    ON public.tracker_stats (last_new_tor DESC);
 
 CREATE INDEX IF NOT EXISTS ix_sync_state_updated_at
     ON public.sync_state (updated_at DESC);

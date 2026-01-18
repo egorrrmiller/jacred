@@ -36,45 +36,9 @@ public sealed class RuTrackerSearch : BaseRuTracker, ITrackerSearch
         if (string.IsNullOrWhiteSpace(html))
             return new List<TorrentDetails>();
 
-        var maxPages = GetMaxPages(html);
         var parsed = ParseForumPage(html, string.Empty, RuTrackerUrl, now);
         foreach (var item in parsed)
             results[item.Url] = item;
-
-        var totalPages = Math.Min(maxPages, MaxPagesPerCategory);
-        var delayMs = AppInit.conf.Rutracker.parseDelay == 0 ? 3000 : AppInit.conf.Rutracker.parseDelay;
-        for (var page = 1; page <= totalPages; page++)
-        {
-            /*if (cancellationToken.IsCancellationRequested)
-                break;*/
-
-            var pageUrl = BuildQueryUrl(requestHost, query, page);
-            var pageHtml = await Get(
-                pageUrl,
-                RuEncoding,
-                timeoutSeconds: 10,
-                useProxy: AppInit.conf.Rutracker.useproxy);
-
-            if (string.IsNullOrWhiteSpace(pageHtml))
-                continue;
-
-            var pageParsed = ParseForumPage(pageHtml, string.Empty, RuTrackerUrl, now);
-            foreach (var item in pageParsed)
-                results[item.Url] = item;
-
-            // Задержку ставим только если впереди ещё страницы, чтобы не тратить время на последней.
-            if (delayMs > 0 && page < totalPages)
-            {
-                try
-                {
-                    await Task.Delay(delayMs);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-            }
-        }
         
         await _torrentRepository.AddOrUpdateAsync(
             results.Values,

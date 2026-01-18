@@ -5,6 +5,7 @@ using JacRed.Core.Models.Database;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Utils;
 using Microsoft.Extensions.Logging;
+using System.Threading;
 using Npgsql;
 
 namespace JacRed.Infrastructure.Services;
@@ -93,6 +94,56 @@ public class TorrentRepository : ITorrentRepository
             async () => await LoadCollectionFromDbAsync(key),
             TimeSpan.FromMinutes(30)
         );
+    }
+
+    public async Task<List<TorrentDetails>> GetStaleAsync(TimeSpan olderThan, int limit, CancellationToken cancellationToken = default)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        var cutoff = DateTime.UtcNow - olderThan;
+
+        const string sql = @"
+            SELECT 
+                id                      AS ""Id"",
+                tracker_name            AS ""TrackerName"",
+                types                   AS ""Types"",
+                url                     AS ""Url"",
+                title                   AS ""Title"",
+                sid                     AS ""Sid"",
+                pir                     AS ""Pir"",
+                size_name               AS ""SizeName"",
+                create_time             AS ""CreateTime"",
+                update_time             AS ""UpdateTime"",
+                check_time              AS ""CheckTime"",
+                magnet                  AS ""Magnet"",
+                name                    AS ""Name"",
+                original_name           AS ""OriginalName"",
+                relased                 AS ""Relased"",
+                languages               AS ""Languages"",
+                source_season_number    AS ""SourceSeasonNumber"",
+                source_season_order     AS ""SourceSeasonOrder"",
+                size                    AS ""Size"",
+                quality                 AS ""Quality"",
+                video_type              AS ""VideoType"",
+                voices                  AS ""Voices"",
+                seasons                 AS ""Seasons""
+            FROM public.torrents
+            WHERE update_time < @Cutoff
+            ORDER BY tracker_name, update_time ASC
+            LIMIT @Limit";
+
+        var rows = await connection.QueryAsync<Torrent>(new CommandDefinition(sql, new { Cutoff = cutoff, Limit = limit }, cancellationToken: cancellationToken));
+
+        var list = new List<TorrentDetails>();
+        foreach (var row in rows)
+        {
+            var model = MapToDomainModel(row);
+            if (model != null)
+                list.Add(model);
+        }
+
+        return list;
     }
 
     /// <summary>
