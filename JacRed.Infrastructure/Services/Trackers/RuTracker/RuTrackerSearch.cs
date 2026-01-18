@@ -39,11 +39,22 @@ public sealed class RuTrackerSearch : BaseRuTracker, ITrackerSearch
         var parsed = ParseForumPage(html, string.Empty, RuTrackerUrl, now);
         foreach (var item in parsed)
             results[item.Url] = item;
-        
-        await _torrentRepository.AddOrUpdateAsync(
+
+        var options = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = Environment.ProcessorCount,
+            CancellationToken = cancellationToken
+        };
+
+        await Parallel.ForEachAsync(
             results.Values,
-            (torrent, existing) =>
-                TryEnrichAsync(torrent, existing, cancellationToken));
+            options,
+            async (torrent, ct) =>
+            {
+                await _torrentRepository.AddOrUpdateAsync(
+                    new[] { torrent },
+                    (t, existing) => TryEnrichAsync(t, existing, ct));
+            });
 
         return results.Values.ToList();
     }

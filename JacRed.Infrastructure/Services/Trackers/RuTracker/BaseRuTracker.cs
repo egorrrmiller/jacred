@@ -167,9 +167,13 @@ public class BaseRuTracker : ITrackerCatalogEnricher
         var results = new ConcurrentBag<TorrentDetails>();
         var baseForumUri = new Uri(new Uri(host), "forum/");
 
-        Parallel.ForEach(RowRegex.Matches(cleaned), rowMatch =>
+        var rows = SplitRows(cleaned, 800);
+        if (!rows.Any())
+            rows = RowRegex.Matches(cleaned).Cast<Match>().Select(m => m.Value);
+        var options = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount };
+
+        Parallel.ForEach(rows, options, (row, _) =>
         {
-            var row = rowMatch.Value;
             var linkMatch = LinkRegex.Match(row);
             if (!linkMatch.Success)
                 return;
@@ -234,6 +238,25 @@ public class BaseRuTracker : ITrackerCatalogEnricher
         });
 
         return results;
+    }
+
+    private static IEnumerable<string> SplitRows(string html, int maxRows)
+    {
+        var rows = html.Split("<tr", StringSplitOptions.RemoveEmptyEntries);
+        var collected = new List<string>(Math.Min(rows.Length, maxRows));
+
+        foreach (var raw in rows)
+        {
+            if (collected.Count >= maxRows)
+                break;
+
+            if (!raw.Contains("tLink", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            collected.Add("<tr" + raw);
+        }
+
+        return collected;
     }
 
     private static IReadOnlyDictionary<string, CategoryInfo> BuildCategoryMap()

@@ -92,7 +92,9 @@ public class TorrentSearchService : ITorrentSearchService
         if (terms.Length == 0)
             return new List<TorrentDetails>();
 
-        var likePatterns = terms.Select(t => $"%{t}%").ToArray();
+        var termRegexes = terms
+            .Select(t => $"^{Regex.Escape(t)}(\\D|$)")
+            .ToArray();
 
         using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
@@ -127,10 +129,10 @@ public class TorrentSearchService : ITorrentSearchService
                 original_search_name    AS ""OriginalSearchName""
             FROM public.torrents
             WHERE (
-                (search_name IS NOT NULL AND search_name ILIKE ANY(@Patterns))
-                OR (original_search_name IS NOT NULL AND original_search_name ILIKE ANY(@Patterns))
-                OR regexp_replace(lower(coalesce(name, '')), '[^a-z0-9а-яё]+', '', 'g') ILIKE ANY(@Patterns)
-                OR regexp_replace(lower(coalesce(original_name, '')), '[^a-z0-9а-яё]+', '', 'g') ILIKE ANY(@Patterns)
+                (array_length(@Terms, 1) IS NOT NULL AND (
+                    (search_name IS NOT NULL AND (search_name = ANY(@Terms) OR search_name ~ ANY(@TermRegexes)))
+                    OR (original_search_name IS NOT NULL AND (original_search_name = ANY(@Terms) OR original_search_name ~ ANY(@TermRegexes)))
+                ))
                 OR (@HasWeb AND search_tsv @@ websearch_to_tsquery('russian', @WebTerm))
             )
             ORDER BY sid DESC, update_time DESC
@@ -138,7 +140,8 @@ public class TorrentSearchService : ITorrentSearchService
 
         var rows = await connection.QueryAsync<Torrent>(sql, new
         {
-            Patterns = likePatterns,
+            Terms = terms,
+            TermRegexes = termRegexes,
             MaxRead = AppInit.conf.maxreadfile,
             HasWeb = !string.IsNullOrWhiteSpace(webTerm),
             WebTerm = webTerm ?? string.Empty
@@ -168,10 +171,12 @@ public class TorrentSearchService : ITorrentSearchService
         using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
 
-        var patterns = new[] { searchName, searchOriginal }
+        var terms = new[] { searchName, searchOriginal }
             .Where(s => !string.IsNullOrWhiteSpace(s))
-            .Select(s => $"%{s}%")
             .Distinct()
+            .ToArray();
+        var termRegexes = terms
+            .Select(t => $"^{Regex.Escape(t)}(\\D|$)")
             .ToArray();
 
         var hasWeb = !string.IsNullOrWhiteSpace(webTerm);
@@ -208,11 +213,9 @@ public class TorrentSearchService : ITorrentSearchService
                               FROM public.torrents
                               WHERE 
                                   (
-                                     (array_length(@Patterns, 1) IS NOT NULL AND (
-                                         (search_name IS NOT NULL AND search_name LIKE ANY(@Patterns)) OR
-                                         (original_search_name IS NOT NULL AND original_search_name LIKE ANY(@Patterns)) OR
-                                         (search_name IS NULL AND regexp_replace(lower(coalesce(name, '')), '[^a-z0-9]+', '', 'g') LIKE ANY(@Patterns)) OR
-                                         (original_search_name IS NULL AND regexp_replace(lower(coalesce(original_name, '')), '[^a-z0-9]+', '', 'g') LIKE ANY(@Patterns))
+                                     (array_length(@Terms, 1) IS NOT NULL AND (
+                                         (search_name IS NOT NULL AND (search_name = ANY(@Terms) OR search_name ~ ANY(@TermRegexes))) OR
+                                         (original_search_name IS NOT NULL AND (original_search_name = ANY(@Terms) OR original_search_name ~ ANY(@TermRegexes)))
                                      ))
                                      OR (@HasWeb AND search_tsv @@ websearch_to_tsquery('russian', @WebTerm))
                                   )
@@ -223,7 +226,8 @@ public class TorrentSearchService : ITorrentSearchService
 
         var torrents = await connection.QueryAsync<Torrent>(sql, new
         {
-            Patterns = patterns.Length > 0 ? patterns : Array.Empty<string>(),
+            Terms = terms.Length > 0 ? terms : Array.Empty<string>(),
+            TermRegexes = termRegexes.Length > 0 ? termRegexes : Array.Empty<string>(),
             WebTerm = hasWeb ? webTerm : string.Empty,
             HasWeb = hasWeb,
             MaxRead = AppInit.conf.maxreadfile

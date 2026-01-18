@@ -60,52 +60,50 @@ public sealed class StaleTorrentRefreshService : BackgroundService
         var stale = await _torrentRepository.GetStaleAsync(Threshold, BatchSize, cancellationToken);
         if (stale.Count == 0)
             return;
-
-        var items = stale
+        
+        var grouped = stale
             .Select(t => (tracker: TryParseTracker(t.TrackerName), torrent: t))
             .Where(x => x.tracker.HasValue)
-            .ToArray();
-
-        var options = new ParallelOptions
+            .GroupBy(x => x.tracker!.Value);
+        
+        foreach (var group in grouped)
         {
-            CancellationToken = cancellationToken,
-            MaxDegreeOfParallelism = Math.Min(4, Environment.ProcessorCount)
-        };
-
-        await Parallel.ForEachAsync(items, options, async (item, ct) =>
-        {
-            var tracker = item.tracker!.Value;
-            var torrent = item.torrent;
-
-            var query = torrent.Name;
-            if (string.IsNullOrWhiteSpace(query))
-                query = torrent.OriginalName;
-            if (string.IsNullOrWhiteSpace(query))
-                query = torrent.Title;
-            if (string.IsNullOrWhiteSpace(query))
-                return;
-
-            try
+            var tracker = group.Key;
+            
+            foreach (var (_, torrent) in group)
             {
-                var refreshed = await _trackerSearchService.SearchAsync(
-                    query,
-                    new[] { tracker },
-                    ct);
+                cancellationToken.ThrowIfCancellationRequested();
 
-                if (refreshed.Count == 0)
-                    return;
+                var query = torrent.Name;
+                if (string.IsNullOrWhiteSpace(query))
+                    query = torrent.OriginalName;
+                if (string.IsNullOrWhiteSpace(query))
+                    query = torrent.Title;
+                if (string.IsNullOrWhiteSpace(query))
+                    continue;
 
-                await _torrentRepository.AddOrUpdateAsync(refreshed);
+                try
+                {
+                    var refreshed = await _trackerSearchService.SearchAsync(
+                        query,
+                        [tracker],
+                        cancellationToken);
+
+                    if (refreshed.Count == 0)
+                        continue;
+
+                    await _torrentRepository.AddOrUpdateAsync(refreshed);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Failed to refresh torrent {Url}", torrent.Url);
+                }
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Failed to refresh torrent {Url}", torrent.Url);
-            }
-        });
+        }
     }
 
     private TrackerType? TryParseTracker(string trackerName)

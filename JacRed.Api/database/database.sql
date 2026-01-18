@@ -99,6 +99,13 @@ CREATE INDEX IF NOT EXISTS ix_torrents_search_name_trgm
 CREATE INDEX IF NOT EXISTS ix_torrents_original_search_name_trgm
     ON public.torrents USING gin (original_search_name gin_trgm_ops);
 
+-- Точные сравнения по нормализованным именам
+CREATE INDEX IF NOT EXISTS ix_torrents_search_name_eq
+    ON public.torrents (search_name);
+
+CREATE INDEX IF NOT EXISTS ix_torrents_original_search_name_eq
+    ON public.torrents (original_search_name);
+
 -- FTS индекс
 CREATE INDEX IF NOT EXISTS ix_torrents_search_tsv
     ON public.torrents USING gin (search_tsv);
