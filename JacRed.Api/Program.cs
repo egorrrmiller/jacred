@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -9,6 +10,7 @@ using Dapper;
 using JacRed.Api;
 using JacRed.Api.Configuration;
 using JacRed.Core;
+using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -25,14 +27,26 @@ var builder = WebApplication.CreateBuilder(args);
 // Dapper: сопоставление snake_case колонок с PascalCase свойствами
 DefaultTypeMap.MatchNamesWithUnderscores = true;
 
-// --- Настройка Kestrel ---
-builder.WebHost.UseKestrel(options =>
-{
-    var ip = AppInit.conf.listenip?.ToLower() == "any"
-        ? IPAddress.Any
-        : IPAddress.Parse(AppInit.conf.listenip ?? "127.0.0.1");
+// 1. Добавляем файл в общую конфигурацию приложения
+builder.Configuration.AddYamlFile("config.yml", optional: false, reloadOnChange: true);
 
-    options.Listen(ip, AppInit.conf.listenport);
+// 2. Регистрируем IOptions (теперь builder.Configuration содержит данные из YAML)
+builder.Services.Configure<Config>(builder.Configuration);
+
+// 3. Настраиваем Kestrel
+builder.WebHost.UseKestrel((context, kestrelOptions) =>
+{
+    // Теперь context.Configuration — это тот же объект, куда мы добавили YAML
+    var serverOpts = context.Configuration.Get<Config>() ?? new Config();
+    
+    var listenIp = serverOpts.ListenIp; // Должно быть "any" или из файла
+    var port = serverOpts.ListenPort;
+
+    var ip = listenIp.Equals("any", StringComparison.OrdinalIgnoreCase)
+        ? IPAddress.Any
+        : IPAddress.Parse(listenIp);
+
+    kestrelOptions.Listen(ip, port);
 });
 
 // --- Глобальные настройки ---
