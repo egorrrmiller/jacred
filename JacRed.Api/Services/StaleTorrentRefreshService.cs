@@ -82,7 +82,6 @@ public sealed class StaleTorrentRefreshService : BackgroundService
                     var refreshed = await _trackerSearchService.SearchAsync(
                         query,
                         [tracker],
-                        null,
                         cancellationToken);
 
                     if (refreshed.Count == 0)

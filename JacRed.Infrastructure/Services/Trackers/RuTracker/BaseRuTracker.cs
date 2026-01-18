@@ -140,7 +140,7 @@ public class BaseRuTracker : ITrackerCatalogEnricher
         if (response.StatusCode is not HttpStatusCode.Found)
         {
             if (reAuth)
-                throw new InvalidOperationException("RuTracker authorization failed twice");
+                return string.Empty;
 
             return await Authorize(true);
         }

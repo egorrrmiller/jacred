@@ -384,7 +384,6 @@ public class JackettFacadeService : IJackettFacadeService
                 var fetched = await _trackerSearchService.SearchAsync(
                     trackerQuery,
                     _trackerSearchService.GetSupportedTrackers(),
-                    contentType,
                     CancellationToken.None);
 
                 if (fetched.Count > 0)

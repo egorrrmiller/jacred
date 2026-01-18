@@ -60,15 +60,9 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
             var trackerQuery = BuildTrackerQuery(search, altname);
             if (!string.IsNullOrWhiteSpace(trackerQuery))
             {
-                var trackerMediaType = request.Type != null &&
-                                       request.Type.Equals("anime", StringComparison.OrdinalIgnoreCase)
-                    ? 5
-                    : (int?)null;
-
                 var fetched = await _trackerSearchService.SearchAsync(
                     trackerQuery,
                     _trackerSearchService.GetSupportedTrackers(),
-                    trackerMediaType,
                     cancellationToken);
 
                 if (fetched.Count > 0)

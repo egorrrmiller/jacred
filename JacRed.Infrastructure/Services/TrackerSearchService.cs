@@ -1,4 +1,5 @@
 ﻿using JacRed.Core;
+using System.Collections.Concurrent;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
@@ -36,19 +37,18 @@ public class TrackerSearchService : ITrackerSearchService
     public async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(
         string query,
         IReadOnlyCollection<TrackerType>? trackers = null,
-        int? mediaType = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
             return Array.Empty<TorrentDetails>();
 
-        var targetTrackers = ResolveTrackers(trackers, mediaType);
+        var targetTrackers = ResolveTrackers(trackers);
         if (targetTrackers.Count == 0)
             return Array.Empty<TorrentDetails>();
 
         var normalizedQuery = StringConvert.SearchName(query) ?? query.Trim();
         var trackerKey = string.Join(",", targetTrackers.OrderBy(t => t).Select(t => t.ToString()));
-        var cacheKey = CacheKeyBuilder.Build("tracker-search", normalizedQuery, trackerKey, mediaType?.ToString());
+        var cacheKey = CacheKeyBuilder.Build("tracker-search", normalizedQuery, trackerKey);
 
         return await _cacheService.GetOrCreateAsync(
             cacheKey,
@@ -56,19 +56,17 @@ public class TrackerSearchService : ITrackerSearchService
             TimeSpan.FromMinutes(5));
     }
 
-    private IReadOnlyCollection<TrackerType> ResolveTrackers(IReadOnlyCollection<TrackerType>? trackers, int? mediaType)
+    private IReadOnlyCollection<TrackerType> ResolveTrackers(IReadOnlyCollection<TrackerType>? trackers)
     {
         if (trackers == null || trackers.Count == 0)
             return _providers.Values
                 .Where(p => !_disabledTrackers.Contains(p.TrackerName))
-                //.Where(p => IsAllowedForMediaType(p.Tracker, mediaType))
                 .Select(p => p.Tracker)
                 .ToArray();
 
         return trackers
             .Where(t => _providers.ContainsKey(t))
             .Where(t => !_disabledTrackers.Contains(_providers[t].TrackerName))
-            //.Where(t => IsAllowedForMediaType(t, mediaType))
             .Distinct()
             .ToArray();
     }
@@ -78,11 +76,23 @@ public class TrackerSearchService : ITrackerSearchService
         IReadOnlyCollection<TrackerType> trackers,
         CancellationToken cancellationToken)
     {
-        var tasks = trackers.Select(tracker => SearchTrackerSafeAsync(tracker, query, cancellationToken)).ToArray();
-        var results = await Task.WhenAll(tasks);
+        var bag = new ConcurrentBag<IReadOnlyCollection<TorrentDetails>>();
+
+        var options = new ParallelOptions
+        {
+            CancellationToken = cancellationToken,
+            MaxDegreeOfParallelism = Environment.ProcessorCount
+        };
+
+        await Parallel.ForEachAsync(trackers, options, async (tracker, ct) =>
+        {
+            var res = await SearchTrackerSafeAsync(tracker, query, ct);
+            if (res.Count > 0)
+                bag.Add(res);
+        });
 
         var merged = new List<TorrentDetails>();
-        foreach (var list in results)
+        foreach (var list in bag)
             if (list.Count > 0)
                 merged.AddRange(list);
 
@@ -114,14 +124,5 @@ public class TrackerSearchService : ITrackerSearchService
         }
 
         return Array.Empty<TorrentDetails>();
-    }
-
-    private static bool IsAllowedForMediaType(TrackerType tracker, int? mediaType)
-    {
-        // mediaType == 5 => anime. Не гоняем запросы на Aniliberty, если медиа не аниме.
-        if (tracker == TrackerType.Aniliberty && mediaType.HasValue && mediaType != 5)
-            return false;
-
-        return true;
     }
 }
