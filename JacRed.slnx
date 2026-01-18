@@ -1,0 +1,5 @@
+<Solution>
+    <Project Path="JacRed.Api/JacRed.Api.csproj"/>
+    <Project Path="JacRed.Core/JacRed.Core.csproj"/>
+    <Project Path="JacRed.Infrastructure/JacRed.Infrastructure.csproj"/>
+</Solution>
