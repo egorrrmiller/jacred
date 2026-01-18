@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 
 namespace JacRed.Core.Utils;
 
@@ -82,13 +82,51 @@ public static class StringConvert
             return null;
 
         val = val.ToLowerInvariant()
-            .Replace("ñ", "¥")
-            .Replace("é", "è");
+            .Replace("n", "?")
+            .Replace("e", "e");
 
         // Оставляем латиницу, кириллицу и цифры.
         val = Regex.Replace(val, "[^a-z0-9а-яё]", "");
 
         return string.IsNullOrWhiteSpace(val) ? null : val;
+    }
+
+    #endregion
+
+    #region FormatSize
+
+    public static string FormatSize(long bytes)
+    {
+        var units = new[] { "B", "KB", "MB", "GB", "TB" };
+        var unitIndex = 0;
+        double value = bytes;
+
+        while (value >= 1024 && unitIndex < units.Length - 1)
+        {
+            value /= 1024;
+            unitIndex++;
+        }
+
+        return $"{value:0.##} {units[unitIndex]}";
+    }
+
+    #endregion
+
+    #region ParseQuality
+
+    public static int ParseQuality(string? quality)
+    {
+        if (string.IsNullOrWhiteSpace(quality))
+            return 0;
+
+        var match = Regex.Match(quality, "(\\d{3,4})p", RegexOptions.IgnoreCase);
+        if (match.Success && int.TryParse(match.Groups[1].Value, out var q))
+            return q;
+
+        if (int.TryParse(quality, out var numeric))
+            return numeric;
+
+        return 0;
     }
 
     #endregion

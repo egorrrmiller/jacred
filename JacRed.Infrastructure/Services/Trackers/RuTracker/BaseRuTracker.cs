@@ -15,7 +15,7 @@ namespace JacRed.Infrastructure.Services.Trackers.RuTracker;
 public class BaseRuTracker : ITrackerCatalogEnricher
 {
     protected const int MaxPagesPerCategory = 5;
-    
+
     private const string CookieKey = "rutracker:cookie";
 
     protected static readonly Encoding RuEncoding = Encoding.GetEncoding("windows-1251");
@@ -81,9 +81,8 @@ public class BaseRuTracker : ITrackerCatalogEnricher
         List<(string name, string val)>? addHeaders = null,
         bool useProxy = false)
     {
-
         if (!_cacheService.TryGetValue(CookieKey, out string? cookie))
-            cookie = await Authorize(false);
+            cookie = await Authorize();
 
         var html = await _httpService.Get(
             url,
@@ -122,7 +121,7 @@ public class BaseRuTracker : ITrackerCatalogEnricher
         };
         var client = new HttpClient(handler);
         var http = new HttpService(client, NullLogger<HttpService>.Instance);
-        
+
         var pairs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "login_username", AppInit.conf.Rutracker.login.u },
@@ -169,7 +168,7 @@ public class BaseRuTracker : ITrackerCatalogEnricher
 
         var rows = SplitRows(cleaned, 800);
         if (!rows.Any())
-            rows = RowRegex.Matches(cleaned).Cast<Match>().Select(m => m.Value);
+            rows = RowRegex.Matches(cleaned).Select(m => m.Value);
         var options = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount };
 
         Parallel.ForEach(rows, options, (row, _) =>
@@ -738,7 +737,8 @@ public class BaseRuTracker : ITrackerCatalogEnricher
     #region Regex helpers
 
     private static readonly Regex RowRegex =
-        new("<tr[^>]*>.*?\\btLink\\b.*?</tr>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+        new("<tr[^>]*>.*?\\btLink\\b.*?</tr>",
+            RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
 
     private static readonly Regex LinkRegex =
         new(
@@ -746,10 +746,12 @@ public class BaseRuTracker : ITrackerCatalogEnricher
             RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
 
     private static readonly Regex SeedRegex =
-        new("class=\"[^\"]*seed[^\"]*\"[^>]*>\\s*(?:<b>)?(?<value>\\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        new("class=\"[^\"]*seed[^\"]*\"[^>]*>\\s*(?:<b>)?(?<value>\\d+)",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex LeechRegex =
-        new("class=\"[^\"]*leech[^\"]*\"[^>]*>\\s*(?:<b>)?(?<value>\\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        new("class=\"[^\"]*leech[^\"]*\"[^>]*>\\s*(?:<b>)?(?<value>\\d+)",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex SizeBytesRegex =
         new("tor-size[^>]*data-ts_text=\"(?<bytes>\\d+)\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);

@@ -3,7 +3,7 @@ namespace JacRed.Core.Enums;
 public enum TrackerType
 {
     Anifilm,
-    Anilibria,
+    Aniliberty,
     Animelayer,
     Baibako,
     Bitru,

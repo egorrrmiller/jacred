@@ -22,5 +22,6 @@ public interface ITorrentRepository
     /// <summary>
     ///     Возвращает торренты, не обновлявшиеся дольше указанного порога.
     /// </summary>
-    Task<List<TorrentDetails>> GetStaleAsync(TimeSpan olderThan, int limit, CancellationToken cancellationToken = default);
+    Task<List<TorrentDetails>> GetStaleAsync(TimeSpan olderThan, int limit,
+        CancellationToken cancellationToken = default);
 }

@@ -1,16 +1,11 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using JacRed.Core;
+﻿using JacRed.Core;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Utils;
 using Microsoft.Extensions.Logging;
 
-namespace JacRed.Api.Services;
+namespace JacRed.Infrastructure.Services;
 
 public class TrackerSearchService : ITrackerSearchService
 {
@@ -33,28 +28,27 @@ public class TrackerSearchService : ITrackerSearchService
             StringComparer.OrdinalIgnoreCase);
     }
 
-    /// <summary>Возвращает список поддерживаемых трекеров.</summary>
     public IReadOnlyCollection<TrackerType> GetSupportedTrackers()
     {
         return _providers.Keys.OrderBy(t => t).ToArray();
     }
 
-    /// <summary>Ищет на выбранных трекерах и кэширует результат.</summary>
     public async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(
         string query,
         IReadOnlyCollection<TrackerType>? trackers = null,
+        int? mediaType = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))
             return Array.Empty<TorrentDetails>();
 
-        var targetTrackers = ResolveTrackers(trackers);
+        var targetTrackers = ResolveTrackers(trackers, mediaType);
         if (targetTrackers.Count == 0)
             return Array.Empty<TorrentDetails>();
 
         var normalizedQuery = StringConvert.SearchName(query) ?? query.Trim();
         var trackerKey = string.Join(",", targetTrackers.OrderBy(t => t).Select(t => t.ToString()));
-        var cacheKey = CacheKeyBuilder.Build("tracker-search", normalizedQuery, trackerKey);
+        var cacheKey = CacheKeyBuilder.Build("tracker-search", normalizedQuery, trackerKey, mediaType?.ToString());
 
         return await _cacheService.GetOrCreateAsync(
             cacheKey,
@@ -62,17 +56,19 @@ public class TrackerSearchService : ITrackerSearchService
             TimeSpan.FromMinutes(5));
     }
 
-    private IReadOnlyCollection<TrackerType> ResolveTrackers(IReadOnlyCollection<TrackerType>? trackers)
+    private IReadOnlyCollection<TrackerType> ResolveTrackers(IReadOnlyCollection<TrackerType>? trackers, int? mediaType)
     {
         if (trackers == null || trackers.Count == 0)
             return _providers.Values
                 .Where(p => !_disabledTrackers.Contains(p.TrackerName))
+                //.Where(p => IsAllowedForMediaType(p.Tracker, mediaType))
                 .Select(p => p.Tracker)
                 .ToArray();
 
         return trackers
             .Where(t => _providers.ContainsKey(t))
             .Where(t => !_disabledTrackers.Contains(_providers[t].TrackerName))
+            //.Where(t => IsAllowedForMediaType(t, mediaType))
             .Distinct()
             .ToArray();
     }
@@ -118,5 +114,14 @@ public class TrackerSearchService : ITrackerSearchService
         }
 
         return Array.Empty<TorrentDetails>();
+    }
+
+    private static bool IsAllowedForMediaType(TrackerType tracker, int? mediaType)
+    {
+        // mediaType == 5 => anime. Не гоняем запросы на Aniliberty, если медиа не аниме.
+        if (tracker == TrackerType.Aniliberty && mediaType.HasValue && mediaType != 5)
+            return false;
+
+        return true;
     }
 }

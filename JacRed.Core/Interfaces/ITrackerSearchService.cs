@@ -19,5 +19,6 @@ public interface ITrackerSearchService
     Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(
         string query,
         IReadOnlyCollection<TrackerType>? trackers = null,
+        int? mediaType = null,
         CancellationToken cancellationToken = default);
 }

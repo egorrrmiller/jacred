@@ -9,8 +9,9 @@ namespace JacRed.Infrastructure.Services.Trackers.RuTracker;
 public sealed class RuTrackerSearch : BaseRuTracker, ITrackerSearch
 {
     private readonly ITorrentRepository _torrentRepository;
-    
-    public RuTrackerSearch(ICacheService cacheService, HttpService httpService, ITorrentRepository torrentRepository) : base(cacheService, httpService)
+
+    public RuTrackerSearch(ICacheService cacheService, HttpService httpService, ITorrentRepository torrentRepository) :
+        base(cacheService, httpService)
     {
         _torrentRepository = torrentRepository;
     }

@@ -44,14 +44,14 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
         // В старой ручке /api/v1.0/torrents типы фильтровались после выборки.
         // Чтобы не отсекать результаты (например, фильмы с пометкой "сезон"),
         // не передаем mediaType в поиск и фильтруем по type ниже.
-        var torrents = await SearchLocalAsync(search, altname, mediaType: null, exact: request.Exact);
+        var torrents = await SearchLocalAsync(search, altname, null, request.Exact);
         torrents = FilterAllowedTrackers(torrents).ToList();
         var usedFallback = false;
 
         // Если точный поиск ничего не дал — пробуем нестрогий вариант локально (как в старой логике).
         if (request.Exact && torrents.Count == 0)
         {
-            torrents = await SearchLocalAsync(search, altname, mediaType: null, exact: false);
+            torrents = await SearchLocalAsync(search, altname, null, false);
             torrents = FilterAllowedTrackers(torrents).ToList();
         }
 
@@ -60,9 +60,15 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
             var trackerQuery = BuildTrackerQuery(search, altname);
             if (!string.IsNullOrWhiteSpace(trackerQuery))
             {
+                var trackerMediaType = request.Type != null &&
+                                       request.Type.Equals("anime", StringComparison.OrdinalIgnoreCase)
+                    ? 5
+                    : (int?)null;
+
                 var fetched = await _trackerSearchService.SearchAsync(
                     trackerQuery,
                     _trackerSearchService.GetSupportedTrackers(),
+                    trackerMediaType,
                     cancellationToken);
 
                 if (fetched.Count > 0)
@@ -74,7 +80,7 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
 
                     if (request.Exact && torrents.Count == 0)
                     {
-                        torrents = await SearchLocalAsync(search, altname, null, exact: false);
+                        torrents = await SearchLocalAsync(search, altname, null, false);
                         torrents = FilterAllowedTrackers(torrents).ToList();
                     }
                 }

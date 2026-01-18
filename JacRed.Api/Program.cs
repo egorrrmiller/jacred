@@ -69,8 +69,6 @@ builder.Services.AddResponseCompression(options =>
 
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
 
-//builder.Services.AddHostedService<TrackerCatalogPrefetchService>();
-
 // --- Регистрация зависимостей ---
 builder.Services.RegisterServices();
 

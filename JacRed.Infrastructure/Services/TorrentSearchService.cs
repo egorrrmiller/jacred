@@ -50,7 +50,8 @@ public class TorrentSearchService : ITorrentSearchService
 
         if (exact)
         {
-            var torrents = await SearchExactByNormalizedNamesAsync(new[] { searchName, searchOriginal }, year, mediaType, $"{title} {originalTitle}");
+            var torrents = await SearchExactByNormalizedNamesAsync(new[] { searchName, searchOriginal }, year,
+                mediaType, $"{title} {originalTitle}");
             return torrents;
         }
 
@@ -92,8 +93,9 @@ public class TorrentSearchService : ITorrentSearchService
         if (terms.Length == 0)
             return new List<TorrentDetails>();
 
+        var suffixPattern = mediaType == 1 ? "(\\D|$)" : ".*";
         var termRegexes = terms
-            .Select(t => $"^{Regex.Escape(t)}(\\D|$)")
+            .Select(t => $"^{Regex.Escape(t)}{suffixPattern}")
             .ToArray();
 
         using var connection = new NpgsqlConnection(_connectionString);
@@ -175,8 +177,9 @@ public class TorrentSearchService : ITorrentSearchService
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Distinct()
             .ToArray();
+        var suffixPattern = mediaType == 1 ? "(\\D|$)" : ".*";
         var termRegexes = terms
-            .Select(t => $"^{Regex.Escape(t)}(\\D|$)")
+            .Select(t => $"^{Regex.Escape(t)}{suffixPattern}")
             .ToArray();
 
         var hasWeb = !string.IsNullOrWhiteSpace(webTerm);

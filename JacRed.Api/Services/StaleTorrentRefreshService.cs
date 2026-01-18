@@ -1,12 +1,9 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using JacRed.Core;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
-using JacRed.Core.Models.Details;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -17,13 +14,13 @@ namespace JacRed.Api.Services;
 /// </summary>
 public sealed class StaleTorrentRefreshService : BackgroundService
 {
+    private const int BatchSize = 200;
     private static readonly TimeSpan Threshold = TimeSpan.FromHours(3);
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(15);
-    private const int BatchSize = 200;
+    private readonly ILogger<StaleTorrentRefreshService> _logger;
 
     private readonly ITorrentRepository _torrentRepository;
     private readonly ITrackerSearchService _trackerSearchService;
-    private readonly ILogger<StaleTorrentRefreshService> _logger;
 
     public StaleTorrentRefreshService(
         ITorrentRepository torrentRepository,
@@ -39,7 +36,6 @@ public sealed class StaleTorrentRefreshService : BackgroundService
     {
         using var timer = new PeriodicTimer(Interval);
         while (await timer.WaitForNextTickAsync(stoppingToken))
-        {
             try
             {
                 await RefreshOnceAsync(stoppingToken);
@@ -52,7 +48,6 @@ public sealed class StaleTorrentRefreshService : BackgroundService
             {
                 _logger.LogWarning(ex, "Stale torrent refresh iteration failed");
             }
-        }
     }
 
     private async Task RefreshOnceAsync(CancellationToken cancellationToken)
@@ -60,16 +55,16 @@ public sealed class StaleTorrentRefreshService : BackgroundService
         var stale = await _torrentRepository.GetStaleAsync(Threshold, BatchSize, cancellationToken);
         if (stale.Count == 0)
             return;
-        
+
         var grouped = stale
             .Select(t => (tracker: TryParseTracker(t.TrackerName), torrent: t))
             .Where(x => x.tracker.HasValue)
             .GroupBy(x => x.tracker!.Value);
-        
+
         foreach (var group in grouped)
         {
             var tracker = group.Key;
-            
+
             foreach (var (_, torrent) in group)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -87,6 +82,7 @@ public sealed class StaleTorrentRefreshService : BackgroundService
                     var refreshed = await _trackerSearchService.SearchAsync(
                         query,
                         [tracker],
+                        null,
                         cancellationToken);
 
                     if (refreshed.Count == 0)
@@ -110,5 +106,4 @@ public sealed class StaleTorrentRefreshService : BackgroundService
     {
         return Enum.TryParse<TrackerType>(trackerName, true, out var t) ? t : null;
     }
-
 }

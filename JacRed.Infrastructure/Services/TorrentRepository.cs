@@ -5,7 +5,6 @@ using JacRed.Core.Models.Database;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Utils;
 using Microsoft.Extensions.Logging;
-using System.Threading;
 using Npgsql;
 
 namespace JacRed.Infrastructure.Services;
@@ -61,7 +60,7 @@ public class TorrentRepository : ITorrentRepository
         foreach (var group in torrents.GroupBy(t => _keyGenerator.Build(t.Name, t.OriginalName)))
         {
             var key = group.Key;
-            var currentData = await GetCollectionAsync(key, false);
+            var currentData = await GetCollectionAsync(key);
 
             foreach (var torrent in group)
             {
@@ -96,7 +95,8 @@ public class TorrentRepository : ITorrentRepository
         );
     }
 
-    public async Task<List<TorrentDetails>> GetStaleAsync(TimeSpan olderThan, int limit, CancellationToken cancellationToken = default)
+    public async Task<List<TorrentDetails>> GetStaleAsync(TimeSpan olderThan, int limit,
+        CancellationToken cancellationToken = default)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
@@ -133,7 +133,8 @@ public class TorrentRepository : ITorrentRepository
             ORDER BY tracker_name, update_time ASC
             LIMIT @Limit";
 
-        var rows = await connection.QueryAsync<Torrent>(new CommandDefinition(sql, new { Cutoff = cutoff, Limit = limit }, cancellationToken: cancellationToken));
+        var rows = await connection.QueryAsync<Torrent>(new CommandDefinition(sql,
+            new { Cutoff = cutoff, Limit = limit }, cancellationToken: cancellationToken));
 
         var list = new List<TorrentDetails>();
         foreach (var row in rows)

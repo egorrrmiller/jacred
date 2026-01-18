@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Text.RegularExpressions;
 using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Api;
@@ -11,7 +6,7 @@ using JacRed.Core.Models.Details;
 using JacRed.Core.Utils;
 using TorrentInfo = JacRed.Core.Models.Api.TorrentInfo;
 
-namespace JacRed.Api.Services;
+namespace JacRed.Infrastructure.Services;
 
 public class JackettFacadeService : IJackettFacadeService
 {
@@ -212,7 +207,6 @@ public class JackettFacadeService : IJackettFacadeService
         var set = new HashSet<int>();
 
         foreach (var type in t.Types)
-        {
             switch (type)
             {
                 case "movie":
@@ -244,7 +238,6 @@ public class JackettFacadeService : IJackettFacadeService
                     set.Add(5070);
                     break;
             }
-        }
 
         return set;
     }
@@ -391,6 +384,7 @@ public class JackettFacadeService : IJackettFacadeService
                 var fetched = await _trackerSearchService.SearchAsync(
                     trackerQuery,
                     _trackerSearchService.GetSupportedTrackers(),
+                    contentType,
                     CancellationToken.None);
 
                 if (fetched.Count > 0)
