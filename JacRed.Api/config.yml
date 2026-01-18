@@ -28,7 +28,7 @@ sync-trackers:
   - rutracker
   - aniliberty
     
-# трекеры, результаты которых будут удалены из результата
+# трекеры, результаты которых будут удалены из ответа
 disable-trackers:
   - rutracker
 
