@@ -48,9 +48,6 @@ CREATE TABLE IF NOT EXISTS public.torrents
 
     languages text[] NULL, -- Languages (HashSet<string>)
 
-    ffprobe jsonb NULL, -- Ffprobe (List<ffStream>)
-    ffprobe_try_count integer NOT NULL DEFAULT 0, -- FfprobeTryCount
-
     source_season_number text NULL, -- SourceSeasonNumber
     source_season_order text NULL, -- SourceSeasonOrder
 
@@ -73,7 +70,6 @@ ON TABLE public.torrents IS 'Раздачи (TorrentDetails). Поиск по п
 COMMENT
 ON COLUMN public.torrents.types IS 'Types из модели (например: {serial,hd}).';
 COMMENT
-ON COLUMN public.torrents.ffprobe IS 'Ffprobe (List<ffStream>) в jsonb без нормализации.';
 
 -- Индексы под сортировки/фильтры
 CREATE INDEX IF NOT EXISTS ix_torrents_sid
@@ -136,88 +132,6 @@ ON public.torrents
     FOR EACH ROW EXECUTE FUNCTION public.torrents_update_search_tsv();
 
 --------------------------------------------------------------------------------
--- Tracks (ffprobe)
---------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.tracks
-(
-    infohash
-    text
-    PRIMARY
-    KEY,
-    ffprobe
-    jsonb
-    NOT
-    NULL,
-    updated_at
-    timestamptz
-    NOT
-    NULL
-    DEFAULT
-    now
-(
-)
-    );
-
-COMMENT
-ON TABLE public.tracks IS 'ffprobe-���������� �� infohash.';
-
-CREATE INDEX IF NOT EXISTS ix_tracks_updated_at
-    ON public.tracks (updated_at DESC);
-
---------------------------------------------------------------------------------
--- Tracker stats
---------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.tracker_stats
-(
-    tracker_name
-    text
-    PRIMARY
-    KEY,
-    last_new_tor
-    timestamptz
-    NOT
-    NULL,
-    new_tor
-    integer
-    NOT
-    NULL,
-    update_count
-    integer
-    NOT
-    NULL,
-    check_count
-    integer
-    NOT
-    NULL,
-    all_torrents
-    integer
-    NOT
-    NULL,
-    tr_wait
-    integer
-    NOT
-    NULL,
-    tr_confirm
-    integer
-    NOT
-    NULL,
-    tr_error
-    integer
-    NOT
-    NULL,
-    updated_at
-    timestamptz
-    NOT
-    NULL
-    DEFAULT
-    now
-(
-)
-    );
-
-COMMENT
-ON TABLE public.tracker_stats IS '�������������� ���������� �� ��������.';
-
 --------------------------------------------------------------------------------
 -- Sync state
 --------------------------------------------------------------------------------

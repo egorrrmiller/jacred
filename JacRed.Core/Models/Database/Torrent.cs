@@ -1,4 +1,3 @@
-using Newtonsoft.Json.Linq;
 using NpgsqlTypes;
 
 namespace JacRed.Core.Models.Database;
@@ -39,10 +38,6 @@ public class Torrent
     public int Relased { get; set; }
 
     public string[]? Languages { get; set; }
-
-    public JToken? Ffprobe { get; set; }
-
-    public int FfprobeTryCount { get; set; }
 
     public string? SourceSeasonNumber { get; set; }
 

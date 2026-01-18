@@ -26,10 +26,8 @@ public static class ServicesConfiguration
             .AddSingleton<IContentCatalog, ContentCatalogService>()
             .AddSingleton<ICacheService, CacheService>()
             .AddSingleton<IKeyGenerator, KeyGenerator>()
-            .AddSingleton<IMediaAnalyzerService, MediaAnalyzerService>()
             .AddSingleton<ITorrentEnricher, TorrentEnricher>()
             .AddSingleton<ITorrentSearchService, TorrentSearchService>()
-            .AddSingleton<ITracksDatabase, TracksDatabase>()
             .AddSingleton<ITorrentMergerService, TorrentMergerService>()
             .AddSingleton<IJackettFacadeService, JackettFacadeService>()
             .AddSingleton<ITorrentSearchPipeline, TorrentSearchPipeline>()
@@ -47,7 +45,6 @@ public static class ServicesConfiguration
             .AddSingleton<ITrackerSearch, TolokaSearch>()
             .AddSingleton<ITrackerSearch, TorrentBySearch>()
             .AddSingleton<ITrackerCronProvider, RuTrackerTopSeededSync>()
-            .AddHostedService<TracksEnrichmentService>()
             .AddMemoryCache()
             .AddHttpClient();
     }

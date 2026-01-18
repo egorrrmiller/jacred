@@ -1,9 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models;
@@ -12,7 +7,7 @@ using JacRed.Core.Models.Details;
 using JacRed.Core.Utils;
 using Newtonsoft.Json.Linq;
 
-namespace JacRed.Api.Services;
+namespace JacRed.Infrastructure.Services;
 
 public class TorrentSearchPipeline : ITorrentSearchPipeline
 {

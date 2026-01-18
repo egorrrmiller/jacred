@@ -77,12 +77,6 @@ public class TorrentMergerService : ITorrentMergerService
             if (string.IsNullOrWhiteSpace(torrentName) && !string.IsNullOrWhiteSpace(t.Magnet?.AnnounceName()))
                 torrentName = t.Magnet?.AnnounceName();
 
-            if (merged.Ffprobe == null && t.Ffprobe?.Any() == true)
-                merged.Ffprobe = t.Ffprobe;
-
-            if (merged.FfprobeTryCount == 0 && t.FfprobeTryCount > 0)
-                merged.FfprobeTryCount = t.FfprobeTryCount;
-
             if (merged.Relased == 0 && t.Relased > 0)
                 merged.Relased = t.Relased;
 

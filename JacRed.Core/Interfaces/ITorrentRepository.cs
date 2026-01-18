@@ -18,9 +18,4 @@ public interface ITorrentRepository
     Task AddOrUpdateAsync<T>(
         IReadOnlyCollection<T> torrents,
         Func<T, IReadOnlyDictionary<string, TorrentDetails>, Task<bool>> predicate) where T : TorrentDetails;
-
-    /// <summary>
-    ///     Возвращает сохранённую коллекцию по ключу, опционально обновляя кеш.
-    /// </summary>
-    Task<IReadOnlyDictionary<string, TorrentDetails>> GetCollectionAsync(string key, bool updateCache = false);
 }

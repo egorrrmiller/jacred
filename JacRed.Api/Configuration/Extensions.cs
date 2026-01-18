@@ -1,7 +1,7 @@
 ﻿using JacRed.Api.Middlewares;
 using Microsoft.AspNetCore.Builder;
 
-namespace JacRed.Api.Engine;
+namespace JacRed.Api.Configuration;
 
 public static class Extensions
 {

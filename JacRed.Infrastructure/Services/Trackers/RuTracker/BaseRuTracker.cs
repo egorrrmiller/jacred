@@ -121,9 +121,6 @@ public class BaseRuTracker : ITrackerCatalogEnricher
         };
         var client = new HttpClient(handler);
         var http = new HttpService(client, NullLogger<HttpService>.Instance);
-
-        AppInit.conf.Rutracker.login.u = "Egor Miller";
-        AppInit.conf.Rutracker.login.p = "od9eu";
         
         var pairs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {

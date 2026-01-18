@@ -1,5 +1,4 @@
 ﻿using System.Text.Json.Serialization;
-using JacRed.Core.Models.Tracks;
 
 namespace JacRed.Core.Models.Api;
 
@@ -72,14 +71,6 @@ public class Result
     /// </summary>
     [JsonPropertyName("MagnetUri")]
     public string MagnetUri { get; set; } = null!;
-
-    /// <summary>
-    ///     Результат анализа видео- и аудиопотоков через ffprobe (если был выполнен).
-    ///     Содержит информацию о кодеках, языках, длительности и др.
-    ///     Может быть null, если анализ не проводился.
-    /// </summary>
-    [JsonPropertyName("ffprobe")]
-    public List<ffStream> Ffprobe { get; set; } = null!;
 
     /// <summary>
     ///     Языки аудио- и субтитровых дорожек, извлечённые через ffprobe или парсинг названия.

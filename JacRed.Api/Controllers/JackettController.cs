@@ -103,16 +103,4 @@ public class JackettController : ControllerBase
 
         return Ok(response);
     }
-
-    [Route("/api/v1.0/qualitys")]
-    public async Task<IActionResult> Qualitys(
-        string name,
-        string originalname,
-        string type,
-        int page = 1,
-        int take = 1000)
-    {
-        var response = await _facade.GetQualityInfoAsync(name, originalname, type, page, take);
-        return Ok(response);
-    }
 }

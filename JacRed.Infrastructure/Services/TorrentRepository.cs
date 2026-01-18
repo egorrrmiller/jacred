@@ -3,10 +3,8 @@ using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Database;
 using JacRed.Core.Models.Details;
-using JacRed.Core.Models.Tracks;
 using JacRed.Core.Utils;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
 using Npgsql;
 
 namespace JacRed.Infrastructure.Services;
@@ -77,10 +75,12 @@ public class TorrentRepository : ITorrentRepository
         }
     }
 
+    #region Private Methods
+
     /// <summary>
     ///     Возвращает коллекцию торрентов по ключу, при необходимости обновляя кэш.
     /// </summary>
-    public async Task<IReadOnlyDictionary<string, TorrentDetails>> GetCollectionAsync(string key,
+    private async Task<IReadOnlyDictionary<string, TorrentDetails>> GetCollectionAsync(string key,
         bool updateCache = false)
     {
         var cacheKey = $"collection:{key}";
@@ -95,30 +95,6 @@ public class TorrentRepository : ITorrentRepository
         );
     }
 
-    #region Private Methods
-
-    /// <summary>
-    ///     Обновляет master_db (timestamp/filetime) для указанного ключа.
-    /// </summary>
-    private async Task UpsertMasterDb(string key)
-    {
-        using var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync();
-
-        const string upsertSql = @"
-            INSERT INTO public.master_db (key, update_time, file_time)
-            VALUES (@Key, @UpdateTime, @FileTime)
-            ON CONFLICT (key) 
-            DO UPDATE SET update_time = EXCLUDED.update_time, file_time = EXCLUDED.file_time";
-
-        await connection.ExecuteAsync(upsertSql, new
-        {
-            Key = key,
-            UpdateTime = DateTime.UtcNow,
-            FileTime = DateTime.UtcNow.ToFileTimeUtc()
-        });
-    }
-
     /// <summary>
     ///     Добавляет или обновляет одну запись в таблице torrents.
     /// </summary>
@@ -131,7 +107,9 @@ public class TorrentRepository : ITorrentRepository
         var now = DateTime.UtcNow;
 
         const string fetchSql = @"SELECT types, name, original_name FROM public.torrents WHERE url = @Url";
-        var existing = await connection.QueryFirstOrDefaultAsync<(string[] Types, string Name, string OriginalName)?>(fetchSql, new { src.Url });
+        var existing =
+            await connection.QueryFirstOrDefaultAsync<(string[] Types, string Name, string OriginalName)?>(fetchSql,
+                new { src.Url });
         var exists = existing != null;
 
         if (exists && existing.HasValue)
@@ -164,8 +142,6 @@ public class TorrentRepository : ITorrentRepository
                     original_name       = @OriginalName,
                     relased             = @Relased,
                     languages           = @Languages,
-                    ffprobe             = @Ffprobe,
-                    ffprobe_try_count   = @FfprobeTryCount,
                     source_season_number = @SourceSeasonNumber,
                     source_season_order  = @SourceSeasonOrder,
                     size                = @Size,
@@ -185,12 +161,12 @@ public class TorrentRepository : ITorrentRepository
                 INSERT INTO public.torrents
                 (id, tracker_name, types, url, title, sid, pir, size_name, 
                  create_time, update_time, check_time, magnet, name, original_name, 
-                 relased, languages, ffprobe, ffprobe_try_count, source_season_number, 
+                 relased, languages, source_season_number, 
                  source_season_order, size, quality, video_type, voices, seasons, search_name, original_search_name)
                 VALUES
                 (@Id, @TrackerName, @Types, @Url, @Title, @Sid, @Pir, @SizeName,
                  @CreateTime, @UpdateTime, @CheckTime, @Magnet, @Name, @OriginalName,
-                 @Relased, @Languages, @Ffprobe, @FfprobeTryCount, @SourceSeasonNumber,
+                 @Relased, @Languages, @SourceSeasonNumber,
                  @SourceSeasonOrder, @Size, @Quality, @VideoType, @Voices, @Seasons, @SearchName, @OriginalSearchName)";
 
             await connection.ExecuteAsync(insertSql, MapToDbModel(src, now, true));
@@ -282,8 +258,6 @@ public class TorrentRepository : ITorrentRepository
             OriginalName = src.OriginalName,
             Relased = src.Relased,
             Languages = src.Languages?.ToArray(),
-            Ffprobe = src.Ffprobe != null ? JToken.FromObject(src.Ffprobe) : null,
-            FfprobeTryCount = details?.FfprobeTryCount ?? 0,
             SourceSeasonNumber = details?.SourceSeasonNumber,
             SourceSeasonOrder = details?.SourceSeasonOrder,
             Size = details?.Size ?? 0,
@@ -320,8 +294,6 @@ public class TorrentRepository : ITorrentRepository
                 OriginalName = db.OriginalName,
                 Relased = db.Relased,
                 Languages = db.Languages?.ToHashSet(),
-                Ffprobe = db.Ffprobe?.ToObject<List<ffStream>>(),
-                FfprobeTryCount = db.FfprobeTryCount,
                 SourceSeasonNumber = db.SourceSeasonNumber,
                 SourceSeasonOrder = db.SourceSeasonOrder,
                 Size = db.Size,

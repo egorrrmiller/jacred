@@ -6,10 +6,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using JacRed.Core;
 using JacRed.Core.Interfaces;
-using JacRed.Core.Models;
 using JacRed.Core.Models.Api;
 using JacRed.Core.Models.Details;
-using JacRed.Core.Models.Tracks;
 using JacRed.Core.Utils;
 using TorrentInfo = JacRed.Core.Models.Api.TorrentInfo;
 
@@ -24,13 +22,11 @@ public class JackettFacadeService : IJackettFacadeService
     private readonly ITorrentSearchService _searchService;
     private readonly ITorrentRepository _torrentRepository;
     private readonly ITrackerSearchService _trackerSearchService;
-    private readonly ITracksDatabase _tracksDatabase;
 
     public JackettFacadeService(
         IContentCatalog contentCatalog,
         ICacheService cacheService,
         ITorrentMergerService mergeService,
-        ITracksDatabase tracksDatabase,
         ITorrentSearchService searchService,
         ITorrentSearchPipeline searchPipeline,
         ITrackerSearchService trackerSearchService,
@@ -39,7 +35,6 @@ public class JackettFacadeService : IJackettFacadeService
         _contentCatalog = contentCatalog;
         _cacheService = cacheService;
         _mergeService = mergeService;
-        _tracksDatabase = tracksDatabase;
         _searchService = searchService;
         _searchPipeline = searchPipeline;
         _trackerSearchService = trackerSearchService;
@@ -130,17 +125,6 @@ public class JackettFacadeService : IJackettFacadeService
         return response;
     }
 
-    /// <summary>Возвращает сводку по качеству для LAMPA.</summary>
-    public async Task<Dictionary<string, Dictionary<int, TorrentQuality>>> GetQualityInfoAsync(
-        string name,
-        string originalName,
-        string? type,
-        int page,
-        int take)
-    {
-        return await _searchService.GetQualityInfoAsync(name, originalName, type, page, take);
-    }
-
     /// <summary>Возвращает время последнего обновления master_db.</summary>
     public DateTime GetLastUpdateDb()
     {
@@ -154,8 +138,7 @@ public class JackettFacadeService : IJackettFacadeService
 
         foreach (var t in torrents)
         {
-            var languages = new HashSet<string>();
-            var ffprobe = isNumRequest ? null : await GetFfprobe(t, languages);
+            var languages = new HashSet<string>(t.Languages ?? []);
 
             var categoryIds = GetCategoryIds(t, out var categoryDesc);
 
@@ -171,7 +154,6 @@ public class JackettFacadeService : IJackettFacadeService
                 Seeders = t.Sid,
                 Peers = t.Pir,
                 MagnetUri = t.Magnet,
-                Ffprobe = ffprobe,
                 Languages = languages,
                 Info = isNumRequest
                     ? null
@@ -191,35 +173,6 @@ public class JackettFacadeService : IJackettFacadeService
         }
 
         return results;
-    }
-
-    private async Task<List<ffStream>> GetFfprobe(TorrentDetails t, HashSet<string> languages)
-    {
-        // Сначала учитываем уже известные языки, если они проставлены в модели
-        if (t.Languages is { Count: > 0 })
-            languages.UnionWith(t.Languages);
-
-        if (!AppInit.conf.tracks || t.Ffprobe?.Count > 0)
-        {
-            var langs = _tracksDatabase.GetLanguages(t, t.Ffprobe);
-            if (langs?.Any() == true)
-                languages.UnionWith(langs);
-            return t.Ffprobe;
-        }
-
-        if (t.Types?.Length == 0)
-            t.Types = [];
-
-        var streams = _tracksDatabase.GetStreams(t.Magnet, t.Types);
-        var streamLangs = _tracksDatabase.GetLanguages(t, streams);
-        if (streamLangs?.Any() == true)
-            languages.UnionWith(streamLangs);
-
-        // Подхватываем полученный ffprobe прямо в модель на время ответа
-        if (streams?.Count > 0)
-            t.Ffprobe = streams;
-
-        return streams;
     }
 
     private static bool IsAllowedTracker(TorrentDetails t)

@@ -2,10 +2,8 @@ using System.Text.RegularExpressions;
 using Dapper;
 using JacRed.Core;
 using JacRed.Core.Interfaces;
-using JacRed.Core.Models;
 using JacRed.Core.Models.Database;
 using JacRed.Core.Models.Details;
-using JacRed.Core.Models.Tracks;
 using JacRed.Core.Utils;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -21,18 +19,15 @@ public class TorrentSearchService : ITorrentSearchService
     private readonly IContentCatalog _contentCatalog;
     private readonly ILogger<TorrentSearchService> _logger;
     private readonly ITorrentRepository _torrentRepository;
-    private readonly ITracksDatabase _tracksDatabase;
 
     public TorrentSearchService(
         IContentCatalog contentCatalog,
         ITorrentRepository torrentRepository,
-        ITracksDatabase tracksDatabase,
         string connectionString,
         ILogger<TorrentSearchService> logger)
     {
         _contentCatalog = contentCatalog;
         _torrentRepository = torrentRepository;
-        _tracksDatabase = tracksDatabase;
         _connectionString = connectionString;
         _logger = logger;
     }
@@ -82,72 +77,6 @@ public class TorrentSearchService : ITorrentSearchService
         return await SearchByFtsAndTrigramAsync(searchQuery, searchQuery, query, null, mediaType);
     }
 
-    /// <summary>
-    ///     Агрегирует информацию о качестве/языках раздач по найденным ключам (с пагинацией).
-    /// </summary>
-    public async Task<Dictionary<string, Dictionary<int, TorrentQuality>>> GetQualityInfoAsync(
-        string name,
-        string originalName,
-        string? type = null,
-        int page = 1,
-        int take = 1000)
-    {
-        var db = _contentCatalog.GetAllKeys();
-        var results = new Dictionary<string, Dictionary<int, TorrentQuality>>();
-
-        var keys = BuildSearchKeys(name, originalName)
-            .Join(db.Keys, s => s, k => k, (_, k) => k);
-
-        if (!AppInit.conf.evercache.enable || AppInit.conf.evercache.validHour > 0)
-            keys = keys.Take(AppInit.conf.maxreadfile);
-
-        foreach (var key in keys)
-        {
-            var collection = await _torrentRepository.GetCollectionAsync(key, true);
-            foreach (var t in collection.Values.Where(t =>
-                         t.Types != null && !t.Types.Contains("sport") && t.Relased != 0))
-            {
-                if (!string.IsNullOrEmpty(type) && !t.Types.Contains(type)) continue;
-
-                var keyName = $"{StringConvert.SearchName(t.Name)}:{StringConvert.SearchName(t.OriginalName)}";
-                var langs = _tracksDatabase.GetLanguages(t, t.Ffprobe ?? _tracksDatabase.GetStreams(t.Magnet, t.Types));
-
-                var model = new TorrentQuality
-                {
-                    types = t.Types.ToHashSet(),
-                    createTime = t.CreateTime,
-                    updateTime = t.UpdateTime,
-                    languages = langs,
-                    qualitys = new HashSet<int> { t.Quality }
-                };
-
-                if (!results.TryGetValue(keyName, out var yearMap))
-                    results[keyName] = yearMap = new Dictionary<int, TorrentQuality>();
-
-                if (yearMap.TryGetValue(t.Relased, out var existing))
-                {
-                    existing.languages.UnionWith(langs);
-                    existing.types.UnionWith(t.Types);
-                    existing.qualitys.Add(t.Quality);
-                    existing.createTime = existing.createTime < t.CreateTime ? existing.createTime : t.CreateTime;
-                    existing.updateTime = existing.updateTime > t.UpdateTime ? existing.updateTime : t.UpdateTime;
-                }
-                else
-                {
-                    yearMap[t.Relased] = model;
-                }
-            }
-        }
-
-        if (take == -1)
-            return results;
-
-        return results
-            .Skip((page - 1) * take)
-            .Take(take)
-            .ToDictionary(k => k.Key, v => v.Value);
-    }
-
     #region Private Methods
 
     /// <summary>
@@ -186,8 +115,6 @@ public class TorrentSearchService : ITorrentSearchService
                 original_name           AS ""OriginalName"",
                 relased                 AS ""Relased"",
                 languages               AS ""Languages"",
-                ffprobe                 AS ""Ffprobe"",
-                ffprobe_try_count       AS ""FfprobeTryCount"",
                 source_season_number    AS ""SourceSeasonNumber"",
                 source_season_order     AS ""SourceSeasonOrder"",
                 size                    AS ""Size"",
@@ -268,8 +195,6 @@ public class TorrentSearchService : ITorrentSearchService
                                   original_name           AS "OriginalName",
                                   relased                 AS "Relased",
                                   languages               AS "Languages",
-                                  ffprobe                 AS "Ffprobe",
-                                  ffprobe_try_count       AS "FfprobeTryCount",
                                   source_season_number    AS "SourceSeasonNumber",
                                   source_season_order     AS "SourceSeasonOrder",
                                   size                    AS "Size",
@@ -344,8 +269,6 @@ public class TorrentSearchService : ITorrentSearchService
                 OriginalName = db.OriginalName,
                 Relased = db.Relased,
                 Languages = db.Languages?.ToHashSet(),
-                Ffprobe = db.Ffprobe?.ToObject<List<ffStream>>(),
-                FfprobeTryCount = db.FfprobeTryCount,
                 SourceSeasonNumber = db.SourceSeasonNumber,
                 SourceSeasonOrder = db.SourceSeasonOrder,
                 Size = db.Size,

@@ -1594,29 +1594,10 @@ public class TorrentEnricher : ITorrentEnricher
         .Where(v => v.Length > 4)
         .ToDictionary(v => v.ToLower(), v => v);
 
-    private readonly IMediaAnalyzerService _mediaAnalyzer;
-
-    public TorrentEnricher(IMediaAnalyzerService mediaAnalyzer)
-    {
-        _mediaAnalyzer = mediaAnalyzer;
-    }
-
     /// <summary>Обогащает базовые данные торрента и дополняет медиа-информацией.</summary>
-    public async Task<TorrentDetails> EnrichAndConvertAsync(TorrentDetails torrent)
+    public Task<TorrentDetails> EnrichAndConvertAsync(TorrentDetails torrent)
     {
-        var details = EnrichAndConvert(torrent);
-
-        if (!_mediaAnalyzer.ShouldAnalyze(details.Types)) return details;
-
-        var streams = await _mediaAnalyzer.GetStreamsAsync(details.Magnet ?? string.Empty, details.Types);
-        var languages = await _mediaAnalyzer.ExtractLanguagesAsync(details, streams);
-
-        if (streams.Count > 0)
-            details.Ffprobe = streams;
-        if (languages.Count > 0)
-            details.Languages = languages;
-
-        return details;
+        return Task.FromResult(EnrichAndConvert(torrent));
     }
 
     private TorrentDetails EnrichAndConvert(TorrentDetails torrent)
@@ -1636,8 +1617,6 @@ public class TorrentEnricher : ITorrentEnricher
             Relased = torrent.Relased,
             SizeName = torrent.SizeName,
             Magnet = torrent.Magnet,
-            Ffprobe = torrent.Ffprobe,
-            FfprobeTryCount = torrent.FfprobeTryCount,
             SourceSeasonNumber = torrent.SourceSeasonNumber,
             SourceSeasonOrder = torrent.SourceSeasonOrder
         };

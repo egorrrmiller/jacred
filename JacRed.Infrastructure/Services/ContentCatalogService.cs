@@ -3,7 +3,6 @@ using System.Runtime.CompilerServices;
 using Dapper;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models;
-using JacRed.Core.Models.Database;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -47,29 +46,6 @@ public class ContentCatalogService : IContentCatalog
         _memoryCache.Set(AllKeysCacheKey, value, cacheEntryOptions);
 
         return value;
-    }
-
-    /// <summary>
-    ///     Строит быстрые индексы по частям ключей, с возможностью принудительного обновления.
-    /// </summary>
-    public async Task<Dictionary<string, List<string>>> GetFastIndexes(bool forceUpdate = false)
-    {
-        if (forceUpdate)
-        {
-            await _cache.InvalidateAsync(FastIndexCacheKey);
-            _memoryCache.Remove(AllKeysCacheKey);
-        }
-
-        return await _cache.GetOrCreateAsync(FastIndexCacheKey, () =>
-        {
-            var fastdb = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-            var allKeys = GetAllKeys();
-
-            BuildFastIndex(fastdb, allKeys);
-
-            _logger.LogInformation("Построен быстрый индекс: {Count} сегментов ключей", fastdb.Count);
-            return Task.FromResult(fastdb);
-        }, TimeSpan.FromMinutes(30));
     }
 
     #region Private Methods

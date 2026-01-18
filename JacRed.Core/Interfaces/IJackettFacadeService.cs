@@ -1,4 +1,3 @@
-using JacRed.Core.Models;
 using JacRed.Core.Models.Api;
 
 namespace JacRed.Core.Interfaces;
@@ -38,16 +37,6 @@ public interface IJackettFacadeService
         long quality,
         long season,
         CancellationToken cancellationToken);
-
-    /// <summary>
-    ///     Возвращает агрегированную информацию о качествах раздач для указанного тайтла.
-    /// </summary>
-    Task<Dictionary<string, Dictionary<int, TorrentQuality>>> GetQualityInfoAsync(
-        string name,
-        string originalName,
-        string? type,
-        int page,
-        int take);
 
     /// <summary>
     ///     Возвращает момент последнего обновления внутренней базы Jackett.

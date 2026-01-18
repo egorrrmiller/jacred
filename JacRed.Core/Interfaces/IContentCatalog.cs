@@ -12,9 +12,4 @@ public interface IContentCatalog
     ///     Возвращает актуальный словарь всех торрентов по ключу (магнет/URL).
     /// </summary>
     ConcurrentDictionary<string, TorrentInfo>? GetAllKeys();
-
-    /// <summary>
-    ///     Строит быстрые индексы (например, по первым буквам) с возможностью принудительного обновления.
-    /// </summary>
-    Task<Dictionary<string, List<string>>> GetFastIndexes(bool forceUpdate = false);
 }
