@@ -45,8 +45,6 @@ public class TorrentRepository : ITorrentRepository
         {
             var key = group.Key;
 
-            await UpsertMasterDb(key);
-
             foreach (var torrent in group) await UpsertTorrent(torrent);
 
             await _cache.InvalidateAsync($"collection:{key}");
@@ -65,8 +63,6 @@ public class TorrentRepository : ITorrentRepository
         {
             var key = group.Key;
             var currentData = await GetCollectionAsync(key, false);
-
-            await UpsertMasterDb(key);
 
             foreach (var torrent in group)
             {
@@ -134,8 +130,21 @@ public class TorrentRepository : ITorrentRepository
         var details = src;
         var now = DateTime.UtcNow;
 
-        const string existsSql = @"SELECT 1 FROM public.torrents WHERE url = @Url";
-        var exists = await connection.QueryFirstOrDefaultAsync<int?>(existsSql, new { src.Url }) == 1;
+        const string fetchSql = @"SELECT types, name, original_name FROM public.torrents WHERE url = @Url";
+        var existing = await connection.QueryFirstOrDefaultAsync<(string[] Types, string Name, string OriginalName)?>(fetchSql, new { src.Url });
+        var exists = existing != null;
+
+        if (exists && existing.HasValue)
+        {
+            if ((src.Types == null || src.Types.Length == 0) && existing.Value.Types is { Length: > 0 })
+                src.Types = existing.Value.Types;
+
+            if (string.IsNullOrWhiteSpace(src.Name) && !string.IsNullOrWhiteSpace(existing.Value.Name))
+                src.Name = existing.Value.Name;
+
+            if (string.IsNullOrWhiteSpace(src.OriginalName) && !string.IsNullOrWhiteSpace(existing.Value.OriginalName))
+                src.OriginalName = existing.Value.OriginalName;
+        }
 
         if (exists)
         {

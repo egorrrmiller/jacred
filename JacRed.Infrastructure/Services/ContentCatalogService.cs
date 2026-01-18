@@ -75,25 +75,40 @@ public class ContentCatalogService : IContentCatalog
     #region Private Methods
 
     /// <summary>
-    ///     Загружает все записи из master_db и формирует словарь ключей.
+    ///     Загружает уникальные ключи из torrents и формирует словарь
     /// </summary>
     private ConcurrentDictionary<string, TorrentInfo> LoadAllFromDatabase()
     {
-        const string sql = @"SELECT ""Key"", ""UpdateTime"", ""FileTime"" FROM public.master_db";
+        const string sql = @"
+            SELECT DISTINCT
+                coalesce(search_name, regexp_replace(lower(coalesce(name, '')), '[^a-z0-9а-яё]+', '', 'g')) AS key1,
+                coalesce(original_search_name, regexp_replace(lower(coalesce(original_name, '')), '[^a-z0-9а-яё]+', '', 'g')) AS key2,
+                MAX(update_time) AS update_time
+            FROM public.torrents
+            GROUP BY key1, key2";
 
         using var connection = new NpgsqlConnection(_connectionString);
-        var result = connection.Query<MasterDb>(sql);
+        var result = connection.Query(sql);
 
         var dict = new ConcurrentDictionary<string, TorrentInfo>();
 
         foreach (var item in result)
-            dict.TryAdd(item.Key, new TorrentInfo
-            {
-                updateTime = item.UpdateTime,
-                fileTime = item.FileTime
-            });
+        {
+            var key1 = (string)item.key1;
+            var key2 = (string)item.key2;
+            if (string.IsNullOrWhiteSpace(key1) && string.IsNullOrWhiteSpace(key2))
+                continue;
 
-        _logger.LogInformation("Загружено {Count} записей из master_db", dict.Count);
+            var key = $"{key1}:{key2}";
+
+            dict.TryAdd(key, new TorrentInfo
+            {
+                updateTime = (DateTime)item.update_time,
+                fileTime = ((DateTime)item.update_time).ToFileTimeUtc()
+            });
+        }
+
+        _logger.LogInformation("Загружено {Count} уникальных ключей из torrents", dict.Count);
         return dict;
     }
 

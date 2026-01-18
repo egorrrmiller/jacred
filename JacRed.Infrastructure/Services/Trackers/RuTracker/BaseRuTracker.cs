@@ -202,9 +202,7 @@ public class BaseRuTracker : ITrackerCatalogEnricher
             {
                 rowCategoryId = ExtractCategoryId(row);
                 if (!TryGetCategory(rowCategoryId, out category))
-                {
-                    category = new CategoryInfo(Array.Empty<string>(), CategoryParser.Default);
-                }
+                    continue;
             }
 
             var (name, originalName, relased) = ParseTitle(title, category);
@@ -242,7 +240,6 @@ public class BaseRuTracker : ITrackerCatalogEnricher
 
     private static IReadOnlyDictionary<string, CategoryInfo> BuildCategoryMap()
     {
-        // todo тянуть все категории из конфига в будущем
         var map = new Dictionary<string, CategoryInfo>(StringComparer.OrdinalIgnoreCase);
 
         Add(map, CategoryParser.Movie, new[] { "movie" },
@@ -605,11 +602,16 @@ public class BaseRuTracker : ITrackerCatalogEnricher
     private static string ExtractCategoryId(string row)
     {
         var match = ForumIdRegex.Match(row);
-        if (match.Success)
+        if (match.Success && !string.IsNullOrWhiteSpace(match.Groups["id"].Value))
             return match.Groups["id"].Value;
 
         match = ForumHrefRegex.Match(row);
-        return match.Success ? match.Groups["id"].Value : string.Empty;
+        if (match.Success)
+            return !string.IsNullOrWhiteSpace(match.Groups["id"].Value)
+                ? match.Groups["id"].Value
+                : match.Groups["id2"].Value;
+
+        return string.Empty;
     }
 
     private static DateTime ParseTopicDate(string raw)
@@ -713,10 +715,10 @@ public class BaseRuTracker : ITrackerCatalogEnricher
             RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
 
     private static readonly Regex SeedRegex =
-        new("class=\"seed[^\"]*\"[^>]*>\\s*(?:<b>)?(?<value>\\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        new("class=\"[^\"]*seed[^\"]*\"[^>]*>\\s*(?:<b>)?(?<value>\\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex LeechRegex =
-        new("class=\"leech[^\"]*\"[^>]*>\\s*(?<value>\\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        new("class=\"[^\"]*leech[^\"]*\"[^>]*>\\s*(?:<b>)?(?<value>\\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex SizeBytesRegex =
         new("tor-size[^>]*data-ts_text=\"(?<bytes>\\d+)\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -726,7 +728,8 @@ public class BaseRuTracker : ITrackerCatalogEnricher
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex DateRegex =
-        new("tor-date[^>]*data-ts_text=\"(?<ts>\\d+)\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        new("row4[^>]*nowrap[^>]*data-ts_text=\"(?<ts>\\d+)\"",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex TagRegex =
         new("<[^>]+>", RegexOptions.Singleline | RegexOptions.Compiled);
@@ -746,10 +749,11 @@ public class BaseRuTracker : ITrackerCatalogEnricher
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex ForumIdRegex =
-        new("data-forum_id=\"(?<id>\\d+)\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        new("tracker.php?f==\"(?<id>\\d+)\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex ForumHrefRegex =
-        new("viewforum\\.php\\?f=(?<id>\\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        new("(viewforum\\.php\\?f=(?<id>\\d+)|(?:https?://[^\"']+)?tracker\\.php\\?f(?:%5B%5D|\\[\\])?=(?<id2>\\d+))",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex YearRegex =
         new("(?<!\\d)(19\\d{2}|20\\d{2})(?!\\d)", RegexOptions.Compiled);

@@ -10,39 +10,6 @@ CREATE
 EXTENSION IF NOT EXISTS pg_trgm;
 
 --------------------------------------------------------------------------------
--- masterDb: Dictionary<string, TorrentInfo>
--- key = "search_name:search_originalname"
---------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.master_db
-(
-    key
-    text
-    PRIMARY
-    KEY,  -- "банковский...:themillionpoundnote"
-    update_time
-    timestamptz
-    NOT
-    NULL, -- TorrentInfo.updateTime
-    file_time
-    bigint
-    NOT
-    NULL  -- TorrentInfo.fileTime
-);
-
-COMMENT
-ON TABLE public.master_db IS 'Справочник masterDb: key="search_name:search_originalname" -> (updateTime, fileTime).';
-COMMENT
-ON COLUMN public.master_db.key IS 'Ключ вида "search_name:search_originalname".';
-COMMENT
-ON COLUMN public.master_db.file_time IS 'FileTimeUtc (long) из старого формата.';
-
-CREATE INDEX IF NOT EXISTS ix_master_db_update_time
-    ON public.master_db (update_time DESC);
-
-CREATE INDEX IF NOT EXISTS ix_master_db_file_time
-    ON public.master_db (file_time DESC);
-
---------------------------------------------------------------------------------
 -- TorrentDetails
 -- 1 строка = 1 раздача. Url уникальный (в твоём JSON он ключ словаря).
 --------------------------------------------------------------------------------
@@ -289,3 +256,7 @@ CREATE INDEX IF NOT EXISTS ix_tracker_stats_last_new_tor
 
 CREATE INDEX IF NOT EXISTS ix_sync_state_updated_at
     ON public.sync_state (updated_at DESC);
+
+
+
+

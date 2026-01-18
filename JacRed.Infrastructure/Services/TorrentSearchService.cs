@@ -55,13 +55,8 @@ public class TorrentSearchService : ITorrentSearchService
 
         if (exact)
         {
-            var key = $"{searchName}:{searchOriginal}";
-            var cached = await _torrentRepository.GetCollectionAsync(key, false);
-            return cached.Values
-                .Where(t => MatchesFilters(t, year, mediaType))
-                .OrderByDescending(t => t.Sid)
-                .ThenByDescending(t => t.UpdateTime)
-                .ToList();
+            var torrents = await SearchExactByNormalizedNamesAsync(new[] { searchName, searchOriginal }, year, mediaType, $"{title} {originalTitle}");
+            return torrents;
         }
 
         var webTerm = !string.IsNullOrWhiteSpace(title) ? title : originalTitle;
@@ -82,32 +77,7 @@ public class TorrentSearchService : ITorrentSearchService
         var searchQuery = StringConvert.SearchName(query);
 
         if (exact)
-        {
-            var fastDb = await _contentCatalog.GetFastIndexes();
-            if (fastDb.TryGetValue(searchQuery, out var keys))
-            {
-                var results = new List<TorrentDetails>();
-                foreach (var key in keys)
-                {
-                    var parts = key.Split(':', 2);
-                    var name = parts[0];
-                    var original = parts.Length > 1 ? parts[1] : null;
-
-                    var torrents = await SearchByTitleAsync(name, original, mediaType: mediaType, exact: true);
-                    results.AddRange(torrents);
-                }
-
-                return results
-                    .GroupBy(t => t.Url)
-                    .Select(g => g.OrderByDescending(t => t.Sid).First())
-                    .OrderByDescending(t => t.Sid)
-                    .ThenByDescending(t => t.UpdateTime)
-                    .Take(AppInit.conf.maxreadfile)
-                    .ToList();
-            }
-
-            return new List<TorrentDetails>();
-        }
+            return await SearchExactByNormalizedNamesAsync(new[] { searchQuery }, null, mediaType, query);
 
         return await SearchByFtsAndTrigramAsync(searchQuery, searchQuery, query, null, mediaType);
     }
@@ -179,6 +149,84 @@ public class TorrentSearchService : ITorrentSearchService
     }
 
     #region Private Methods
+
+    /// <summary>
+    ///     Выполняет точный поиск по нормализованным именам (search_name/original_search_name) без master_db.
+    /// </summary>
+    private async Task<List<TorrentDetails>> SearchExactByNormalizedNamesAsync(
+        IEnumerable<string?> normalizedTerms,
+        int? year,
+        int? mediaType,
+        string? webTerm = null)
+    {
+        var terms = normalizedTerms.Where(t => !string.IsNullOrWhiteSpace(t)).Distinct().ToArray();
+        if (terms.Length == 0)
+            return new List<TorrentDetails>();
+
+        var likePatterns = terms.Select(t => $"%{t}%").ToArray();
+
+        using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        var sql = @"
+            SELECT 
+                id                      AS ""Id"",
+                tracker_name            AS ""TrackerName"",
+                types                   AS ""Types"",
+                url                     AS ""Url"",
+                title                   AS ""Title"",
+                sid                     AS ""Sid"",
+                pir                     AS ""Pir"",
+                size_name               AS ""SizeName"",
+                create_time             AS ""CreateTime"",
+                update_time             AS ""UpdateTime"",
+                check_time              AS ""CheckTime"",
+                magnet                  AS ""Magnet"",
+                name                    AS ""Name"",
+                original_name           AS ""OriginalName"",
+                relased                 AS ""Relased"",
+                languages               AS ""Languages"",
+                ffprobe                 AS ""Ffprobe"",
+                ffprobe_try_count       AS ""FfprobeTryCount"",
+                source_season_number    AS ""SourceSeasonNumber"",
+                source_season_order     AS ""SourceSeasonOrder"",
+                size                    AS ""Size"",
+                quality                 AS ""Quality"",
+                video_type              AS ""VideoType"",
+                voices                  AS ""Voices"",
+                seasons                 AS ""Seasons"",
+                search_tsv              AS ""SearchTsv"",
+                search_name             AS ""SearchName"",
+                original_search_name    AS ""OriginalSearchName""
+            FROM public.torrents
+            WHERE (
+                (search_name IS NOT NULL AND search_name ILIKE ANY(@Patterns))
+                OR (original_search_name IS NOT NULL AND original_search_name ILIKE ANY(@Patterns))
+                OR regexp_replace(lower(coalesce(name, '')), '[^a-z0-9а-яё]+', '', 'g') ILIKE ANY(@Patterns)
+                OR regexp_replace(lower(coalesce(original_name, '')), '[^a-z0-9а-яё]+', '', 'g') ILIKE ANY(@Patterns)
+                OR (@HasWeb AND search_tsv @@ websearch_to_tsquery('russian', @WebTerm))
+            )
+            ORDER BY sid DESC, update_time DESC
+            LIMIT @MaxRead";
+
+        var rows = await connection.QueryAsync<Torrent>(sql, new
+        {
+            Patterns = likePatterns,
+            MaxRead = AppInit.conf.maxreadfile,
+            HasWeb = !string.IsNullOrWhiteSpace(webTerm),
+            WebTerm = webTerm ?? string.Empty
+        });
+
+        var results = new List<TorrentDetails>();
+        foreach (var db in rows)
+        {
+            var model = MapToDomainModel(db);
+            if (model != null && MatchesFilters(model, year, mediaType))
+                results.Add(model);
+        }
+
+        return results;
+    }
 
     /// <summary>
     ///     Выполняет SQL-запрос с FTS/LIKE/триграммами и применяет фильтры по году/типу.
@@ -336,7 +384,8 @@ public class TorrentSearchService : ITorrentSearchService
     {
         return mediaType switch
         {
-            1 => IsMovieType(t),
+            // Если типы неизвестны — не режем результаты, чтобы не потерять раздачи без Types.
+            1 => t.Types == null || t.Types.Length == 0 || IsMovieType(t),
             2 => t.Types?.Contains("serial") == true ||
                  t.Types?.Contains("multserial") == true ||
                  t.Types?.Contains("tvshow") == true ||

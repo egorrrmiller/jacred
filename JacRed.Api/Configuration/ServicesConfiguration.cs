@@ -47,6 +47,7 @@ public static class ServicesConfiguration
             .AddSingleton<ITrackerSearch, TolokaSearch>()
             .AddSingleton<ITrackerSearch, TorrentBySearch>()
             .AddSingleton<ITrackerCronProvider, RuTrackerTopSeededSync>()
+            .AddHostedService<TracksEnrichmentService>()
             .AddMemoryCache()
             .AddHttpClient();
     }

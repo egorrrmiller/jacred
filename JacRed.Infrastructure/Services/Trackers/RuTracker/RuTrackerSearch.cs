@@ -37,7 +37,7 @@ public sealed class RuTrackerSearch : BaseRuTracker, ITrackerSearch
             return new List<TorrentDetails>();
 
         var maxPages = GetMaxPages(html);
-        var parsed = ParseForumPage(html, query, RuTrackerUrl, now);
+        var parsed = ParseForumPage(html, string.Empty, RuTrackerUrl, now);
         foreach (var item in parsed)
             results[item.Url] = item;
 
@@ -58,11 +58,12 @@ public sealed class RuTrackerSearch : BaseRuTracker, ITrackerSearch
             if (string.IsNullOrWhiteSpace(pageHtml))
                 continue;
 
-            var pageParsed = ParseForumPage(pageHtml, query, RuTrackerUrl, now);
+            var pageParsed = ParseForumPage(pageHtml, string.Empty, RuTrackerUrl, now);
             foreach (var item in pageParsed)
                 results[item.Url] = item;
 
-            if (delayMs > 0)
+            // Задержку ставим только если впереди ещё страницы, чтобы не тратить время на последней.
+            if (delayMs > 0 && page < totalPages)
             {
                 try
                 {

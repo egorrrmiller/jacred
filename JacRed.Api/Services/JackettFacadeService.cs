@@ -195,6 +195,10 @@ public class JackettFacadeService : IJackettFacadeService
 
     private async Task<List<ffStream>> GetFfprobe(TorrentDetails t, HashSet<string> languages)
     {
+        // Сначала учитываем уже известные языки, если они проставлены в модели
+        if (t.Languages is { Count: > 0 })
+            languages.UnionWith(t.Languages);
+
         if (!AppInit.conf.tracks || t.Ffprobe?.Count > 0)
         {
             var langs = _tracksDatabase.GetLanguages(t, t.Ffprobe);
@@ -210,6 +214,10 @@ public class JackettFacadeService : IJackettFacadeService
         var streamLangs = _tracksDatabase.GetLanguages(t, streams);
         if (streamLangs?.Any() == true)
             languages.UnionWith(streamLangs);
+
+        // Подхватываем полученный ffprobe прямо в модель на время ответа
+        if (streams?.Count > 0)
+            t.Ffprobe = streams;
 
         return streams;
     }
