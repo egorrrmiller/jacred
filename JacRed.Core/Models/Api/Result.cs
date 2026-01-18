@@ -9,10 +9,40 @@ namespace JacRed.Core.Models.Api;
 public class Result
 {
     /// <summary>
+    ///     Внутренний идентификатор трекера (например, rutracker, nnmclub).
+    /// </summary>
+    [JsonPropertyName("TrackerId")]
+    public string TrackerId { get; set; } = null!;
+
+    /// <summary>
+    ///     Тип трекера: public / private. Для всех наших индексаторов возвращаем public.
+    /// </summary>
+    [JsonPropertyName("TrackerType")]
+    public string TrackerType { get; set; } = "public";
+
+    /// <summary>
     ///     Название трекера, с которого получена раздача (например, rutracker.org, nnm-club.me).
     /// </summary>
     [JsonPropertyName("Tracker")]
     public string Tracker { get; set; } = null!;
+
+    /// <summary>
+    ///     Уникальный идентификатор результата. Совместимо с Jackett (обычно Magnet или ссылка).
+    /// </summary>
+    [JsonPropertyName("Guid")]
+    public string Guid { get; set; } = null!;
+
+    /// <summary>
+    ///     Ссылка для загрузки (обычно совпадает с MagnetUri, если нет прямой ссылки).
+    /// </summary>
+    [JsonPropertyName("Link")]
+    public string Link { get; set; } = null!;
+
+    /// <summary>
+    ///     Ссылка на обсуждение/комментарии раздачи (детальная страница).
+    /// </summary>
+    [JsonPropertyName("Comments")]
+    public string Comments { get; set; } = null!;
 
     /// <summary>
     ///     Ссылка на страницу раздачи на трекере. Используется для перехода к деталям.
@@ -67,6 +97,18 @@ public class Result
     public int Peers { get; set; }
 
     /// <summary>
+    ///     Количество загрузок/захватов (в Jackett называется Grabs). У нас нет данных — оставляем 0.
+    /// </summary>
+    [JsonPropertyName("Grabs")]
+    public int Grabs { get; set; }
+
+    /// <summary>
+    ///     Магнит-хеш (btih) если удалось распарсить magnet.
+    /// </summary>
+    [JsonPropertyName("InfoHash")]
+    public string? InfoHash { get; set; }
+
+    /// <summary>
     ///     Magnet-ссылка для запуска загрузки раздачи через торрент-клиент. Обязательное поле.
     /// </summary>
     [JsonPropertyName("MagnetUri")]
@@ -86,4 +128,34 @@ public class Result
     /// </summary>
     [JsonPropertyName("info")]
     public TorrentInfo Info { get; set; } = null!;
+
+    /// <summary>
+    ///     Коэффициент скачивания (Jackett: DownloadVolumeFactor). Для публичных — 0.
+    /// </summary>
+    [JsonPropertyName("DownloadVolumeFactor")]
+    public double DownloadVolumeFactor { get; set; } = 0;
+
+    /// <summary>
+    ///     Коэффициент аплоада (Jackett: UploadVolumeFactor). Для публичных — 1.
+    /// </summary>
+    [JsonPropertyName("UploadVolumeFactor")]
+    public double UploadVolumeFactor { get; set; } = 1;
+
+    /// <summary>
+    ///     Минимальное ratio, требуемое трекером. Для публичных — 0.
+    /// </summary>
+    [JsonPropertyName("MinimumRatio")]
+    public double MinimumRatio { get; set; } = 0;
+
+    /// <summary>
+    ///     Минимальное время сидинга (секунды). Для публичных — 0.
+    /// </summary>
+    [JsonPropertyName("MinimumSeedTime")]
+    public long MinimumSeedTime { get; set; } = 0;
+
+    /// <summary>
+    ///     Описание/превью (для совместимости с Jackett).
+    /// </summary>
+    [JsonPropertyName("Description")]
+    public string? Description { get; set; }
 }

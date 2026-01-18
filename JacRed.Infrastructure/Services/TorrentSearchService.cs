@@ -294,10 +294,12 @@ public class TorrentSearchService : ITorrentSearchService
         if (!typeOk)
             return false;
 
-        if (mediaType == 1 && IsMovieType(t) && SeasonTitleRegex.IsMatch(t.Title ?? string.Empty))
+        var treatAsMovie = mediaType == 1 && IsMovieType(t);
+
+        if (treatAsMovie && SeasonTitleRegex.IsMatch(t.Title ?? string.Empty))
             return false;
 
-        return !year.HasValue || MatchesYear(t, year.Value);
+        return !year.HasValue || MatchesYear(t, year.Value, treatAsMovie);
     }
 
     /// <summary>
@@ -325,11 +327,9 @@ public class TorrentSearchService : ITorrentSearchService
     /// <summary>
     ///     Проверяет соответствие года релиза (для кино допускает ±1 год).
     /// </summary>
-    private bool MatchesYear(TorrentDetails t, int year)
+    private bool MatchesYear(TorrentDetails t, int year, bool treatAsMovie)
     {
-        var isMovieType = IsMovieType(t);
-
-        return isMovieType
+        return treatAsMovie
             ? t.Relased == year || t.Relased == year - 1 || t.Relased == year + 1
             : t.Relased >= year - 1;
     }

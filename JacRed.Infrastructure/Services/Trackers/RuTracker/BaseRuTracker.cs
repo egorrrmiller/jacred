@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Net;
 using System.Text;
@@ -163,24 +164,24 @@ public class BaseRuTracker : ITrackerCatalogEnricher
             return Array.Empty<TorrentDetails>();
 
         var cleaned = ReplaceBadNames(html);
-        var results = new List<TorrentDetails>();
+        var results = new ConcurrentBag<TorrentDetails>();
         var baseForumUri = new Uri(new Uri(host), "forum/");
 
-        foreach (Match rowMatch in RowRegex.Matches(cleaned))
+        Parallel.ForEach(RowRegex.Matches(cleaned), rowMatch =>
         {
             var row = rowMatch.Value;
             var linkMatch = LinkRegex.Match(row);
             if (!linkMatch.Success)
-                continue;
+                return;
 
             var href = NormalizeHref(linkMatch.Groups["url"].Value);
             if (string.IsNullOrWhiteSpace(href))
-                continue;
+                return;
 
             var titleRaw = linkMatch.Groups["title"].Value;
             var title = NormalizeText(WebUtility.HtmlDecode(StripTags(titleRaw)));
             if (string.IsNullOrWhiteSpace(title))
-                continue;
+                return;
 
             var url = new Uri(baseForumUri, href).ToString();
 
@@ -199,18 +200,18 @@ public class BaseRuTracker : ITrackerCatalogEnricher
             {
                 rowCategoryId = ExtractCategoryId(row);
                 if (!TryGetCategory(rowCategoryId, out category))
-                    continue;
+                    return;
             }
 
             var (name, originalName, relased) = ParseTitle(title, category);
             if (category.Parser == CategoryParser.Generic && SeasonMarkerRegex.IsMatch(title))
-                continue;
+                return;
 
             if (string.IsNullOrWhiteSpace(name))
             {
                 name = Regex.Split(title, "(\\[|\\/|\\(|\\|)", RegexOptions.IgnoreCase)[0].Trim();
                 if (string.IsNullOrWhiteSpace(name))
-                    continue;
+                    return;
             }
 
             results.Add(new TorrentDetails
@@ -230,7 +231,7 @@ public class BaseRuTracker : ITrackerCatalogEnricher
                 Relased = relased,
                 Size = sizeBytes
             });
-        }
+        });
 
         return results;
     }
@@ -252,7 +253,7 @@ public class BaseRuTracker : ITrackerCatalogEnricher
             "119", "1803", "266", "193", "1690", "1459", "825", "1248", "1288", "325", "534", "694",
             "704", "915", "1939");
 
-        Add(map, CategoryParser.Generic, new[] { "anime" }, "1105", "2491", "1389");
+        Add(map, CategoryParser.Generic, new[] { "anime" }, "1105", "1106", "2491", "1389");
         Add(map, CategoryParser.Movie, new[] { "documovie" }, "709", "2109");
         Add(map, CategoryParser.Generic, new[] { "docuserial", "documovie" },
             "46", "671", "2177", "2538", "251", "98", "97", "851", "2178", "821", "2076", "56", "2123",
@@ -564,6 +565,16 @@ public class BaseRuTracker : ITrackerCatalogEnricher
 
         if (!long.TryParse(match.Groups["ts"].Value, out var ts))
             return null;
+
+        // На rutracker data-ts_text иногда прилетает в миллисекундах; фильтруем будущее и корректируем.
+        if (ts > 4_102_444_800L) // секунд > 2100 года
+        {
+            // если похоже на миллисекунды — переводим
+            if (ts > 4_102_444_800_000L && ts < 20_000_000_000_000L)
+                ts /= 1000;
+            else
+                return null;
+        }
 
         try
         {

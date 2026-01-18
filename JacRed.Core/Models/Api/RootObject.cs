@@ -7,5 +7,6 @@ public class RootObject
     [JsonPropertyName("Results")]
     public List<Result> Results { get; set; }
 
-    public bool jacred => true;
+    [JsonPropertyName("Error")]
+    public string? Error { get; set; }
 }

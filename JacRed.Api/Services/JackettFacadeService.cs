@@ -141,11 +141,20 @@ public class JackettFacadeService : IJackettFacadeService
             var languages = new HashSet<string>(t.Languages ?? []);
 
             var categoryIds = GetCategoryIds(t, out var categoryDesc);
+            var infoHash = ExtractInfoHash(t.Magnet);
+            var guid = !string.IsNullOrWhiteSpace(t.Magnet) ? t.Magnet : t.Url ?? t.Title;
+            var link = !string.IsNullOrWhiteSpace(t.Magnet) ? t.Magnet : t.Url ?? string.Empty;
+            var details = t.Url?.StartsWith("http") == true ? t.Url : null;
 
             results.Add(new Result
             {
+                TrackerId = t.TrackerName,
+                TrackerType = "public",
                 Tracker = t.TrackerName,
-                Details = t.Url?.StartsWith("http") == true ? t.Url : null,
+                Guid = guid ?? string.Empty,
+                Link = link,
+                Comments = details ?? string.Empty,
+                Details = details ?? string.Empty,
                 Title = t.Title,
                 Size = t.Size,
                 PublishDate = t.CreateTime,
@@ -153,8 +162,15 @@ public class JackettFacadeService : IJackettFacadeService
                 CategoryDesc = categoryDesc,
                 Seeders = t.Sid,
                 Peers = t.Pir,
+                Grabs = 0,
+                InfoHash = infoHash,
                 MagnetUri = t.Magnet,
                 Languages = languages,
+                Description = t.Title,
+                DownloadVolumeFactor = 0,
+                UploadVolumeFactor = 1,
+                MinimumRatio = 0,
+                MinimumSeedTime = 0,
                 Info = isNumRequest
                     ? null
                     : new TorrentInfo
@@ -400,7 +416,19 @@ public class JackettFacadeService : IJackettFacadeService
                 .ToList();
 
         var jResult = await BuildJackettResults(result, isNumRequest);
-        return new RootObject { Results = jResult };
+        return new RootObject { Results = jResult, Error = null };
+    }
+
+    private static string? ExtractInfoHash(string? magnet)
+    {
+        if (string.IsNullOrWhiteSpace(magnet))
+            return null;
+
+        var m = Regex.Match(magnet, "xt=urn:btih:([A-Za-z0-9]+)", RegexOptions.IgnoreCase);
+        if (m.Success && !string.IsNullOrWhiteSpace(m.Groups[1].Value))
+            return m.Groups[1].Value.ToUpperInvariant();
+
+        return null;
     }
 
     private static string BuildTrackerQuery(string query, string title, string titleOriginal)
