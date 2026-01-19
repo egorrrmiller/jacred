@@ -36,8 +36,7 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
 
     /// <summary>Единый пайплайн поиска: локально → трекеры → фильтры → сортировка → merge.</summary>
     public async Task<TorrentSearchPipelineResult> SearchAsync(
-        TorrentSearchRequest request,
-        CancellationToken cancellationToken = default)
+        TorrentSearchRequest request)
     {
         var (search, altname) = await ResolveKpImdb(request.Search, request.AltName);
 
@@ -62,8 +61,7 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
             {
                 var fetched = await _trackerSearchService.SearchAsync(
                     trackerQuery,
-                    _trackerSearchService.GetSupportedTrackers(),
-                    cancellationToken);
+                    _trackerSearchService.GetSupportedTrackers());
 
                 if (fetched.Count > 0)
                 {

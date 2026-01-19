@@ -16,6 +16,5 @@ public interface ITrackerSearch
     ///     Выполняет поиск по строке запроса на выбранном трекере.
     /// </summary>
     Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(
-        string query,
-        CancellationToken cancellationToken = default);
+        string query);
 }

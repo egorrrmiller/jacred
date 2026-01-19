@@ -1,6 +1,6 @@
 ﻿# RuTracker categories (video grouped)
 
-Всего категорий: 206.
+Всего категорий: 207.
 
 ## Фильмы
 

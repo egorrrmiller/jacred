@@ -34,15 +34,11 @@ public sealed class StaleTorrentRefreshService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(Interval);
-        while (await timer.WaitForNextTickAsync(stoppingToken))
+        while (true)
             try
             {
-                await RefreshOnceAsync(stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
+                await Task.Delay(Interval);
+                await RefreshOnceAsync();
             }
             catch (Exception ex)
             {
@@ -50,9 +46,9 @@ public sealed class StaleTorrentRefreshService : BackgroundService
             }
     }
 
-    private async Task RefreshOnceAsync(CancellationToken cancellationToken)
+    private async Task RefreshOnceAsync()
     {
-        var stale = await _torrentRepository.GetStaleAsync(Threshold, BatchSize, cancellationToken);
+        var stale = await _torrentRepository.GetStaleAsync(Threshold, BatchSize);
         if (stale.Count == 0)
             return;
 
@@ -67,8 +63,6 @@ public sealed class StaleTorrentRefreshService : BackgroundService
 
             foreach (var (_, torrent) in group)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
                 var query = torrent.Name;
                 if (string.IsNullOrWhiteSpace(query))
                     query = torrent.OriginalName;
@@ -81,8 +75,7 @@ public sealed class StaleTorrentRefreshService : BackgroundService
                 {
                     var refreshed = await _trackerSearchService.SearchAsync(
                         query,
-                        [tracker],
-                        cancellationToken);
+                        [tracker]);
 
                     if (refreshed.Count == 0)
                         continue;

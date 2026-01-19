@@ -20,8 +20,7 @@ public class AnilibertySearch : BaseTrackerSearch
     public override string Host => "https://aniliberty.top";
 
     public override async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(
-        string query,
-        CancellationToken cancellationToken = default)
+        string query)
     {
         // Хитрость: Aniliberty — только аниме. Если запрос короткий/пустой, выходим.
         if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
@@ -33,7 +32,7 @@ public class AnilibertySearch : BaseTrackerSearch
 
         var torrents = new ConcurrentBag<TorrentDetails>();
 
-        await Parallel.ForEachAsync(releases, cancellationToken, async (release, _) =>
+        await Parallel.ForEachAsync(releases, async (release, _) =>
         {
             var releaseTorrents = await FetchReleaseTorrentsAsync(release.Id);
             if (releaseTorrents == null || releaseTorrents.Count == 0)

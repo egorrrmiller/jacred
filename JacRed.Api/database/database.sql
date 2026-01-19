@@ -172,6 +172,20 @@ COMMENT
 CREATE INDEX IF NOT EXISTS ix_sync_state_updated_at
     ON public.sync_state (updated_at DESC);
 
+--------------------------------------------------------------------------------
+-- Search queries
+--------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.search_queries
+(
+    query      text PRIMARY KEY,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    last_seen  timestamptz NOT NULL DEFAULT now(),
+    hits       integer     NOT NULL DEFAULT 1
+);
+
+CREATE INDEX IF NOT EXISTS ix_search_queries_last_seen
+    ON public.search_queries (last_seen DESC);
+
 
 
 

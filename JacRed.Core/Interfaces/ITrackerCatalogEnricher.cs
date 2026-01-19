@@ -12,6 +12,5 @@ public interface ITrackerCatalogEnricher
     /// </summary>
     Task<bool> TryEnrichAsync(
         TorrentDetails torrent,
-        IReadOnlyDictionary<string, TorrentDetails> existing,
-        CancellationToken cancellationToken = default);
+        IReadOnlyDictionary<string, TorrentDetails> existing);
 }

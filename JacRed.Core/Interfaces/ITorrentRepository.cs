@@ -22,6 +22,15 @@ public interface ITorrentRepository
     /// <summary>
     ///     Возвращает торренты, не обновлявшиеся дольше указанного порога.
     /// </summary>
-    Task<List<TorrentDetails>> GetStaleAsync(TimeSpan olderThan, int limit,
-        CancellationToken cancellationToken = default);
+    Task<List<TorrentDetails>> GetStaleAsync(TimeSpan olderThan, int limit);
+
+    /// <summary>
+    ///     Returns stored search queries ordered by recent activity.
+    /// </summary>
+    Task<IReadOnlyCollection<string>> GetSearchQueriesAsync(int limit);
+
+    /// <summary>
+    ///     Stores or updates a search query in the database.
+    /// </summary>
+    Task TrackSearchQueryAsync(string query);
 }

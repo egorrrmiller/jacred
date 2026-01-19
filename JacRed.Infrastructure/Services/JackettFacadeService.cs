@@ -72,8 +72,7 @@ public class JackettFacadeService : IJackettFacadeService
         string? videotype,
         long relased,
         long quality,
-        long season,
-        CancellationToken cancellationToken)
+        long season)
     {
         var cacheKey = BuildV1CacheKey(search, altname, exact, type, sort, tracker, voice, videotype, relased, quality,
             season);
@@ -91,7 +90,7 @@ public class JackettFacadeService : IJackettFacadeService
             Relased = relased,
             Quality = quality,
             Season = season
-        }, cancellationToken);
+        });
 
         var response = pipelineResult.Items.Take(2000).Select(t => new V1TorrentResponse
         {
@@ -383,8 +382,7 @@ public class JackettFacadeService : IJackettFacadeService
             {
                 var fetched = await _trackerSearchService.SearchAsync(
                     trackerQuery,
-                    _trackerSearchService.GetSupportedTrackers(),
-                    CancellationToken.None);
+                    _trackerSearchService.GetSupportedTrackers());
 
                 if (fetched.Count > 0)
                 {

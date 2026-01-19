@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
 using JacRed.Core;
+using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Utils;
@@ -12,7 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace JacRed.Infrastructure.Services.Trackers.RuTracker;
 
-public class BaseRuTracker : ITrackerCatalogEnricher
+public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
 {
     protected const int MaxPagesPerCategory = 5;
 
@@ -24,7 +25,13 @@ public class BaseRuTracker : ITrackerCatalogEnricher
         new("Страница <b>1</b> из <b>(?<pages>\\d+)</b>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     protected static readonly IReadOnlyDictionary<string, CategoryInfo> CategoryMap = BuildCategoryMap();
-
+    
+    public override TrackerType Tracker => TrackerType.Rutracker;
+    public override string TrackerName => "rutracker";
+    public override string Host => "https://rutracker.org/";
+    
+    private string LoginUrl => Host + "forum/login.php";
+    
     private readonly ICacheService _cacheService;
     private readonly HttpService _httpService;
 
@@ -34,12 +41,7 @@ public class BaseRuTracker : ITrackerCatalogEnricher
         _httpService = httpService;
     }
 
-    protected static string RuTrackerName => "rutracker";
-    protected static string RuTrackerUrl => "https://rutracker.org/";
-    private static string LoginUrl => RuTrackerUrl + "forum/login.php";
-
-    public async Task<bool> TryEnrichAsync(TorrentDetails torrent, IReadOnlyDictionary<string, TorrentDetails> existing,
-        CancellationToken cancellationToken = default)
+    public async Task<bool> TryEnrichAsync(TorrentDetails torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
     {
         if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
             return false;
@@ -122,6 +124,9 @@ public class BaseRuTracker : ITrackerCatalogEnricher
         var client = new HttpClient(handler);
         var http = new HttpService(client, NullLogger<HttpService>.Instance);
 
+        AppInit.conf.Rutracker.login.u = "Egor Miller";
+        AppInit.conf.Rutracker.login.p = "od12ue";
+        
         var pairs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "login_username", AppInit.conf.Rutracker.login.u },

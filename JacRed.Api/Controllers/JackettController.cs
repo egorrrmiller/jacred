@@ -98,8 +98,7 @@ public class JackettController : ControllerBase
             videotype,
             relased,
             quality,
-            season,
-            HttpContext.RequestAborted);
+            season);
 
         return Ok(response);
     }

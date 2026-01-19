@@ -35,8 +35,7 @@ public interface IJackettFacadeService
         string? videotype,
         long relased,
         long quality,
-        long season,
-        CancellationToken cancellationToken);
+        long season);
 
     /// <summary>
     ///     Возвращает момент последнего обновления внутренней базы Jackett.

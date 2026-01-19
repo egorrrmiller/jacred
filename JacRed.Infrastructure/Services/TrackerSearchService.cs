@@ -10,7 +10,6 @@ namespace JacRed.Infrastructure.Services;
 
 public class TrackerSearchService : ITrackerSearchService
 {
-    private const int TrackerTimeoutSeconds = 7;
     private readonly ICacheService _cacheService;
     private readonly HashSet<string> _disabledTrackers;
     private readonly ILogger<TrackerSearchService> _logger;
@@ -36,8 +35,7 @@ public class TrackerSearchService : ITrackerSearchService
 
     public async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(
         string query,
-        IReadOnlyCollection<TrackerType>? trackers = null,
-        CancellationToken cancellationToken = default)
+        IReadOnlyCollection<TrackerType>? trackers = null)
     {
         if (string.IsNullOrWhiteSpace(query))
             return Array.Empty<TorrentDetails>();
@@ -52,7 +50,7 @@ public class TrackerSearchService : ITrackerSearchService
 
         return await _cacheService.GetOrCreateAsync(
             cacheKey,
-            () => SearchUncachedAsync(query, targetTrackers, cancellationToken),
+            () => SearchUncachedAsync(query, targetTrackers),
             TimeSpan.FromMinutes(5));
     }
 
@@ -73,20 +71,18 @@ public class TrackerSearchService : ITrackerSearchService
 
     private async Task<IReadOnlyCollection<TorrentDetails>> SearchUncachedAsync(
         string query,
-        IReadOnlyCollection<TrackerType> trackers,
-        CancellationToken cancellationToken)
+        IReadOnlyCollection<TrackerType> trackers)
     {
         var bag = new ConcurrentBag<IReadOnlyCollection<TorrentDetails>>();
 
         var options = new ParallelOptions
         {
-            CancellationToken = cancellationToken,
             MaxDegreeOfParallelism = Environment.ProcessorCount
         };
 
-        await Parallel.ForEachAsync(trackers, options, async (tracker, ct) =>
+        await Parallel.ForEachAsync(trackers, options, async (tracker, _) =>
         {
-            var res = await SearchTrackerSafeAsync(tracker, query, ct);
+            var res = await SearchTrackerSafeAsync(tracker, query);
             if (res.Count > 0)
                 bag.Add(res);
         });
@@ -101,18 +97,14 @@ public class TrackerSearchService : ITrackerSearchService
 
     private async Task<IReadOnlyCollection<TorrentDetails>> SearchTrackerSafeAsync(
         TrackerType tracker,
-        string query,
-        CancellationToken cancellationToken)
+        string query)
     {
         if (!_providers.TryGetValue(tracker, out var provider))
             return Array.Empty<TorrentDetails>();
 
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        cts.CancelAfter(TimeSpan.FromSeconds(TrackerTimeoutSeconds));
-
         try
         {
-            return await provider.SearchAsync(query, cts.Token);
+            return await provider.SearchAsync(query);
         }
         catch (OperationCanceledException)
         {

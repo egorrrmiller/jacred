@@ -45,6 +45,12 @@ public class TorrentSearchService : ITorrentSearchService
         if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(originalTitle))
             return new List<TorrentDetails>();
 
+        var queryForTracking = !string.IsNullOrWhiteSpace(title)
+            ? title
+            : originalTitle;
+        if (!string.IsNullOrWhiteSpace(queryForTracking))
+            await _torrentRepository.TrackSearchQueryAsync(queryForTracking);
+
         var searchName = StringConvert.SearchName(title);
         var searchOriginal = StringConvert.SearchName(originalTitle);
 
@@ -69,6 +75,8 @@ public class TorrentSearchService : ITorrentSearchService
     {
         if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
             return new List<TorrentDetails>();
+
+        await _torrentRepository.TrackSearchQueryAsync(query);
 
         var searchQuery = StringConvert.SearchName(query);
 

@@ -95,11 +95,10 @@ public class TorrentRepository : ITorrentRepository
         );
     }
 
-    public async Task<List<TorrentDetails>> GetStaleAsync(TimeSpan olderThan, int limit,
-        CancellationToken cancellationToken = default)
+    public async Task<List<TorrentDetails>> GetStaleAsync(TimeSpan olderThan, int limit)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync(cancellationToken);
+        await connection.OpenAsync();
 
         var cutoff = DateTime.UtcNow - olderThan;
 
@@ -133,8 +132,8 @@ public class TorrentRepository : ITorrentRepository
             ORDER BY tracker_name, update_time ASC
             LIMIT @Limit";
 
-        var rows = await connection.QueryAsync<Torrent>(new CommandDefinition(sql,
-            new { Cutoff = cutoff, Limit = limit }, cancellationToken: cancellationToken));
+        var rows = await connection.QueryAsync<Torrent>(sql,
+            new { Cutoff = cutoff, Limit = limit });
 
         var list = new List<TorrentDetails>();
         foreach (var row in rows)
@@ -145,6 +144,48 @@ public class TorrentRepository : ITorrentRepository
         }
 
         return list;
+    }
+
+    public async Task<IReadOnlyCollection<string>> GetSearchQueriesAsync(int limit)
+    {
+        if (limit <= 0)
+            return Array.Empty<string>();
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        const string sql = @"
+            SELECT query
+            FROM public.search_queries
+            ORDER BY last_seen DESC, hits DESC
+            LIMIT @Limit";
+
+        var rows = await connection.QueryAsync<string>(sql, new { Limit = limit });
+
+        return rows
+            .Where(q => !string.IsNullOrWhiteSpace(q))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    public async Task TrackSearchQueryAsync(string query)
+    {
+        var normalized = StringConvert.SearchName(query) ?? query?.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+            return;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        const string sql = @"
+            INSERT INTO public.search_queries (query, created_at, last_seen, hits)
+            VALUES (@Query, now(), now(), 1)
+            ON CONFLICT (query)
+            DO UPDATE SET
+                last_seen = now(),
+                hits = public.search_queries.hits + 1";
+
+        await connection.ExecuteAsync(sql, new { Query = normalized });
     }
 
     /// <summary>

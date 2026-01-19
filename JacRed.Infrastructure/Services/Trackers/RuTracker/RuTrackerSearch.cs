@@ -6,7 +6,7 @@ using JacRed.Core.Utils;
 
 namespace JacRed.Infrastructure.Services.Trackers.RuTracker;
 
-public sealed class RuTrackerSearch : BaseRuTracker, ITrackerSearch
+public sealed class RuTrackerSearch : BaseRuTracker
 {
     private readonly ITorrentRepository _torrentRepository;
 
@@ -16,12 +16,7 @@ public sealed class RuTrackerSearch : BaseRuTracker, ITrackerSearch
         _torrentRepository = torrentRepository;
     }
 
-    public TrackerType Tracker => TrackerType.Rutracker;
-    public string TrackerName => "rutracker";
-    public string Host => AppInit.conf.Rutracker.host;
-
-    public async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(string query,
-        CancellationToken cancellationToken = default)
+    public override async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(string query)
     {
         var results = new Dictionary<string, TorrentDetails>(StringComparer.OrdinalIgnoreCase);
         var now = DateTime.UtcNow;
@@ -37,24 +32,23 @@ public sealed class RuTrackerSearch : BaseRuTracker, ITrackerSearch
         if (string.IsNullOrWhiteSpace(html))
             return new List<TorrentDetails>();
 
-        var parsed = ParseForumPage(html, string.Empty, RuTrackerUrl, now);
+        var parsed = ParseForumPage(html, string.Empty, Host, now);
         foreach (var item in parsed)
             results[item.Url] = item;
 
         var options = new ParallelOptions
         {
-            MaxDegreeOfParallelism = Environment.ProcessorCount,
-            CancellationToken = cancellationToken
+            MaxDegreeOfParallelism = Environment.ProcessorCount
         };
 
         await Parallel.ForEachAsync(
             results.Values,
             options,
-            async (torrent, ct) =>
+            async (torrent, _) =>
             {
                 await _torrentRepository.AddOrUpdateAsync(
                     new[] { torrent },
-                    (t, existing) => TryEnrichAsync(t, existing, ct));
+                    (t, existing) => TryEnrichAsync(t, existing));
             });
 
         return results.Values.ToList();
