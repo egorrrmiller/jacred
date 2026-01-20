@@ -1,9 +1,12 @@
 ﻿using System.Text.RegularExpressions;
 using JacRed.Core;
+using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Api;
 using JacRed.Core.Models.Details;
+using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
+using Microsoft.Extensions.Options;
 using TorrentInfo = JacRed.Core.Models.Api.TorrentInfo;
 
 namespace JacRed.Infrastructure.Services;
@@ -11,29 +14,29 @@ namespace JacRed.Infrastructure.Services;
 public class JackettFacadeService : IJackettFacadeService
 {
     private readonly ICacheService _cacheService;
-    private readonly IContentCatalog _contentCatalog;
     private readonly ITorrentMergerService _mergeService;
     private readonly ITorrentSearchPipeline _searchPipeline;
     private readonly ITorrentSearchService _searchService;
     private readonly ITorrentRepository _torrentRepository;
     private readonly ITrackerSearchService _trackerSearchService;
+    private readonly Config _config; 
 
     public JackettFacadeService(
-        IContentCatalog contentCatalog,
         ICacheService cacheService,
         ITorrentMergerService mergeService,
         ITorrentSearchService searchService,
         ITorrentSearchPipeline searchPipeline,
         ITrackerSearchService trackerSearchService,
-        ITorrentRepository torrentRepository)
+        ITorrentRepository torrentRepository,
+        IOptions<Config> config)
     {
-        _contentCatalog = contentCatalog;
         _cacheService = cacheService;
         _mergeService = mergeService;
         _searchService = searchService;
         _searchPipeline = searchPipeline;
         _trackerSearchService = trackerSearchService;
         _torrentRepository = torrentRepository;
+        _config = config.Value;
     }
 
     /// <summary>Поиск для Jackett v2 с кэшированием результатов.</summary>
@@ -48,7 +51,7 @@ public class JackettFacadeService : IJackettFacadeService
         string? userAgent,
         string queryString)
     {
-        if (!AppInit.conf.evercache.enable || AppInit.conf.evercache.validHour != 0)
+        if (!_config.Cache.Enable)
             return await BuildJackettAsync(apikey, query, title, titleOriginal, year, category, isSerial, userAgent,
                 queryString);
 
@@ -120,10 +123,9 @@ public class JackettFacadeService : IJackettFacadeService
     }
 
     /// <summary>Возвращает время последнего обновления master_db.</summary>
-    public DateTime GetLastUpdateDb()
+    public async Task<DateTime> GetLastUpdateDb()
     {
-        var db = _contentCatalog.GetAllKeys();
-        return db.Values.MaxBy(i => i.updateTime)?.updateTime ?? new DateTime(2000, 1, 1);
+        return await _torrentRepository.GetLastUpdateTimeAsync();
     }
 
     private async Task<List<Result>> BuildJackettResults(IEnumerable<TorrentDetails> torrents, bool isNumRequest)
@@ -185,15 +187,16 @@ public class JackettFacadeService : IJackettFacadeService
         return results;
     }
 
-    private static bool IsAllowedTracker(TorrentDetails t)
+    private bool IsAllowedTracker(TorrentDetails t)
     {
-        if (AppInit.conf.synctrackers != null && !AppInit.conf.synctrackers.Contains(t.TrackerName))
+        if (!Enum.TryParse<TrackerType>(t.TrackerName, true, out var trackerType))
             return false;
 
-        if (AppInit.conf.disable_trackers != null && AppInit.conf.disable_trackers.Contains(t.TrackerName))
+        if (_config.SyncTrackers.Count > 0 &&
+            !_config.SyncTrackers.Contains(trackerType))
             return false;
 
-        return true;
+        return !_config.DisableTrackers.Contains(trackerType);
     }
 
     private HashSet<int> GetCategoryIds(TorrentDetails t, out string? desc)

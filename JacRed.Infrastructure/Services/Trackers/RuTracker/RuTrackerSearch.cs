@@ -1,8 +1,8 @@
-using JacRed.Core;
-using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
+using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
+using Microsoft.Extensions.Options;
 
 namespace JacRed.Infrastructure.Services.Trackers.RuTracker;
 
@@ -10,8 +10,8 @@ public sealed class RuTrackerSearch : BaseRuTracker
 {
     private readonly ITorrentRepository _torrentRepository;
 
-    public RuTrackerSearch(ICacheService cacheService, HttpService httpService, ITorrentRepository torrentRepository) :
-        base(cacheService, httpService)
+
+    public RuTrackerSearch(ICacheService cacheService, HttpService httpService, IOptions<Config> config, ITorrentRepository torrentRepository) : base(cacheService, httpService, config)
     {
         _torrentRepository = torrentRepository;
     }
@@ -20,14 +20,14 @@ public sealed class RuTrackerSearch : BaseRuTracker
     {
         var results = new Dictionary<string, TorrentDetails>(StringComparer.OrdinalIgnoreCase);
         var now = DateTime.UtcNow;
-        var requestHost = AppInit.conf.Rutracker.rqHost();
+        var requestHost = Host;
 
         var url = BuildQueryUrl(requestHost, query, 0);
         var html = await Get(
             url,
             RuEncoding,
-            timeoutSeconds: 10,
-            useProxy: AppInit.conf.Rutracker.useproxy);
+            timeoutSeconds: 10/*,
+            useProxy: AppInit.conf.Rutracker.useproxy*/);
 
         if (string.IsNullOrWhiteSpace(html))
             return new List<TorrentDetails>();

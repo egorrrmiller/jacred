@@ -28,7 +28,7 @@ var builder = WebApplication.CreateBuilder(args);
 DefaultTypeMap.MatchNamesWithUnderscores = true;
 
 // 1. Добавляем файл в общую конфигурацию приложения
-builder.Configuration.AddYamlFile("config.yml", optional: false, reloadOnChange: true);
+builder.Configuration.AddYamlFile("config.local.yml", optional: false, reloadOnChange: true);
 
 // 2. Регистрируем IOptions (теперь builder.Configuration содержит данные из YAML)
 builder.Services.Configure<Config>(builder.Configuration);
@@ -93,19 +93,6 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 // Регистрация строки подключения как именованной строки (если нужно)
 builder.Services.AddSingleton(connectionString);
 
-// --- HTTP Client ---
-builder.Services.AddHttpClient<HttpService>(client =>
-    {
-        client.DefaultRequestHeaders.UserAgent.ParseAdd(HttpService.UserAgent);
-        client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
-    })
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-    {
-        AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
-        ServerCertificateCustomValidationCallback = (_, _, _, _) => true // only if you need to ignore SSL
-    });
-
-
 var app = builder.Build();
 
 // --- Middleware ---
@@ -135,7 +122,8 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 app.UseRouting();
 app.UseResponseCompression();
 
-if (AppInit.conf.web) app.UseStaticFiles();
+var options = app.Configuration.Get<Config>();
+if (options.Web) app.UseStaticFiles();
 
 app.UseModHeaders();
 app.MapControllers();

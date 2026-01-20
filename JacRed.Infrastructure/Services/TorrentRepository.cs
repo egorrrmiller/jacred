@@ -3,8 +3,10 @@ using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Database;
 using JacRed.Core.Models.Details;
+using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Npgsql;
 
 namespace JacRed.Infrastructure.Services;
@@ -19,19 +21,22 @@ public class TorrentRepository : ITorrentRepository
     private readonly IKeyGenerator _keyGenerator;
     private readonly ILogger<TorrentRepository> _logger;
     private readonly ITorrentEnricher _torrentEnricher;
+    private readonly Config _config;
 
     public TorrentRepository(
         ICacheService cache,
         IKeyGenerator keyGenerator,
         ITorrentEnricher torrentEnricher,
         ILogger<TorrentRepository> logger,
-        string connectionString)
+        string connectionString,
+        IOptions<Config> config)
     {
         _cache = cache;
         _keyGenerator = keyGenerator;
         _torrentEnricher = torrentEnricher;
         _logger = logger;
         _connectionString = connectionString;
+        _config = config.Value;
     }
 
     /// <summary>
@@ -73,26 +78,6 @@ public class TorrentRepository : ITorrentRepository
 
             await _cache.InvalidateAsync($"collection:{key}");
         }
-    }
-
-    #region Private Methods
-
-    /// <summary>
-    ///     Возвращает коллекцию торрентов по ключу, при необходимости обновляя кэш.
-    /// </summary>
-    private async Task<IReadOnlyDictionary<string, TorrentDetails>> GetCollectionAsync(string key,
-        bool updateCache = false)
-    {
-        var cacheKey = $"collection:{key}";
-
-        if (updateCache)
-            await _cache.InvalidateAsync(cacheKey);
-
-        return await _cache.GetOrCreateAsync(
-            cacheKey,
-            async () => await LoadCollectionFromDbAsync(key),
-            TimeSpan.FromMinutes(30)
-        );
     }
 
     public async Task<List<TorrentDetails>> GetStaleAsync(TimeSpan olderThan, int limit)
@@ -186,6 +171,37 @@ public class TorrentRepository : ITorrentRepository
                 hits = public.search_queries.hits + 1";
 
         await connection.ExecuteAsync(sql, new { Query = normalized });
+    }
+
+    public async Task<DateTime> GetLastUpdateTimeAsync()
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        const string sql = "SELECT MAX(update_time) FROM public.torrents";
+        var result = await connection.QueryFirstOrDefaultAsync<DateTime?>(sql);
+
+        return result ?? new DateTime(2000, 1, 1);
+    }
+
+    #region Private Methods
+
+    /// <summary>
+    ///     Возвращает коллекцию торрентов по ключу, при необходимости обновляя кэш.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, TorrentDetails>> GetCollectionAsync(string key,
+        bool updateCache = false)
+    {
+        var cacheKey = $"collection:{key}";
+
+        if (updateCache)
+            await _cache.InvalidateAsync(cacheKey);
+
+        return await _cache.GetOrCreateAsync(
+            cacheKey,
+            async () => await LoadCollectionFromDbAsync(key),
+            TimeSpan.FromMinutes(30)
+        );
     }
 
     /// <summary>
@@ -293,7 +309,7 @@ public class TorrentRepository : ITorrentRepository
         var torrents = await connection.QueryAsync<Torrent>(sql, new
         {
             Patterns = patterns,
-            MaxRead = AppInit.conf.maxreadfile
+            MaxRead = _config.MaxResultCount
         });
 
         var dict = new Dictionary<string, TorrentDetails>();

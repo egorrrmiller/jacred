@@ -1,15 +1,15 @@
-﻿using System.Collections.Concurrent;
-using System.Net;
+﻿using System.Net;
 using System.Text;
-using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 namespace JacRed.Core.Utils;
 
 /// <summary>
-///     Сервис для HTTP-запросов с поддержкой прокси, сжатия и управления таймаутами.
-///     Использует IHttpClientFactory — нет утечек памяти. Сохранены все публичные методы.
+///     Сервис для HTTP-запросов.
+///     Прокси теперь настраивается глобально через HttpClientHandler при регистрации в DI,
+///     либо через именованные клиенты, если нужна разная логика.
+///     В данном классе убрана самописная логика "X-Use-Main-Proxy", так как она не работала.
 /// </summary>
 public class HttpService
 {
@@ -18,14 +18,12 @@ public class HttpService
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<HttpService> _logger;
-    private readonly ProxyHandler _proxyHandler;
     private HttpClient? _httpClientNoRedirect;
 
     public HttpService(HttpClient httpClient, ILogger<HttpService> logger)
     {
         _httpClient = httpClient;
         _logger = logger;
-        _proxyHandler = new ProxyHandler();
     }
 
     #region Get
@@ -38,7 +36,7 @@ public class HttpService
         int timeoutSeconds = 15,
         int maxResponseSize = 10_000_000,
         List<(string name, string val)>? addHeaders = null,
-        bool useProxy = false,
+        bool useProxy = false, // Параметр оставлен для совместимости, но реальное использование зависит от DI
         int httpVersion = 1,
         bool allowRedirect = true)
     {
@@ -112,12 +110,11 @@ public class HttpService
             foreach (var (name, val) in addHeaders)
                 request.Headers.Add(name, val);
 
-        // Применяем прокси через middleware-подход (заголовок + логика)
-        _proxyHandler.Apply(request, url, useProxy);
-
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+            // Выбираем клиент: обычный или без редиректов.
+            // Прокси будет использоваться, если он настроен в HttpClientHandler при создании клиента.
             using var response = await GetClient(allowRedirect)
                 .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
 
@@ -164,8 +161,6 @@ public class HttpService
         if (addHeaders != null)
             foreach (var (name, val) in addHeaders)
                 request.Headers.Add(name, val);
-
-        _proxyHandler.Apply(request, url, useProxy);
 
         try
         {
@@ -246,48 +241,6 @@ public class HttpService
         return builder.ToString();
     }
 
-    #region ProxyHandler
-
-    private class ProxyHandler
-    {
-        private readonly object _lock = new();
-        private readonly ConcurrentBag<string> _proxyList = new();
-        private bool _initialized;
-
-        public void Apply(HttpRequestMessage request, string url, bool useProxy)
-        {
-            // Глобальные прокси по паттерну
-            if (AppInit.conf?.globalproxy != null)
-                foreach (var p in AppInit.conf.globalproxy)
-                    if (p.list?.Count > 0 && Regex.IsMatch(url, p.pattern, RegexOptions.IgnoreCase))
-                    {
-                        request.Headers.Add("X-Use-Global-Proxy", p.list[0]); // Подсказка для логики вне HttpClient
-                        return;
-                    }
-
-            // Основной прокси
-            if (useProxy && AppInit.conf?.proxy?.list != null && AppInit.conf.proxy.list.Count > 0)
-            {
-                Initialize();
-                if (_proxyList.TryTake(out var proxy)) request.Headers.Add("X-Use-Main-Proxy", proxy);
-            }
-        }
-
-        private void Initialize()
-        {
-            if (_initialized) return;
-            lock (_lock)
-            {
-                if (_initialized) return;
-                var shuffled = AppInit.conf.proxy.list.OrderBy(_ => Guid.NewGuid()).ToList();
-                foreach (var ip in shuffled) _proxyList.Add(ip);
-                _initialized = true;
-            }
-        }
-    }
-
-    #endregion
-
     #region Post
 
     public ValueTask<string> Post(
@@ -333,8 +286,6 @@ public class HttpService
             foreach (var (name, val) in addHeaders)
                 request.Headers.Add(name, val);
 
-        _proxyHandler.Apply(request, url, useProxy);
-
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
@@ -370,8 +321,6 @@ public class HttpService
         if (addHeaders != null)
             foreach (var (name, val) in addHeaders)
                 request.Headers.Add(name, val);
-
-        _proxyHandler.Apply(request, url, useProxy);
 
         try
         {

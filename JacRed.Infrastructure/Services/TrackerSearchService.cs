@@ -3,29 +3,29 @@ using System.Collections.Concurrent;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
+using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace JacRed.Infrastructure.Services;
 
 public class TrackerSearchService : ITrackerSearchService
 {
     private readonly ICacheService _cacheService;
-    private readonly HashSet<string> _disabledTrackers;
     private readonly ILogger<TrackerSearchService> _logger;
     private readonly IReadOnlyDictionary<TrackerType, ITrackerSearch> _providers;
+    private readonly Config _config;
 
     public TrackerSearchService(
         ICacheService cacheService,
         IEnumerable<ITrackerSearch> providers,
-        ILogger<TrackerSearchService> logger)
+        ILogger<TrackerSearchService> logger, IOptions<Config> config)
     {
         _cacheService = cacheService;
         _logger = logger;
+        _config = config.Value;
         _providers = providers.ToDictionary(p => p.Tracker, p => p);
-        _disabledTrackers = new HashSet<string>(
-            AppInit.conf.disable_trackers ?? Array.Empty<string>(),
-            StringComparer.OrdinalIgnoreCase);
     }
 
     public IReadOnlyCollection<TrackerType> GetSupportedTrackers()
@@ -58,13 +58,25 @@ public class TrackerSearchService : ITrackerSearchService
     {
         if (trackers == null || trackers.Count == 0)
             return _providers.Values
-                .Where(p => !_disabledTrackers.Contains(p.TrackerName))
+                .Where(p =>
+                {
+                    if (!Enum.TryParse<TrackerType>(p.TrackerName, true, out var trackerType))
+                        return false;
+                    
+                    return !_config.DisableTrackers.Contains(trackerType);
+                })
                 .Select(p => p.Tracker)
                 .ToArray();
 
         return trackers
             .Where(t => _providers.ContainsKey(t))
-            .Where(t => !_disabledTrackers.Contains(_providers[t].TrackerName))
+            .Where(t =>
+            {
+                if (!Enum.TryParse<TrackerType>(_providers[t].TrackerName, true, out var trackerType))
+                    return false;
+                
+                return !_config.DisableTrackers.Contains(trackerType);
+            })
             .Distinct()
             .ToArray();
     }

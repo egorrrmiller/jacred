@@ -1,17 +1,21 @@
 ﻿using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using JacRed.Core;
+using JacRed.Core.Models.Options;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 
 namespace JacRed.Api.Middlewares;
 
 public partial class ModHeaders
 {
     private readonly RequestDelegate _next;
+    private readonly Config _config;
 
-    public ModHeaders(RequestDelegate next)
+    public ModHeaders(RequestDelegate next, IOptions<Config> config)
     {
         _next = next;
+        _config = config.Value;
     }
 
     public Task Invoke(HttpContext httpContext)
@@ -35,13 +39,13 @@ public partial class ModHeaders
             || httpContext.Request.Path.Value.StartsWith("/dev/"))
             return Task.CompletedTask;
 
-        if (!string.IsNullOrEmpty(AppInit.conf.apikey))
+        if (!string.IsNullOrEmpty(_config.ApiKey))
         {
             if (httpContext.Request.Path.Value == "/" ||
                 Regex.IsMatch(httpContext.Request.Path.Value, "^/(api/v1\\.0/conf|stats/|sync/)"))
                 return _next(httpContext);
 
-            if (AppInit.conf.apikey
+            if (_config.ApiKey
                 != MyRegex()
                     .Match(httpContext.Request.QueryString.Value)
                     .Groups[2].Value)

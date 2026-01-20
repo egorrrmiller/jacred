@@ -8,8 +8,10 @@ using JacRed.Core;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
+using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace JacRed.Infrastructure.Services.Trackers.RuTracker;
 
@@ -34,11 +36,13 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
     
     private readonly ICacheService _cacheService;
     private readonly HttpService _httpService;
+    private readonly Config _config;
 
-    protected BaseRuTracker(ICacheService cacheService, HttpService httpService)
+    protected BaseRuTracker(ICacheService cacheService, HttpService httpService, IOptions<Config> config)
     {
         _cacheService = cacheService;
         _httpService = httpService;
+        _config = config.Value;
     }
 
     public async Task<bool> TryEnrichAsync(TorrentDetails torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
@@ -123,14 +127,11 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         };
         var client = new HttpClient(handler);
         var http = new HttpService(client, NullLogger<HttpService>.Instance);
-
-        AppInit.conf.Rutracker.login.u = "Egor Miller";
-        AppInit.conf.Rutracker.login.p = "od12ue";
         
         var pairs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            { "login_username", AppInit.conf.Rutracker.login.u },
-            { "login_password", AppInit.conf.Rutracker.login.p },
+            { "login_username", _config.RuTracker.Authorization.Login },
+            { "login_password", _config.RuTracker.Authorization.Password },
             { "login", "Login" }
         };
 
@@ -478,8 +479,8 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
                 url,
                 RuEncoding,
                 url,
-                7,
-                useProxy: AppInit.conf.Rutracker.useproxy);
+                7/*,
+                useProxy: AppInit.conf.Rutracker.useproxy*/);
 
             if (string.IsNullOrWhiteSpace(html))
                 return (null, default);

@@ -40,5 +40,5 @@ public interface IJackettFacadeService
     /// <summary>
     ///     Возвращает момент последнего обновления внутренней базы Jackett.
     /// </summary>
-    DateTime GetLastUpdateDb();
+    Task<DateTime> GetLastUpdateDb();
 }

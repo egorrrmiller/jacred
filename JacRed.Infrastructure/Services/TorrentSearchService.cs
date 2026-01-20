@@ -4,8 +4,10 @@ using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Database;
 using JacRed.Core.Models.Details;
+using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Npgsql;
 
 namespace JacRed.Infrastructure.Services;
@@ -16,20 +18,20 @@ namespace JacRed.Infrastructure.Services;
 public class TorrentSearchService : ITorrentSearchService
 {
     private readonly string _connectionString;
-    private readonly IContentCatalog _contentCatalog;
     private readonly ILogger<TorrentSearchService> _logger;
     private readonly ITorrentRepository _torrentRepository;
+    private readonly Config _config;
 
     public TorrentSearchService(
-        IContentCatalog contentCatalog,
         ITorrentRepository torrentRepository,
         string connectionString,
-        ILogger<TorrentSearchService> logger)
+        ILogger<TorrentSearchService> logger,
+        IOptions<Config> config)
     {
-        _contentCatalog = contentCatalog;
         _torrentRepository = torrentRepository;
         _connectionString = connectionString;
         _logger = logger;
+        _config = config.Value;
     }
 
     /// <summary>
@@ -152,7 +154,7 @@ public class TorrentSearchService : ITorrentSearchService
         {
             Terms = terms,
             TermRegexes = termRegexes,
-            MaxRead = AppInit.conf.maxreadfile,
+            MaxRead = _config.MaxResultCount,
             HasWeb = !string.IsNullOrWhiteSpace(webTerm),
             WebTerm = webTerm ?? string.Empty
         });
@@ -241,7 +243,7 @@ public class TorrentSearchService : ITorrentSearchService
             TermRegexes = termRegexes.Length > 0 ? termRegexes : Array.Empty<string>(),
             WebTerm = hasWeb ? webTerm : string.Empty,
             HasWeb = hasWeb,
-            MaxRead = AppInit.conf.maxreadfile
+            MaxRead = _config.MaxResultCount
         });
 
         var results = new List<TorrentDetails>();

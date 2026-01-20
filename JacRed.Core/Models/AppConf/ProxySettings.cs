@@ -1,16 +1,45 @@
-﻿namespace JacRed.Core.Models.AppConf;
+﻿using Microsoft.Extensions.Configuration;
 
+namespace JacRed.Core.Models.AppConf;
+
+/// <summary>
+///     Настройки прокси-серверов.
+/// </summary>
 public class ProxySettings
 {
-    public bool BypassOnLocal;
+    /// <summary>
+    ///     Игнорировать прокси для локальных адресов.
+    /// </summary>
+    [ConfigurationKeyName("bypass-on-local")]
+    public bool BypassOnLocal { get; set; }
 
-    public List<string> list;
+    /// <summary>
+    ///     Список адресов прокси-серверов (например, "http://proxy:8080").
+    /// </summary>
+    [ConfigurationKeyName("list")]
+    public List<string> List { get; set; } = new();
 
-    public string password;
+    /// <summary>
+    ///     Пароль для авторизации на прокси (если требуется).
+    /// </summary>
+    [ConfigurationKeyName("password")]
+    public string? Password { get; set; }
 
-    public string pattern;
+    /// <summary>
+    ///     (Устарело/Не используется) Шаблон URL, для которых применять прокси.
+    /// </summary>
+    [ConfigurationKeyName("pattern")]
+    public string? Pattern { get; set; }
 
-    public bool useAuth;
+    /// <summary>
+    ///     Использовать ли авторизацию (логин/пароль) для прокси.
+    /// </summary>
+    [ConfigurationKeyName("use-auth")]
+    public bool UseAuth { get; set; }
 
-    public string username;
+    /// <summary>
+    ///     Имя пользователя для авторизации на прокси.
+    /// </summary>
+    [ConfigurationKeyName("username")]
+    public string? Username { get; set; }
 }

@@ -2,17 +2,21 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using JacRed.Core;
 using JacRed.Core.Interfaces;
+using JacRed.Core.Models.Options;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace JacRed.Api.Controllers;
 
 public class JackettController : ControllerBase
 {
     private readonly IJackettFacadeService _facade;
+    private readonly Config _config;
 
-    public JackettController(IJackettFacadeService facade)
+    public JackettController(IJackettFacadeService facade, IOptions<Config> config)
     {
         _facade = facade;
+        _config = config.Value;
     }
 
     [Route("/")]
@@ -34,9 +38,9 @@ public class JackettController : ControllerBase
     }
 
     [Route("lastupdatedb")]
-    public ActionResult LastUpdateDB()
+    public async Task<ActionResult> LastUpdateDB()
     {
-        var latest = _facade.GetLastUpdateDb();
+        var latest = await _facade.GetLastUpdateDb();
         return Content(latest.ToString("dd.MM.yyyy HH:mm"), "text/plain; charset=utf-8");
     }
 
@@ -45,7 +49,7 @@ public class JackettController : ControllerBase
     {
         return Ok(new
         {
-            apikey = string.IsNullOrWhiteSpace(AppInit.conf.apikey) || apikey == AppInit.conf.apikey
+            apikey = string.IsNullOrWhiteSpace(_config.ApiKey) || apikey == _config.ApiKey
         });
     }
 

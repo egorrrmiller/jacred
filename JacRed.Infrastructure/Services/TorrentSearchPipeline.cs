@@ -1,10 +1,13 @@
 using System.Text.RegularExpressions;
 using JacRed.Core;
+using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models;
 using JacRed.Core.Models.Api;
 using JacRed.Core.Models.Details;
+using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 
 namespace JacRed.Infrastructure.Services;
@@ -12,6 +15,7 @@ namespace JacRed.Infrastructure.Services;
 public class TorrentSearchPipeline : ITorrentSearchPipeline
 {
     private readonly ICacheService _cacheService;
+    private readonly Config _config;
     private readonly HttpService _httpService;
     private readonly ITorrentMergerService _mergeService;
     private readonly ITorrentSearchService _searchService;
@@ -24,7 +28,8 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
         ITrackerSearchService trackerSearchService,
         ITorrentMergerService mergeService,
         ICacheService cacheService,
-        HttpService httpService)
+        HttpService httpService,
+        IOptions<Config> config)
     {
         _searchService = searchService;
         _torrentRepository = torrentRepository;
@@ -32,6 +37,7 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
         _mergeService = mergeService;
         _cacheService = cacheService;
         _httpService = httpService;
+        _config = config.Value;
     }
 
     /// <summary>Единый пайплайн поиска: локально → трекеры → фильтры → сортировка → merge.</summary>
@@ -208,10 +214,18 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
         };
     }
 
-    private static IEnumerable<TorrentDetails> FilterAllowedTrackers(IEnumerable<TorrentDetails> source)
+    private IEnumerable<TorrentDetails> FilterAllowedTrackers(IEnumerable<TorrentDetails> source)
     {
         return source.Where(t =>
-            (AppInit.conf.synctrackers == null || AppInit.conf.synctrackers.Contains(t.TrackerName)) &&
-            (AppInit.conf.disable_trackers == null || !AppInit.conf.disable_trackers.Contains(t.TrackerName)));
+        {
+            if (!Enum.TryParse<TrackerType>(t.TrackerName, true, out var trackerType))
+                return false;
+
+            if (_config.SyncTrackers.Count > 0 &&
+                !_config.SyncTrackers.Contains(trackerType))
+                return false;
+
+            return !_config.DisableTrackers.Contains(trackerType);
+        });
     }
 }

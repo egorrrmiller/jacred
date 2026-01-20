@@ -34,11 +34,15 @@ public sealed class StaleTorrentRefreshService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        while (true)
+        using var timer = new PeriodicTimer(Interval);
+        while (await timer.WaitForNextTickAsync(stoppingToken))
             try
             {
-                await Task.Delay(Interval);
-                await RefreshOnceAsync();
+                await RefreshOnceAsync(stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
             }
             catch (Exception ex)
             {
@@ -46,7 +50,7 @@ public sealed class StaleTorrentRefreshService : BackgroundService
             }
     }
 
-    private async Task RefreshOnceAsync()
+    private async Task RefreshOnceAsync(CancellationToken cancellationToken)
     {
         var stale = await _torrentRepository.GetStaleAsync(Threshold, BatchSize);
         if (stale.Count == 0)
@@ -94,7 +98,7 @@ public sealed class StaleTorrentRefreshService : BackgroundService
         }
     }
 
-    private TrackerType? TryParseTracker(string trackerName)
+    private static TrackerType? TryParseTracker(string trackerName)
     {
         return Enum.TryParse<TrackerType>(trackerName, true, out var t) ? t : null;
     }

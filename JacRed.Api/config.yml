@@ -2,6 +2,7 @@
 listen-ip: any
 listen-port: 9117
 api-key: 'key'
+web: true
 
 ##### настройка выдачи
 
@@ -27,12 +28,12 @@ trackers-categories:
 sync-trackers:
   - rutracker
   - aniliberty
-    
+
 # трекеры, результаты которых будут удалены из ответа
 disable-trackers:
   - rutracker
 
 rutracker:
-  login:
-    user-name: ''
+  authorization:
+    login: ''
     password: ''
