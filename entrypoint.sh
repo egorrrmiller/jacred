@@ -29,14 +29,28 @@ DB_USER=${DB_USER:-jacred}
 DB_PASSWORD=${DB_PASSWORD:-jacred}
 
 CONN_RAW_FALLBACK="Host=${DB_HOST};Port=${DB_PORT};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD};Timeout=30;CommandTimeout=60;"
-if [ -z "${ConnectionStrings__DefaultConnection:-}" ] || echo "$ConnectionStrings__DefaultConnection" | grep -q '\${DB_'; then
-    export ConnectionStrings__DefaultConnection="$CONN_RAW_FALLBACK"
-    CONN_RAW="$CONN_RAW_FALLBACK"
-else
-    CONN_RAW="$ConnectionStrings__DefaultConnection"
-fi
+CONN_RAW="${ConnectionStrings__DefaultConnection:-$CONN_RAW_FALLBACK}"
+export ConnectionStrings__DefaultConnection="$CONN_RAW"
 
-PSQL_URI="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+# Разбираем строку подключения для psql URI
+parse_field() {
+    key="$1"
+    echo "$CONN_RAW" | tr ';' '\n' | awk -F= -v k="$key" 'BEGIN{IGNORECASE=1} tolower($1)==tolower(k){print $2}'
+}
+
+HOST_PARSED="$(parse_field Host)"
+PORT_PARSED="$(parse_field Port)"
+DB_PARSED="$(parse_field Database)"
+USER_PARSED="$(parse_field Username)"
+PASS_PARSED="$(parse_field Password)"
+
+HOST_PARSED=${HOST_PARSED:-$DB_HOST}
+PORT_PARSED=${PORT_PARSED:-$DB_PORT}
+DB_PARSED=${DB_PARSED:-$DB_NAME}
+USER_PARSED=${USER_PARSED:-$DB_USER}
+PASS_PARSED=${PASS_PARSED:-$DB_PASSWORD}
+
+PSQL_URI="postgresql://${USER_PARSED}:${PASS_PARSED}@${HOST_PARSED}:${PORT_PARSED}/${DB_PARSED}"
 
 echo "JacRed starting at $(date)"
 echo "Effective config: $APP_CONFIG_LOCAL"
