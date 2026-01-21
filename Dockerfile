@@ -69,6 +69,7 @@ RUN set -eux; \
       libgcc \
       libintl \
       libstdc++ \
+      krb5-libs \
       tzdata \
       wget \
     && addgroup -g 1000 -S jacred \

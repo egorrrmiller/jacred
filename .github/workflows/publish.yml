@@ -4,11 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Optional version tag (e.g. 1.2.3); leave empty for branch/sha tags"
-        required: false
+        description: "Версия (semver, например 1.2.3). Обязательна: по ней создаётся тег и релиз."
+        required: true
         type: string
-  release:
-    types: [published]
 
 permissions:
   contents: read
@@ -24,19 +22,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set version
         id: vars
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" = "release" ]; then
-            # Strip leading v if present
-            ver="${{ github.event.release.tag_name }}"
-            echo "version=${ver#v}" >> "$GITHUB_OUTPUT"
-          else
-            echo "version=" >> "$GITHUB_OUTPUT"
-          fi
+          ver="${{ inputs.version }}"
+          echo "version=${ver#v}" >> "$GITHUB_OUTPUT"
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -56,11 +49,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}},value=${{ steps.vars.outputs.version }},enable=${{ steps.vars.outputs.version != '' }}
-            type=raw,value=v${{ steps.vars.outputs.version }},enable=${{ steps.vars.outputs.version != '' }}
-            type=ref,event=branch,enable=${{ steps.vars.outputs.version == '' }}
-            type=sha,enable=${{ steps.vars.outputs.version == '' }}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.event_name == 'release' }}
+            type=semver,pattern={{version}},value=${{ steps.vars.outputs.version }}
+            type=raw,value=v${{ steps.vars.outputs.version }}
+            type=raw,value=latest
           labels: |
             org.opencontainers.image.title=jacred
             org.opencontainers.image.description=JacRed torrent tracker aggregator
@@ -83,3 +74,19 @@ jobs:
           annotations: ${{ steps.meta.outputs.annotations }}
           sbom: true
           provenance: mode=max
+
+      - name: Create Git tag
+        run: |
+          ver="v${{ steps.vars.outputs.version }}"
+          git tag "$ver"
+          git push origin "$ver"
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        with:
+          tag_name: v${{ steps.vars.outputs.version }}
+          release_name: v${{ steps.vars.outputs.version }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

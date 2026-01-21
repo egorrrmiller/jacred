@@ -2,7 +2,6 @@ name: jacred
 
 services:
   jacred:
-    build: .
     image: ${IMAGE_NAME:-ghcr.io/egorrrmiller/jacred:latest}
     container_name: jacred
     restart: unless-stopped
