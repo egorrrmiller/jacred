@@ -1,59 +1,42 @@
+﻿# AI Документация
+[![DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/egorrrmiller/jacred)
+
 # JacRed
 
-JacRed — это агрегатор торрент-трекеров с возможностью локального кэширования и поиска. Проект предоставляет API, совместимое с Jackett, для интеграции с приложениями (например, Lampa, Sonarr, Radarr).
+Торрент-трекер агрегатор с API (Torznab и REST) на .NET.
 
-## Поддерживаемые трекеры
-*   Rutracker
-*   Aniliberty
+## Установка
+- Подготовка: положите `config.yml` рядом с `docker-compose.yml` (можно скопировать `JacRed.Api/config.yml`) и создайте `.env`.
+- Пример `.env`:
+  ```env
+  APP_PORT=9117
+  HEALTHCHECK_PORT=9117
+  CONFIG_PATH=./config.yml
 
-## Конфигурация
+  DB_HOST=db
+  DB_PORT=5432
+  DB_NAME=jacred
+  DB_USER=jacred
+  DB_PASSWORD=jacred
+  # при необходимости: DB_CONNECTION=Host=db;Port=5432;Database=jacred;Username=jacred;Password=jacred;Timeout=30;CommandTimeout=60;
 
-Настройка осуществляется через файл `config.yml`.
-Для локальной разработки или переопределения настроек можно использовать `config.local.yml` (не попадает в git).
+  IMAGE_NAME=ghcr.io/egorrrmiller/jacred:latest
+  INIT_DB=true
+  ```
+- Запуск/обновление: `docker compose --env-file .env up -d --build` (без `--env-file` compose берет `.env` из каталога).
+- База данных: контейнер `db` создаст пользователя/БД из `DB_*`; `database.sql` применится автоматически при первом старте пустого тома. Для переинициализации: `docker compose down -v && docker compose up -d --build` (удалит данные тома `jacred-db`).
+- Порты: приложение слушает `listen-port` из `config.yml`, наружный порт задает `APP_PORT`. Postgres доступен внутри сети compose (`db:5432`); чтобы открыть наружу, раскомментируйте `ports` у сервиса `db`.
 
-### Структура конфигурации (`config.yml`)
+## Переменные Docker Compose
+- `APP_PORT` — внешний порт приложения.
+- `HEALTHCHECK_PORT` — порт для healthcheck.
+- `TZ`, `UMASK` — часовой пояс и маска прав.
+- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` — параметры Postgres.
+- `DB_CONNECTION` — полная строка подключения (опционально, перекрывает сборку из `DB_*`).
+- `IMAGE_NAME` — тег образа приложения.
+- `CONFIG_PATH` — путь к локальному `config.yml`.
 
-Ниже приведены все доступные параметры конфигурации.
-
-```yaml
-# Основные настройки приложения
-listen-ip: "any"                  # IP-адрес для прослушивания входящих соединений (например, "0.0.0.0" или "127.0.0.1"). Значение "any" означает прослушивание всех интерфейсов.
-listen-port: 9117                 # Порт веб-интерфейса.
-api-key: "mysecretkey"            # API-ключ для защиты доступа к методам API. Если не задан, доступ открыт
-web: true                         # Включить раздачу статических файлов (веб-интерфейс).
-merge-duplicates: true            # Включить объединение дубликатов раздач (по InfoHash) в результатах поиска.
-
-# Настройки прокси-серверов для исходящих запросов к трекерам
-proxy:
-  bypass-on-local: true           # Игнорировать прокси для локальных адресов.
-  list:                           # Список адресов прокси-серверов (например, "http://proxy:8080", "socks5://127.0.0.1:9050").
-    - "socks5://127.0.0.1:9050"
-  use-auth: false                 # Использовать ли авторизацию (логин/пароль) для прокси.
-  username: ""                    # Имя пользователя для авторизации на прокси.
-  password: ""                    # Пароль для авторизации на прокси.
-
-# Настройки кэширования в памяти
-cache:
-  enable: true                    # Включить кэширование результатов поиска в памяти.
-
-# Настройки для RuTracker
-rutracker:
-  authorization:
-    login: "myuser"               # Логин пользователя для авторизации на RuTracker.
-    password: "mypassword"        # Пароль пользователя для авторизации на RuTracker.
-    # cookie: ""                  # (Опционально) Готовая строка Cookie для авторизации, если логин/пароль не используются или для 2FA.
-
-# Фильтрация трекеров
-sync-trackers:                    
-  - rutracker
-  - aniliberty
-
-disable-trackers:                 # Список трекеров, результаты которых будут удалены из ответа.
-  - aniliberty
-```
-
-## API
-Проект предоставляет API, совместимое с Jackett:
-*   `/api/v2.0/indexers/all/results/torznab` — поиск торрентов (Torznab).
-*   `/api/v1.0/torrents` — прямой поиск по базе.
+## Примечания
+- SQL применится только на пустом томе БД.
+- Конфиг монтируется как `/app/config.yml`, рабочая копия — `/app/config.local.yml`.
 
