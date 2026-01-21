@@ -20,15 +20,27 @@ chmod 640 "$APP_CONFIG_LOCAL"
 UMASK_VALUE="${UMASK:-0027}"
 umask "$UMASK_VALUE" 2>/dev/null || umask 0027
 
+DB_HOST=${DB_HOST:-db}
+DB_PORT=${DB_PORT:-5432}
+DB_NAME=${DB_NAME:-jacred}
+DB_USER=${DB_USER:-jacred}
+DB_PASSWORD=${DB_PASSWORD:-jacred}
+
+if [ -z "${ConnectionStrings__DefaultConnection:-}" ] || echo "$ConnectionStrings__DefaultConnection" | grep -q '\${DB_'; then
+    CONN_RAW="Host=${DB_HOST};Port=${DB_PORT};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD};Timeout=30;CommandTimeout=60;"
+    export ConnectionStrings__DefaultConnection="$CONN_RAW"
+else
+    CONN_RAW="$ConnectionStrings__DefaultConnection"
+fi
+
 echo "JacRed starting at $(date)"
 echo "Effective config: $APP_CONFIG_LOCAL"
-echo "Connection string: ${ConnectionStrings__DefaultConnection:-<default from appsettings.json>}"
+echo "Connection string: ${ConnectionStrings__DefaultConnection}"
 echo "User: $(id -u):$(id -g)"
 
 # Одноразовая инициализация схемы БД (идемпотентно)
 if [ "${INIT_DB:-true}" = "true" ] && [ -f /app/database.sql ]; then
     echo "Checking database schema..."
-    CONN_RAW="${ConnectionStrings__DefaultConnection:-Host=db;Port=5432;Database=jacred;Username=jacred;Password=jacred;}"
     # Превращаем semicolon-connstring в формат key=value для psql
     CONN_PARSED=$(echo "$CONN_RAW" | tr ';' ' ' | sed 's/[Hh]ost/host/g; s/[Pp]ort/port/g; s/[Dd]atabase/dbname/g; s/[Uu]sername/user/g; s/[Pp]assword/password/g; s/[Tt]imeout=[^ ]*//g; s/[Cc]ommand[Tt]imeout=[^ ]*//g' | xargs)
 
