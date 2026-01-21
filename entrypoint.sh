@@ -25,4 +25,34 @@ echo "Effective config: $APP_CONFIG_LOCAL"
 echo "Connection string: ${ConnectionStrings__DefaultConnection:-<default from appsettings.json>}"
 echo "User: $(id -u):$(id -g)"
 
+# Одноразовая инициализация схемы БД (идемпотентно)
+if [ "${INIT_DB:-true}" = "true" ] && [ -f /app/database.sql ]; then
+    echo "Checking database schema..."
+    CONN_RAW="${ConnectionStrings__DefaultConnection:-Host=db;Port=5432;Database=jacred;Username=jacred;Password=jacred;}"
+    # Превращаем semicolon-connstring в формат key=value для psql
+    CONN_PARSED=$(echo "$CONN_RAW" | tr ';' ' ' | sed 's/[Hh]ost/host/g; s/[Pp]ort/port/g; s/[Dd]atabase/dbname/g; s/[Uu]sername/user/g; s/[Pp]assword/password/g; s/[Tt]imeout=[^ ]*//g; s/[Cc]ommand[Tt]imeout=[^ ]*//g' | xargs)
+
+    # Ждём доступности Postgres
+    for i in 1 2 3 4 5; do
+        if psql $CONN_PARSED -Atqc "select 1" >/dev/null 2>&1; then
+            READY=1
+            break
+        fi
+        echo "Postgres not ready, retry $i/5..."
+        sleep 2
+    done
+
+    if [ "${READY:-0}" -eq 1 ]; then
+        TABLES=$(psql $CONN_PARSED -Atqc "select count(*) from information_schema.tables where table_schema='public';" 2>/dev/null || echo 0)
+        if [ "${TABLES:-0}" -eq 0 ]; then
+            echo "Applying database.sql..."
+            psql $CONN_PARSED -f /app/database.sql || echo "Database init failed (ignored)"
+        else
+            echo "Database already initialized (tables: $TABLES)"
+        fi
+    else
+        echo "Database not reachable, skipping init."
+    fi
+fi
+
 exec "$@"

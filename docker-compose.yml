@@ -39,7 +39,6 @@ services:
     #   - "${DB_PORT:-5432}:5432"
     volumes:
       - jacred-db:/var/lib/postgresql/data
-      - ./JacRed.Api/database/database.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-jacred} -d ${DB_NAME:-jacred}"]
       interval: 10s
