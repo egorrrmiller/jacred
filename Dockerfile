@@ -88,7 +88,6 @@ COPY --from=build --chown=jacred:jacred --chmod=550 /dist/ /app/
 # Runtime configuration and database seed
 COPY --chown=jacred:jacred --chmod=640 JacRed.Api/config.yml /app/config.template.yml
 COPY --chown=jacred:jacred --chmod=640 JacRed.Api/appsettings.json /app/appsettings.json
-COPY --chown=jacred:jacred --chmod=640 JacRed.Api/appsettings.Production.json /app/appsettings.Production.json
 COPY --chown=jacred:jacred --chmod=640 JacRed.Api/database/database.sql /app/database.sql
 
 # Entrypoint
