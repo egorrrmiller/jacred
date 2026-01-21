@@ -10,16 +10,16 @@ namespace JacRed.Api.Middlewares;
 public partial class ModHeaders
 {
     private readonly RequestDelegate _next;
-    private readonly Config _config;
 
-    public ModHeaders(RequestDelegate next, IOptions<Config> config)
+    public ModHeaders(RequestDelegate next)
     {
         _next = next;
-        _config = config.Value;
     }
 
-    public Task Invoke(HttpContext httpContext)
+    public Task Invoke(HttpContext httpContext, IOptionsSnapshot<Config> configOptions)
     {
+        var config = configOptions.Value;
+
         httpContext.Response.Headers.AccessControlAllowCredentials = "true";
         httpContext.Response.Headers["Access-Control-Allow-Private-Network"] = "true";
         httpContext.Response.Headers.AccessControlAllowHeaders = "Accept, Origin, Content-Type";
@@ -39,13 +39,13 @@ public partial class ModHeaders
             || httpContext.Request.Path.Value.StartsWith("/dev/"))
             return Task.CompletedTask;
 
-        if (!string.IsNullOrEmpty(_config.ApiKey))
+        if (!string.IsNullOrEmpty(config.ApiKey))
         {
             if (httpContext.Request.Path.Value == "/" ||
                 Regex.IsMatch(httpContext.Request.Path.Value, "^/(api/v1\\.0/conf|stats/|sync/)"))
                 return _next(httpContext);
 
-            if (_config.ApiKey
+            if (config.ApiKey
                 != MyRegex()
                     .Match(httpContext.Request.QueryString.Value)
                     .Groups[2].Value)

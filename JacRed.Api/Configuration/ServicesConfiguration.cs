@@ -17,22 +17,28 @@ public static class ServicesConfiguration
     public static void RegisterServices(this IServiceCollection services)
     {
         services
-            .AddSingleton<ITorrentRepository, TorrentRepository>()
-            .AddSingleton<ICacheService, CacheService>()
-            .AddSingleton<IKeyGenerator, KeyGenerator>()
-            .AddSingleton<ITorrentEnricher, TorrentEnricher>()
-            .AddSingleton<ITorrentSearchService, TorrentSearchService>()
-            .AddSingleton<ITorrentMergerService, TorrentMergerService>()
-            .AddSingleton<IJackettFacadeService, JackettFacadeService>()
-            .AddSingleton<ITorrentSearchPipeline, TorrentSearchPipeline>()
-            .AddSingleton<ITrackerSearchService, TrackerSearchService>()
-            .AddSingleton<ITrackerSearch, RuTrackerSearch>()
-            .AddSingleton<ITrackerSearch, AnilibertySearch>()
-            //.AddHostedService<StaleTorrentRefreshService>()
-            //.AddHostedService<TrackerCatalogPrefetchService>()
-            .AddMemoryCache();
+            .AddScoped<ITorrentRepository, TorrentRepository>()
+            .AddScoped<IKeyGenerator, KeyGenerator>()
+            .AddScoped<ITorrentEnricher, TorrentEnricher>()
+            .AddScoped<ITorrentSearchService, TorrentSearchService>()
+            .AddScoped<ITorrentMergerService, TorrentMergerService>()
+            .AddScoped<IJackettFacadeService, JackettFacadeService>()
+            .AddScoped<ITorrentSearchPipeline, TorrentSearchPipeline>()
+            .AddScoped<ITrackerSearchService, TrackerSearchService>()
+            .AddScoped<ITrackerSearch, RuTrackerSearch>()
+            .AddScoped<ITrackerSearch, AnilibertySearch>();
+
+        // Singleton Services (должны жить все время работы приложения)
+        services.AddSingleton<ICacheService, CacheService>();
+        services.AddMemoryCache();
+
+        // Hosted Services (Фоновые задачи)
+        //.AddHostedService<StaleTorrentRefreshService>()
+        //.AddHostedService<TrackerCatalogPrefetchService>()
 
         // Настройка HttpClient с поддержкой прокси
+        // HttpService регистрируем как Scoped или Transient, чтобы он мог использовать Scoped-конфиг, если понадобится,
+        // но HttpClient внутри него управляется фабрикой.
         services.AddHttpClient<HttpService>((sp, client) =>
             {
                 client.DefaultRequestHeaders.UserAgent.ParseAdd(HttpService.UserAgent);
@@ -40,7 +46,9 @@ public static class ServicesConfiguration
             })
             .ConfigurePrimaryHttpMessageHandler(sp =>
             {
-                var config = sp.GetRequiredService<IOptions<Config>>().Value;
+                // Здесь используем IOptionsMonitor, так как HttpClientFactory кэширует хендлеры
+                // и IOptionsSnapshot может быть недоступен или некорректен в контексте фабрики.
+                var config = sp.GetRequiredService<IOptionsMonitor<Config>>().CurrentValue;
                 var handler = new HttpClientHandler
                 {
                     AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate |
@@ -51,8 +59,6 @@ public static class ServicesConfiguration
                 // Настройка прокси
                 if (config.Proxy?.List?.Count > 0)
                 {
-                    // Выбираем случайный прокси из списка для текущего хендлера.
-                    // Хендлеры живут недолго (по умолчанию 2 минуты), поэтому ротация будет происходить автоматически.
                     var proxyUrl = config.Proxy.List[Random.Shared.Next(config.Proxy.List.Count)];
                     var proxy = new WebProxy(proxyUrl);
 

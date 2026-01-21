@@ -38,7 +38,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
     private readonly HttpService _httpService;
     private readonly Config _config;
 
-    protected BaseRuTracker(ICacheService cacheService, HttpService httpService, IOptions<Config> config)
+    protected BaseRuTracker(ICacheService cacheService, HttpService httpService, IOptionsSnapshot<Config> config)
     {
         _cacheService = cacheService;
         _httpService = httpService;

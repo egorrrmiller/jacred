@@ -28,7 +28,7 @@ public class JackettFacadeService : IJackettFacadeService
         ITorrentSearchPipeline searchPipeline,
         ITrackerSearchService trackerSearchService,
         ITorrentRepository torrentRepository,
-        IOptions<Config> config)
+        IOptionsSnapshot<Config> config)
     {
         _cacheService = cacheService;
         _mergeService = mergeService;
@@ -190,13 +190,16 @@ public class JackettFacadeService : IJackettFacadeService
     private bool IsAllowedTracker(TorrentDetails t)
     {
         if (!Enum.TryParse<TrackerType>(t.TrackerName, true, out var trackerType))
-            return false;
+            return true; // Если трекер неизвестен, не фильтруем его (или можно false, если строгая политика)
 
-        if (_config.SyncTrackers.Count > 0 &&
+        if (_config.SyncTrackers != null && _config.SyncTrackers.Count > 0 &&
             !_config.SyncTrackers.Contains(trackerType))
             return false;
 
-        return !_config.DisableTrackers.Contains(trackerType);
+        if (_config.DisableTrackers != null && _config.DisableTrackers.Contains(trackerType))
+            return false;
+
+        return true;
     }
 
     private HashSet<int> GetCategoryIds(TorrentDetails t, out string? desc)

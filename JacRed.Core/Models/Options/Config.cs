@@ -39,7 +39,7 @@ public class Config
     /// Максимальное количество результатов в выдаче
     /// </summary>
     [ConfigurationKeyName("max-result-count")]
-    public int MaxResultCount { get; set; }
+    public int MaxResultCount { get; set; } = 250;
 
     /// <summary>
     ///     Включить объединение дубликатов раздач (по InfoHash) в результатах поиска.
@@ -69,11 +69,11 @@ public class Config
     ///     Список трекеров, которые будут синхронизированы.
     /// </summary>
     [ConfigurationKeyName("sync-trackers")]
-    public IReadOnlyCollection<TrackerType> SyncTrackers { get; set; } = null!;
+    public List<TrackerType> SyncTrackers { get; set; } = new();
 
     /// <summary>
     ///     Список трекеров, результаты которых будут удалены из ответа.
     /// </summary>
-    [ConfigurationKeyName("dusable-trackers")]
-    public IReadOnlyCollection<TrackerType> DisableTrackers { get; set; } = null!;
+    [ConfigurationKeyName("disable-trackers")]
+    public List<TrackerType> DisableTrackers { get; set; } = new();
 }
