@@ -1,0 +1,45 @@
+# Version control
+.git
+.gitignore
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.iml
+
+# Build outputs
+bin/
+obj/
+out/
+dist/
+
+# Logs & temp
+*.log
+logs/
+tmp/
+temp/
+.cache/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Docker / compose not needed in build context
+docker-compose*.yml
+
+# CI configs
+.github/
+
+# Allowlist needed for image build
+!Dockerfile
+!entrypoint.sh
+!JacRed.Api/**
+!JacRed.Core/**
+!JacRed.Infrastructure/**
+!global.json
+!README.md

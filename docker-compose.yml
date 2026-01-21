@@ -1,0 +1,52 @@
+name: jacred
+
+services:
+  jacred:
+    build: .
+    image: ${IMAGE_NAME:-ghcr.io/egorrrmiller/jacred:latest}
+    container_name: jacred
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-UTC}
+      UMASK: ${UMASK:-0027}
+      HEALTHCHECK_PORT: ${HEALTHCHECK_PORT:-9117}
+      ConnectionStrings__DefaultConnection: ${DB_CONNECTION:-Host=db;Port=5432;Database=jacred;Username=jacred;Password=jacred;Timeout=30;CommandTimeout=60;}
+    ports:
+      - "${APP_PORT:-9117}:${APP_PORT:-9117}"
+    volumes:
+      - ${CONFIG_PATH:-./config.yml}:/app/config.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --spider http://127.0.0.1:${HEALTHCHECK_PORT:-9117}"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 45s
+
+  db:
+    image: postgres:16-alpine
+    container_name: jacred-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-jacred}
+      POSTGRES_USER: ${DB_USER:-jacred}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-jacred}
+    expose:
+      - "5432"
+    # Uncomment to publish Postgres to the host (optional)
+    # ports:
+    #   - "${DB_PORT:-5432}:5432"
+    volumes:
+      - jacred-db:/var/lib/postgresql/data
+      - ./JacRed.Api/database/database.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-jacred} -d ${DB_NAME:-jacred}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  jacred-db:
