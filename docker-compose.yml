@@ -12,7 +12,7 @@ services:
       TZ: ${TZ:-UTC}
       UMASK: ${UMASK:-0027}
       HEALTHCHECK_PORT: ${HEALTHCHECK_PORT:-9117}
-      ConnectionStrings__DefaultConnection: ${DB_CONNECTION:-Host=db;Port=5432;Database=jacred;Username=jacred;Password=jacred;Timeout=30;CommandTimeout=60;}
+      ConnectionStrings__DefaultConnection: ${DB_CONNECTION:-Host=db;Port=5432;Database=${DB_NAME:-jacred};Username=${DB_USER:-jacred};Password=${DB_PASSWORD:-jacred};Timeout=30;CommandTimeout=60;}
     ports:
       - "${APP_PORT:-9117}:${APP_PORT:-9117}"
     volumes:
