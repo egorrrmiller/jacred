@@ -12,7 +12,7 @@ else
     echo "Using existing config at $CONFIG_FILE"
 fi
 
-# Приложение читает config.local.yml в /app; копируем актуальный config.yml рядом с бинарём
+# Копируем фактический config.yml рядом с бинарём
 APP_CONFIG_LOCAL="/app/config.local.yml"
 cp "$CONFIG_FILE" "$APP_CONFIG_LOCAL"
 chmod 640 "$APP_CONFIG_LOCAL"
@@ -20,15 +20,16 @@ chmod 640 "$APP_CONFIG_LOCAL"
 UMASK_VALUE="${UMASK:-0027}"
 umask "$UMASK_VALUE" 2>/dev/null || umask 0027
 
+# Сборка строки подключения
 DB_HOST=${DB_HOST:-db}
 DB_PORT=${DB_PORT:-5432}
 DB_NAME=${DB_NAME:-jacred}
 DB_USER=${DB_USER:-jacred}
 DB_PASSWORD=${DB_PASSWORD:-jacred}
-
+CONN_RAW_FALLBACK="Host=${DB_HOST};Port=${DB_PORT};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD};Timeout=30;CommandTimeout=60;"
 if [ -z "${ConnectionStrings__DefaultConnection:-}" ] || echo "$ConnectionStrings__DefaultConnection" | grep -q '\${DB_'; then
-    CONN_RAW="Host=${DB_HOST};Port=${DB_PORT};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD};Timeout=30;CommandTimeout=60;"
-    export ConnectionStrings__DefaultConnection="$CONN_RAW"
+    export ConnectionStrings__DefaultConnection="$CONN_RAW_FALLBACK"
+    CONN_RAW="$CONN_RAW_FALLBACK"
 else
     CONN_RAW="$ConnectionStrings__DefaultConnection"
 fi
@@ -38,19 +39,20 @@ echo "Effective config: $APP_CONFIG_LOCAL"
 echo "Connection string: ${ConnectionStrings__DefaultConnection}"
 echo "User: $(id -u):$(id -g)"
 
-# Одноразовая инициализация схемы БД (идемпотентно)
+# Инициализация БД (идемпотентно)
 if [ "${INIT_DB:-true}" = "true" ] && [ -f /app/database.sql ]; then
     echo "Checking database schema..."
-    # Превращаем semicolon-connstring в формат key=value для psql
     CONN_PARSED=$(echo "$CONN_RAW" | tr ';' ' ' | sed 's/[Hh]ost/host/g; s/[Pp]ort/port/g; s/[Dd]atabase/dbname/g; s/[Uu]sername/user/g; s/[Pp]assword/password/g; s/[Tt]imeout=[^ ]*//g; s/[Cc]ommand[Tt]imeout=[^ ]*//g' | xargs)
 
-    # Ждём доступности Postgres (до 60 секунд)
-    for i in $(seq 1 30); do
-        if psql $CONN_PARSED -Atqc "select 1" >/dev/null 2>&1; then
+    for i in $(seq 1 60); do
+        if psql $CONN_PARSED -Atqc "select 1" >/dev/null 2>/tmp/psql.err; then
             READY=1
             break
         fi
-        echo "Postgres not ready, retry $i/30..."
+        if [ $i -eq 1 ]; then
+            echo "Postgres not ready, first error: $(cat /tmp/psql.err 2>/dev/null)"
+        fi
+        echo "Postgres not ready, retry $i/60..."
         sleep 2
     done
 
