@@ -1,6 +1,7 @@
 #!/bin/sh
 set -euo pipefail
 
+# Config handling
 CONFIG_FILE="${CONFIG_FILE:-/app/config.yml}"
 CONFIG_TEMPLATE="/app/config.template.yml"
 
@@ -12,20 +13,21 @@ else
     echo "Using existing config at $CONFIG_FILE"
 fi
 
-# Копируем фактический config.yml рядом с бинарём
 APP_CONFIG_LOCAL="/app/config.local.yml"
 cp "$CONFIG_FILE" "$APP_CONFIG_LOCAL"
 chmod 640 "$APP_CONFIG_LOCAL"
 
+# Umask
 UMASK_VALUE="${UMASK:-0027}"
 umask "$UMASK_VALUE" 2>/dev/null || umask 0027
 
-# Сборка строки подключения
+# DB settings
 DB_HOST=${DB_HOST:-db}
 DB_PORT=${DB_PORT:-5432}
 DB_NAME=${DB_NAME:-jacred}
 DB_USER=${DB_USER:-jacred}
 DB_PASSWORD=${DB_PASSWORD:-jacred}
+
 CONN_RAW_FALLBACK="Host=${DB_HOST};Port=${DB_PORT};Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD};Timeout=30;CommandTimeout=60;"
 if [ -z "${ConnectionStrings__DefaultConnection:-}" ] || echo "$ConnectionStrings__DefaultConnection" | grep -q '\${DB_'; then
     export ConnectionStrings__DefaultConnection="$CONN_RAW_FALLBACK"
@@ -34,18 +36,19 @@ else
     CONN_RAW="$ConnectionStrings__DefaultConnection"
 fi
 
+PSQL_URI="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+
 echo "JacRed starting at $(date)"
 echo "Effective config: $APP_CONFIG_LOCAL"
 echo "Connection string: ${ConnectionStrings__DefaultConnection}"
 echo "User: $(id -u):$(id -g)"
 
-# Инициализация БД (идемпотентно)
+# DB init (idempotent)
 if [ "${INIT_DB:-true}" = "true" ] && [ -f /app/database.sql ]; then
     echo "Checking database schema..."
-    CONN_PARSED=$(echo "$CONN_RAW" | tr ';' ' ' | sed 's/[Hh]ost/host/g; s/[Pp]ort/port/g; s/[Dd]atabase/dbname/g; s/[Uu]sername/user/g; s/[Pp]assword/password/g; s/[Tt]imeout=[^ ]*//g; s/[Cc]ommand[Tt]imeout=[^ ]*//g' | xargs)
 
     for i in $(seq 1 60); do
-        if psql $CONN_PARSED -Atqc "select 1" >/dev/null 2>/tmp/psql.err; then
+        if psql "$PSQL_URI" -Atqc "select 1" >/dev/null 2>/tmp/psql.err; then
             READY=1
             break
         fi
@@ -57,10 +60,10 @@ if [ "${INIT_DB:-true}" = "true" ] && [ -f /app/database.sql ]; then
     done
 
     if [ "${READY:-0}" -eq 1 ]; then
-        TABLES=$(psql $CONN_PARSED -Atqc "select count(*) from information_schema.tables where table_schema='public';" 2>/dev/null || echo 0)
+        TABLES=$(psql "$PSQL_URI" -Atqc "select count(*) from information_schema.tables where table_schema='public';" 2>/dev/null || echo 0)
         if [ "${TABLES:-0}" -eq 0 ]; then
             echo "Applying database.sql..."
-            psql $CONN_PARSED -f /app/database.sql || echo "Database init failed (ignored)"
+            psql "$PSQL_URI" -f /app/database.sql || echo "Database init failed (ignored)"
         else
             echo "Database already initialized (tables: $TABLES)"
         fi
