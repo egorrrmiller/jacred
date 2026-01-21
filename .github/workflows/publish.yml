@@ -4,8 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Версия (semver, например 1.2.3). Обязательна: по ней создаётся тег и релиз."
-        required: true
+        description: "Версия (semver, например 1.2.3). Если пусто — соберётся диагностический образ без релиза."
+        required: false
+        type: string
+      extra_tag:
+        description: "Доп. тег для диагностики, если версия не указана (например diag)"
+        required: false
+        default: "diag"
         type: string
 
 permissions:
@@ -29,7 +34,9 @@ jobs:
         id: vars
         run: |
           ver="${{ inputs.version }}"
+          extra="${{ inputs.extra_tag }}"
           echo "version=${ver#v}" >> "$GITHUB_OUTPUT"
+          echo "extra=${extra}" >> "$GITHUB_OUTPUT"
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -49,9 +56,11 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}},value=${{ steps.vars.outputs.version }}
-            type=raw,value=v${{ steps.vars.outputs.version }}
-            type=raw,value=latest
+            type=semver,pattern={{version}},value=${{ steps.vars.outputs.version }},enable=${{ steps.vars.outputs.version != '' }}
+            type=raw,value=v${{ steps.vars.outputs.version }},enable=${{ steps.vars.outputs.version != '' }}
+            type=raw,value=latest,enable=${{ steps.vars.outputs.version != '' }}
+            type=sha,enable=${{ steps.vars.outputs.version == '' }}
+            type=raw,value=${{ steps.vars.outputs.extra }}-${{ github.sha }},enable=${{ steps.vars.outputs.version == '' && steps.vars.outputs.extra != '' }}
           labels: |
             org.opencontainers.image.title=jacred
             org.opencontainers.image.description=JacRed torrent tracker aggregator
@@ -76,12 +85,14 @@ jobs:
           provenance: mode=max
 
       - name: Create Git tag
+        if: ${{ steps.vars.outputs.version != '' }}
         run: |
           ver="v${{ steps.vars.outputs.version }}"
           git tag "$ver"
           git push origin "$ver"
 
       - name: Create GitHub Release
+        if: ${{ steps.vars.outputs.version != '' }}
         uses: actions/create-release@v1
         with:
           tag_name: v${{ steps.vars.outputs.version }}

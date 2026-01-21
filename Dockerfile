@@ -72,6 +72,7 @@ RUN set -eux; \
       krb5-libs \
       tzdata \
       wget \
+      bash \
     && addgroup -g 1000 -S jacred \
     && adduser -u 1000 -S jacred -G jacred -s /sbin/nologin -h /app \
     && mkdir -p /app \
