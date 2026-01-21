@@ -21,7 +21,6 @@
   # при необходимости: DB_CONNECTION=Host=db;Port=5432;Database=jacred;Username=jacred;Password=jacred;Timeout=30;CommandTimeout=60;
 
   IMAGE_NAME=ghcr.io/egorrrmiller/jacred:latest
-  INIT_DB=true
   ```
 - Запуск/обновление: `docker compose --env-file .env up -d --build` (без `--env-file` compose берет `.env` из каталога).
 - База данных: контейнер `db` создаст пользователя/БД из `DB_*`; `database.sql` применится автоматически при первом старте пустого тома. Для переинициализации: `docker compose down -v && docker compose up -d --build` (удалит данные тома `jacred-db`).
