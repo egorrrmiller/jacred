@@ -32,13 +32,13 @@ if [ "${INIT_DB:-true}" = "true" ] && [ -f /app/database.sql ]; then
     # Превращаем semicolon-connstring в формат key=value для psql
     CONN_PARSED=$(echo "$CONN_RAW" | tr ';' ' ' | sed 's/[Hh]ost/host/g; s/[Pp]ort/port/g; s/[Dd]atabase/dbname/g; s/[Uu]sername/user/g; s/[Pp]assword/password/g; s/[Tt]imeout=[^ ]*//g; s/[Cc]ommand[Tt]imeout=[^ ]*//g' | xargs)
 
-    # Ждём доступности Postgres
-    for i in 1 2 3 4 5; do
+    # Ждём доступности Postgres (до 60 секунд)
+    for i in $(seq 1 30); do
         if psql $CONN_PARSED -Atqc "select 1" >/dev/null 2>&1; then
             READY=1
             break
         fi
-        echo "Postgres not ready, retry $i/5..."
+        echo "Postgres not ready, retry $i/30..."
         sleep 2
     done
 
@@ -51,7 +51,7 @@ if [ "${INIT_DB:-true}" = "true" ] && [ -f /app/database.sql ]; then
             echo "Database already initialized (tables: $TABLES)"
         fi
     else
-        echo "Database not reachable, skipping init."
+        echo "Database not reachable after waiting, skipping init."
     fi
 fi
 
