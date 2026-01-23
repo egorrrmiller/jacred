@@ -3,10 +3,10 @@
 
 # JacRed
 
-Торрент-трекер агрегатор с API (Torznab и REST) на .NET.
+Торрент-трекер агрегатор.
 
 ## Установка
-- Подготовка: положите `config.yml` рядом с `docker-compose.yml` (можно скопировать `JacRed.Api/config.yml`) и создайте `.env`.
+- Подготовка: положите `config.yml` рядом с `docker-compose.yml` (можно скопировать `JacRed.Api/config.yml`) и создайте `.env`. Файл будет примонтирован в контейнер как `/app/config.local.yml`.
 - Пример `.env`:
   ```env
   APP_PORT=9117
@@ -22,20 +22,19 @@
 
   IMAGE_NAME=ghcr.io/egorrrmiller/jacred:latest
   ```
-- Запуск/обновление: `docker compose --env-file .env up -d --build` (без `--env-file` compose берет `.env` из каталога).
-- База данных: контейнер `db` создаст пользователя/БД из `DB_*`, приложение прогонит миграции автоматически при старте. Для полной переинициализации: `docker compose down -v && docker compose up -d --build` (удалит данные тома `jacred-db`).
+- Запуск/обновление: `docker compose --env-file .env up -d --build`.
+- База данных: контейнер `db` создаст пользователя/БД из `DB_*`, приложение прогонит миграции автоматически при старте. Для полной переинициализации: `docker compose down -v && docker compose up -d --build` — удалит данные тома `jacred-db`.
 - Порты: приложение слушает `listen-port` из `config.yml`, наружный порт задает `APP_PORT`. Postgres доступен внутри сети compose (`db:5432`); чтобы открыть наружу, раскомментируйте `ports` у сервиса `db`.
 
 ## Переменные Docker Compose
-- `APP_PORT` — внешний порт приложения.
-- `HEALTHCHECK_PORT` — порт для healthcheck.
-- `TZ`, `UMASK` — часовой пояс и маска прав.
-- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` — параметры Postgres.
-- `DB_CONNECTION` — полная строка подключения (опционально, перекрывает сборку из `DB_*`).
-- `IMAGE_NAME` — тег образа приложения.
-- `CONFIG_PATH` — путь к локальному `config.yml`.
+- `APP_PORT` - внешний порт приложения.
+- `HEALTHCHECK_PORT` - порт для healthcheck.
+- `TZ`, `UMASK` - часовой пояс и маска прав.
+- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` - параметры Postgres.
+- `DB_CONNECTION` - полная строка подключения (опционально, перекрывает сборку из `DB_*`).
+- `IMAGE_NAME` - тег образа приложения.
+- `CONFIG_PATH` - путь к локальному `config.yml`.
 
 ## Примечания
 - Миграции выполняет сама JacRed при старте.
-- Конфиг монтируется как `/app/config.yml`, рабочая копия - `/app/config.local.yml`.
-
+- Конфиг монтируется как `/app/config.local.yml`.

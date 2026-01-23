@@ -16,7 +16,7 @@ services:
     ports:
       - "${APP_PORT:-9117}:${APP_PORT:-9117}"
     volumes:
-      - ${CONFIG_PATH:-./config.yml}:/app/config.yml:ro
+      - ${CONFIG_PATH:-./config.yml}:/app/config.local.yml:ro
     healthcheck:
       test: ["CMD-SHELL", "wget --quiet --spider http://127.0.0.1:${HEALTHCHECK_PORT:-9117}"]
       interval: 30s

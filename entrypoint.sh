@@ -1,21 +1,13 @@
 #!/bin/sh
 set -euo pipefail
 
-# Config handling
-CONFIG_FILE="${CONFIG_FILE:-/app/config.yml}"
-CONFIG_TEMPLATE="/app/config.template.yml"
+# Config (теперь монтируется напрямую в /app/config.local.yml)
+CONFIG_FILE="${CONFIG_FILE:-/app/config.local.yml}"
 
 if [ ! -f "$CONFIG_FILE" ]; then
-    echo "Config not found, seeding default to $CONFIG_FILE"
-    cp "$CONFIG_TEMPLATE" "$CONFIG_FILE"
-    chmod 640 "$CONFIG_FILE"
-else
-    echo "Using existing config at $CONFIG_FILE"
+    echo "Config not found at $CONFIG_FILE. Mount it via docker-compose (CONFIG_PATH -> /app/config.local.yml)." >&2
+    exit 1
 fi
-
-APP_CONFIG_LOCAL="/app/config.local.yml"
-cp "$CONFIG_FILE" "$APP_CONFIG_LOCAL"
-chmod 640 "$APP_CONFIG_LOCAL"
 
 # Umask
 UMASK_VALUE="${UMASK:-0027}"
@@ -33,7 +25,7 @@ CONN_RAW="${ConnectionStrings__DefaultConnection:-$CONN_RAW_FALLBACK}"
 export ConnectionStrings__DefaultConnection="$CONN_RAW"
 
 echo "JacRed starting at $(date)"
-echo "Effective config: $APP_CONFIG_LOCAL"
+echo "Effective config: $CONFIG_FILE"
 echo "Connection string: ${ConnectionStrings__DefaultConnection}"
 echo "User: $(id -u):$(id -g)"
 

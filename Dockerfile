@@ -84,8 +84,7 @@ WORKDIR /app
 # Application binaries
 COPY --from=build --chown=jacred:jacred --chmod=550 /dist/ /app/
 
-# Runtime configuration and database seed
-COPY --chown=jacred:jacred --chmod=640 JacRed.Api/config.yml /app/config.template.yml
+# Runtime configuration
 COPY --chown=jacred:jacred --chmod=640 JacRed.Api/appsettings.json /app/appsettings.json
 
 # Entrypoint
