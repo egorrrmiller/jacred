@@ -6,6 +6,8 @@ using JacRed.Core.Models.Database;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
+using JacRed.Infrastructure.Migrations;
+using JacRed.Infrastructure.Migrations.Configurations;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -21,6 +23,7 @@ public class TorrentSearchService : ITorrentSearchService
     private readonly ILogger<TorrentSearchService> _logger;
     private readonly ITorrentRepository _torrentRepository;
     private readonly Config _config;
+    private const string Schema = DbSchema.Name;
 
     public TorrentSearchService(
         ITorrentRepository torrentRepository,
@@ -111,7 +114,7 @@ public class TorrentSearchService : ITorrentSearchService
         using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
 
-        var sql = @"
+        var sql = $@"
             SELECT 
                 id                      AS ""Id"",
                 tracker_name            AS ""TrackerName"",
@@ -139,7 +142,7 @@ public class TorrentSearchService : ITorrentSearchService
                 search_tsv              AS ""SearchTsv"",
                 search_name             AS ""SearchName"",
                 original_search_name    AS ""OriginalSearchName""
-            FROM public.torrents
+            FROM {Schema}.torrents
             WHERE (
                 (array_length(@Terms, 1) IS NOT NULL AND (
                     (search_name IS NOT NULL AND (search_name = ANY(@Terms) OR search_name ~ ANY(@TermRegexes)))
@@ -194,7 +197,7 @@ public class TorrentSearchService : ITorrentSearchService
 
         var hasWeb = !string.IsNullOrWhiteSpace(webTerm);
 
-        var sql = """
+        var sql = $"""
 
                               SELECT 
                                   id                      AS "Id",
@@ -223,7 +226,7 @@ public class TorrentSearchService : ITorrentSearchService
                                   search_tsv              AS "SearchTsv",
                                   search_name             AS "SearchName",
                                   original_search_name    AS "OriginalSearchName"
-                              FROM public.torrents
+                              FROM {Schema}.torrents
                               WHERE 
                                   (
                                      (array_length(@Terms, 1) IS NOT NULL AND (

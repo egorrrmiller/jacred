@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -12,6 +12,8 @@ using JacRed.Api.Configuration;
 using JacRed.Core;
 using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
+using JacRed.Infrastructure.Migrations;
+using JacRed.Infrastructure.Migrations.Configurations;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -83,15 +85,16 @@ builder.Services.AddResponseCompression(options =>
 
 builder.Services.AddRouting(options => options.LowercaseUrls = true);
 
-// --- Регистрация зависимостей ---
-builder.Services.RegisterServices();
-
 // --- Регистрация PostgreSQL ---
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                        ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
 // Регистрация строки подключения как именованной строки (если нужно)
 builder.Services.AddSingleton(connectionString);
+
+// --- Регистрация зависимостей ---
+builder.Services.RegisterServices();
+builder.Services.AddJacRedMigrations(connectionString);
 
 var app = builder.Build();
 
@@ -127,6 +130,9 @@ if (options.Web) app.UseStaticFiles();
 
 app.UseModHeaders();
 app.MapControllers();
+
+// --- Миграция БД ---
+app.Services.RunJacRedMigrations();
 
 // --- Запуск приложения ---
 await app.RunAsync();

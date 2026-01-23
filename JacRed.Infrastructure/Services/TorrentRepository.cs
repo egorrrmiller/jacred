@@ -5,6 +5,8 @@ using JacRed.Core.Models.Database;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
+using JacRed.Infrastructure.Migrations;
+using JacRed.Infrastructure.Migrations.Configurations;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -22,6 +24,7 @@ public class TorrentRepository : ITorrentRepository
     private readonly ILogger<TorrentRepository> _logger;
     private readonly ITorrentEnricher _torrentEnricher;
     private readonly Config _config;
+    private const string Schema = DbSchema.Name;
 
     public TorrentRepository(
         ICacheService cache,
@@ -87,7 +90,7 @@ public class TorrentRepository : ITorrentRepository
 
         var cutoff = DateTime.UtcNow - olderThan;
 
-        const string sql = @"
+        var sql = $@"
             SELECT 
                 id                      AS ""Id"",
                 tracker_name            AS ""TrackerName"",
@@ -112,7 +115,7 @@ public class TorrentRepository : ITorrentRepository
                 video_type              AS ""VideoType"",
                 voices                  AS ""Voices"",
                 seasons                 AS ""Seasons""
-            FROM public.torrents
+            FROM {Schema}.torrents
             WHERE update_time < @Cutoff
             ORDER BY tracker_name, update_time ASC
             LIMIT @Limit";
@@ -139,9 +142,9 @@ public class TorrentRepository : ITorrentRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
 
-        const string sql = @"
+        var sql = $@"
             SELECT query
-            FROM public.search_queries
+            FROM {Schema}.search_queries
             ORDER BY last_seen DESC, hits DESC
             LIMIT @Limit";
 
@@ -162,13 +165,13 @@ public class TorrentRepository : ITorrentRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
 
-        const string sql = @"
-            INSERT INTO public.search_queries (query, created_at, last_seen, hits)
+        var sql = $@"
+            INSERT INTO {Schema}.search_queries (query, created_at, last_seen, hits)
             VALUES (@Query, now(), now(), 1)
             ON CONFLICT (query)
             DO UPDATE SET
                 last_seen = now(),
-                hits = public.search_queries.hits + 1";
+                hits = {Schema}.search_queries.hits + 1";
 
         await connection.ExecuteAsync(sql, new { Query = normalized });
     }
@@ -178,7 +181,7 @@ public class TorrentRepository : ITorrentRepository
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
 
-        const string sql = "SELECT MAX(update_time) FROM public.torrents";
+        var sql = $"SELECT MAX(update_time) FROM {Schema}.torrents";
         var result = await connection.QueryFirstOrDefaultAsync<DateTime?>(sql);
 
         return result ?? new DateTime(2000, 1, 1);
@@ -215,7 +218,7 @@ public class TorrentRepository : ITorrentRepository
         var details = src;
         var now = DateTime.UtcNow;
 
-        const string fetchSql = @"SELECT types, name, original_name FROM public.torrents WHERE url = @Url";
+        var fetchSql = $@"SELECT types, name, original_name FROM {Schema}.torrents WHERE url = @Url";
         var existing =
             await connection.QueryFirstOrDefaultAsync<(string[] Types, string Name, string OriginalName)?>(fetchSql,
                 new { src.Url });
@@ -235,8 +238,8 @@ public class TorrentRepository : ITorrentRepository
 
         if (exists)
         {
-            const string updateSql = @"
-                UPDATE public.torrents SET
+            var updateSql = $@"
+                UPDATE {Schema}.torrents SET
                     tracker_name        = @TrackerName,
                     types               = @Types,
                     title               = @Title,
@@ -266,8 +269,8 @@ public class TorrentRepository : ITorrentRepository
         }
         else
         {
-            const string insertSql = @"
-                INSERT INTO public.torrents
+            var insertSql = $@"
+                INSERT INTO {Schema}.torrents
                 (id, tracker_name, types, url, title, sid, pir, size_name, 
                  create_time, update_time, check_time, magnet, name, original_name, 
                  relased, languages, source_season_number, 
@@ -296,9 +299,9 @@ public class TorrentRepository : ITorrentRepository
         using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
 
-        var sql = @"
+        var sql = $@"
             SELECT *
-            FROM public.torrents
+            FROM {Schema}.torrents
             WHERE (
                 coalesce(search_name, regexp_replace(lower(coalesce(name, '')), '[^a-z0-9а-яё]+', '', 'g')) LIKE ANY(@Patterns)
                 OR coalesce(original_search_name, regexp_replace(lower(coalesce(original_name, '')), '[^a-z0-9а-яё]+', '', 'g')) LIKE ANY(@Patterns)

@@ -23,7 +23,7 @@
   IMAGE_NAME=ghcr.io/egorrrmiller/jacred:latest
   ```
 - Запуск/обновление: `docker compose --env-file .env up -d --build` (без `--env-file` compose берет `.env` из каталога).
-- База данных: контейнер `db` создаст пользователя/БД из `DB_*`; `database.sql` применится автоматически при первом старте пустого тома. Для переинициализации: `docker compose down -v && docker compose up -d --build` (удалит данные тома `jacred-db`).
+- База данных: контейнер `db` создаст пользователя/БД из `DB_*`, приложение прогонит миграции автоматически при старте. Для полной переинициализации: `docker compose down -v && docker compose up -d --build` (удалит данные тома `jacred-db`).
 - Порты: приложение слушает `listen-port` из `config.yml`, наружный порт задает `APP_PORT`. Postgres доступен внутри сети compose (`db:5432`); чтобы открыть наружу, раскомментируйте `ports` у сервиса `db`.
 
 ## Переменные Docker Compose
@@ -36,6 +36,6 @@
 - `CONFIG_PATH` — путь к локальному `config.yml`.
 
 ## Примечания
-- SQL применится только на пустом томе БД.
-- Конфиг монтируется как `/app/config.yml`, рабочая копия — `/app/config.local.yml`.
+- Миграции выполняет сама JacRed при старте.
+- Конфиг монтируется как `/app/config.yml`, рабочая копия - `/app/config.local.yml`.
 
