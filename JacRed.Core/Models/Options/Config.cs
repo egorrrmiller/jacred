@@ -37,7 +37,7 @@ public class Config
     public bool Web { get; set; } = true;
 
     /// <summary>
-    /// Максимальное количество результатов в выдаче
+    ///     Максимальное количество результатов в выдаче
     /// </summary>
     [ConfigurationKeyName("max-result-count")]
     public int MaxResultCount { get; set; } = 250;
@@ -45,9 +45,9 @@ public class Config
     /// <summary>
     ///     Включить объединение дубликатов раздач (по InfoHash) в результатах поиска.
     /// </summary>
-    [ConfigurationKeyName("merge-duplicates")] 
+    [ConfigurationKeyName("merge-duplicates")]
     public bool MergeDuplicates { get; set; } = true;
-    
+
     /// <summary>
     ///     Настройки прокси-серверов для исходящих запросов к трекерам.
     /// </summary>

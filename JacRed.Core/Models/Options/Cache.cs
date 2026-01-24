@@ -5,8 +5,8 @@ namespace JacRed.Core.Models.Options;
 public class Cache
 {
     /// <summary>
-    /// Включение кеша
+    ///     Включение кеша
     /// </summary>
-    [ConfigurationKeyName("enable")] 
+    [ConfigurationKeyName("enable")]
     public bool Enable { get; set; } = true;
 }

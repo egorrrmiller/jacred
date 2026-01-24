@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using JacRed.Core;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models;

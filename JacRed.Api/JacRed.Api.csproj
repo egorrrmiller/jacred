@@ -27,17 +27,17 @@
         <None Include="wwwroot\js\script.js"/>
     </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="BencodeNET" Version="5.0.0"/>
-    <PackageReference Include="MonoTorrent" Version="3.0.2"/>
-    <PackageReference Include="NetEscapades.Configuration.Yaml" Version="3.1.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.4"/>
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="BencodeNET" Version="5.0.0"/>
+        <PackageReference Include="MonoTorrent" Version="3.0.2"/>
+        <PackageReference Include="NetEscapades.Configuration.Yaml" Version="3.1.0"/>
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.4"/>
+    </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\JacRed.Core\JacRed.Core.csproj"/>
-    <ProjectReference Include="..\JacRed.Infrastructure\JacRed.Infrastructure.csproj"/>
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\JacRed.Core\JacRed.Core.csproj"/>
+        <ProjectReference Include="..\JacRed.Infrastructure\JacRed.Infrastructure.csproj"/>
+    </ItemGroup>
 
     <!--<PropertyGroup>
      <ServerGarbageCollection>false</ServerGarbageCollection>

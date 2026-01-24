@@ -1,18 +1,13 @@
 ﻿using System;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using Dapper;
 using JacRed.Api;
 using JacRed.Api.Configuration;
-using JacRed.Core;
 using JacRed.Core.Models.Options;
-using JacRed.Core.Utils;
-using JacRed.Infrastructure.Migrations;
 using JacRed.Infrastructure.Migrations.Configurations;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -30,7 +25,7 @@ var builder = WebApplication.CreateBuilder(args);
 DefaultTypeMap.MatchNamesWithUnderscores = true;
 
 // 1. Добавляем файл в общую конфигурацию приложения
-builder.Configuration.AddYamlFile("config.local.yml", optional: false, reloadOnChange: true);
+builder.Configuration.AddYamlFile("config.local.yml", false, true);
 
 // 2. Регистрируем IOptions (теперь builder.Configuration содержит данные из YAML)
 builder.Services.Configure<Config>(builder.Configuration);
@@ -38,10 +33,9 @@ builder.Services.Configure<Config>(builder.Configuration);
 // 3. Настраиваем Kestrel
 builder.WebHost.UseKestrel((context, kestrelOptions) =>
 {
-    // Теперь context.Configuration — это тот же объект, куда мы добавили YAML
     var serverOpts = context.Configuration.Get<Config>() ?? new Config();
-    
-    var listenIp = serverOpts.ListenIp; // Должно быть "any" или из файла
+
+    var listenIp = serverOpts.ListenIp;
     var port = serverOpts.ListenPort;
 
     var ip = listenIp.Equals("any", StringComparison.OrdinalIgnoreCase)

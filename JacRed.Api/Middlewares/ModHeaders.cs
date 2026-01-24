@@ -1,6 +1,5 @@
 ﻿using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using JacRed.Core;
 using JacRed.Core.Models.Options;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;

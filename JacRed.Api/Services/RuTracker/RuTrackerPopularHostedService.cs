@@ -31,7 +31,6 @@ public class RuTrackerPopularHostedService : BackgroundService
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(_config.RuTracker.Popular.TimeOut));
         while (await timer.WaitForNextTickAsync(stoppingToken))
-        {
             try
             {
                 await _ruTrackerPopularService.RefreshAsync();
@@ -41,9 +40,8 @@ public class RuTrackerPopularHostedService : BackgroundService
                 return;
             }
             catch (Exception ex)
-            { 
+            {
                 // ignored
             }
-        }
     }
 }

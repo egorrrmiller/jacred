@@ -1,14 +1,13 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using JacRed.Api.Services.RuTracker;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
 using JacRed.Infrastructure.Services;
 using JacRed.Infrastructure.Services.Trackers.Aniliberty;
 using JacRed.Infrastructure.Services.Trackers.RuTracker;
-using JacRed.Api.Services;
-using JacRed.Api.Services.RuTracker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 

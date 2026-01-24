@@ -15,5 +15,8 @@ public abstract class BaseTrackerSearch : ITrackerRefreshProvider
         return Task.FromResult<IReadOnlyCollection<TorrentDetails>>([]);
     }
 
-    public virtual Task RefreshAsync() => Task.CompletedTask;
+    public virtual Task RefreshAsync()
+    {
+        return Task.CompletedTask;
+    }
 }

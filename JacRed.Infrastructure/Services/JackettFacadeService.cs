@@ -1,5 +1,4 @@
 ﻿using System.Text.RegularExpressions;
-using JacRed.Core;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Api;
@@ -14,12 +13,12 @@ namespace JacRed.Infrastructure.Services;
 public class JackettFacadeService : IJackettFacadeService
 {
     private readonly ICacheService _cacheService;
+    private readonly Config _config;
     private readonly ITorrentMergerService _mergeService;
     private readonly ITorrentSearchPipeline _searchPipeline;
     private readonly ITorrentSearchService _searchService;
     private readonly ITorrentRepository _torrentRepository;
     private readonly ITrackerSearchService _trackerSearchService;
-    private readonly Config _config; 
 
     public JackettFacadeService(
         ICacheService cacheService,

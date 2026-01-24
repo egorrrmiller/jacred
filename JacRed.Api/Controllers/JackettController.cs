@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Options;
 using Microsoft.AspNetCore.Mvc;
@@ -10,8 +9,8 @@ namespace JacRed.Api.Controllers;
 
 public class JackettController : ControllerBase
 {
-    private readonly IJackettFacadeService _facade;
     private readonly Config _config;
+    private readonly IJackettFacadeService _facade;
 
     public JackettController(IJackettFacadeService facade, IOptions<Config> config)
     {

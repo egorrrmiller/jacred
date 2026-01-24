@@ -1,5 +1,4 @@
-﻿using JacRed.Core;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
@@ -13,9 +12,9 @@ namespace JacRed.Infrastructure.Services;
 public class TrackerSearchService : ITrackerSearchService
 {
     private readonly ICacheService _cacheService;
+    private readonly Config _config;
     private readonly ILogger<TrackerSearchService> _logger;
     private readonly IReadOnlyDictionary<TrackerType, ITrackerSearch> _providers;
-    private readonly Config _config;
 
     public TrackerSearchService(
         ICacheService cacheService,
@@ -62,7 +61,7 @@ public class TrackerSearchService : ITrackerSearchService
                 {
                     if (!Enum.TryParse<TrackerType>(p.TrackerName, true, out var trackerType))
                         return false;
-                    
+
                     return !_config.DisableTrackers.Contains(trackerType);
                 })
                 .Select(p => p.Tracker)
@@ -74,7 +73,7 @@ public class TrackerSearchService : ITrackerSearchService
             {
                 if (!Enum.TryParse<TrackerType>(_providers[t].TrackerName, true, out var trackerType))
                     return false;
-                
+
                 return !_config.DisableTrackers.Contains(trackerType);
             })
             .Distinct()

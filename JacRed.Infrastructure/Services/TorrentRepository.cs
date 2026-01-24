@@ -1,11 +1,9 @@
 using Dapper;
-using JacRed.Core;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Database;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
-using JacRed.Infrastructure.Migrations;
 using JacRed.Infrastructure.Migrations.Configurations;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -18,13 +16,13 @@ namespace JacRed.Infrastructure.Services;
 /// </summary>
 public class TorrentRepository : ITorrentRepository
 {
+    private const string Schema = DbSchema.Name;
     private readonly ICacheService _cache;
+    private readonly Config _config;
     private readonly string _connectionString;
     private readonly IKeyGenerator _keyGenerator;
     private readonly ILogger<TorrentRepository> _logger;
     private readonly ITorrentEnricher _torrentEnricher;
-    private readonly Config _config;
-    private const string Schema = DbSchema.Name;
 
     public TorrentRepository(
         ICacheService cache,
@@ -135,7 +133,8 @@ public class TorrentRepository : ITorrentRepository
     }
 
     /// <summary>
-    ///     Возвращает торренты по трекеру. Можно дополнительно отфильтровать по давности (check_time &lt; now - olderThan) и ограничить количество.
+    ///     Возвращает торренты по трекеру. Можно дополнительно отфильтровать по давности (check_time &lt; now - olderThan) и
+    ///     ограничить количество.
     /// </summary>
     public async Task<List<TorrentDetails>> GetByTrackerAsync(
         string trackerName,
@@ -177,7 +176,7 @@ public class TorrentRepository : ITorrentRepository
             WHERE tracker_name = @TrackerName
               AND (@UseOlderThan IS FALSE OR check_time < @Cutoff)
             ORDER BY check_time ASC
-            { (limit.HasValue ? "LIMIT @Limit" : string.Empty) }";
+            {(limit.HasValue ? "LIMIT @Limit" : string.Empty)}";
 
         var rows = await connection.QueryAsync<Torrent>(sql, new
         {

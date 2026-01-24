@@ -26,16 +26,10 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         new("Страница <b>1</b> из <b>(?<pages>\\d+)</b>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     protected static readonly IReadOnlyDictionary<string, CategoryInfo> CategoryMap = BuildCategoryMap();
-    
-    public override TrackerType Tracker => TrackerType.Rutracker;
-    public override string TrackerName => "rutracker";
-    public override string Host => "https://rutracker.org/";
-    
-    private string LoginUrl => Host + "forum/login.php";
-    
+
     private readonly ICacheService _cacheService;
-    private readonly HttpService _httpService;
     private readonly Config _config;
+    private readonly HttpService _httpService;
 
     protected BaseRuTracker(ICacheService cacheService, HttpService httpService, IOptionsSnapshot<Config> config)
     {
@@ -43,6 +37,12 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         _httpService = httpService;
         _config = config.Value;
     }
+
+    public override TrackerType Tracker => TrackerType.Rutracker;
+    public override string TrackerName => "rutracker";
+    public override string Host => "https://rutracker.org/";
+
+    private string LoginUrl => Host + "forum/login.php";
 
     public async Task<bool> TryEnrichAsync(TorrentDetails torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
     {
@@ -126,7 +126,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         };
         var client = new HttpClient(handler);
         var http = new HttpService(client, NullLogger<HttpService>.Instance);
-        
+
         var pairs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "login_username", _config.RuTracker.Authorization.Login },
@@ -478,7 +478,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
                 url,
                 RuEncoding,
                 url,
-                7/*,
+                7 /*,
                 useProxy: AppInit.conf.Rutracker.useproxy*/);
 
             if (string.IsNullOrWhiteSpace(html))
@@ -515,9 +515,9 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         var html = await Get(
             url,
             RuEncoding,
-            referer: url,
-            timeoutSeconds: timeoutSeconds,
-            maxResponseSize: maxResponseSize,
+            url,
+            timeoutSeconds,
+            maxResponseSize,
             useProxy: useProxy);
 
         if (string.IsNullOrWhiteSpace(html))
