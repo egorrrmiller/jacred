@@ -47,7 +47,6 @@ public class RuTrackerPopularService : BaseRuTracker
                 options,
                 async (torrent, _) =>
                 {
-                    Console.WriteLine("test");
                     await _torrentRepository.AddOrUpdateAsync(
                         new[] { torrent },
                         TryEnrichAsync);
