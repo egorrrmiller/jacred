@@ -33,7 +33,7 @@ public class RuTrackerRefreshHostedService : BackgroundService
         while (await timer.WaitForNextTickAsync(stoppingToken))
             try
             {
-                await _ruTrackerRefreshService.RefreshAsync();
+                await _ruTrackerRefreshService.InvokeAsync();
             }
             catch (OperationCanceledException)
             {

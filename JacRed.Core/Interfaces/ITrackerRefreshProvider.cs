@@ -5,5 +5,5 @@ namespace JacRed.Core.Interfaces;
 /// </summary>
 public interface ITrackerRefreshProvider : ITrackerSearch
 {
-    Task RefreshAsync();
+    Task InvokeAsync();
 }

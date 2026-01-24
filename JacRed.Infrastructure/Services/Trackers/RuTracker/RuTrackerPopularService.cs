@@ -20,7 +20,7 @@ public class RuTrackerPopularService : BaseRuTracker
         _config = config.Value;
     }
 
-    public override async Task RefreshAsync()
+    public override async Task InvokeAsync()
     {
         if (!_config.RuTracker.Popular.Enable)
             return;
