@@ -34,7 +34,6 @@ public static class ServicesConfiguration
             .AddHostedService<RuTrackerPopularHostedService>()
             .AddHostedService<RuTrackerRefreshHostedService>();
 
-        // Singleton Services (должны жить все время работы приложения)
         services.AddSingleton<ICacheService, CacheService>();
         services.AddMemoryCache();
 
@@ -45,8 +44,6 @@ public static class ServicesConfiguration
             })
             .ConfigurePrimaryHttpMessageHandler(sp =>
             {
-                // Здесь используем IOptionsMonitor, так как HttpClientFactory кэширует хендлеры
-                // и IOptionsSnapshot может быть недоступен или некорректен в контексте фабрики.
                 var config = sp.GetRequiredService<IOptionsMonitor<Config>>().CurrentValue;
                 var handler = new HttpClientHandler
                 {
@@ -55,7 +52,6 @@ public static class ServicesConfiguration
                     ServerCertificateCustomValidationCallback = (_, _, _, _) => true
                 };
 
-                // Настройка прокси
                 if (config.Proxy?.List?.Count > 0)
                 {
                     var proxyUrl = config.Proxy.List[Random.Shared.Next(config.Proxy.List.Count)];

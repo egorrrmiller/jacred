@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using Dapper;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Database;
@@ -108,6 +108,9 @@ public class TorrentSearchService : ITorrentSearchService
         var termRegexes = terms
             .Select(t => $"^{Regex.Escape(t)}{suffixPattern}")
             .ToArray();
+        var likeTerms = terms.Select(t => $"%{t}%").ToArray();
+        var rawTerm = string.IsNullOrWhiteSpace(webTerm) ? string.Empty : webTerm.Trim().ToLowerInvariant();
+        var rawLikeTerms = string.IsNullOrWhiteSpace(rawTerm) ? Array.Empty<string>() : new[] { $"%{rawTerm}%" };
 
         using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
@@ -146,6 +149,14 @@ public class TorrentSearchService : ITorrentSearchService
                     (search_name IS NOT NULL AND (search_name = ANY(@Terms) OR search_name ~ ANY(@TermRegexes)))
                     OR (original_search_name IS NOT NULL AND (original_search_name = ANY(@Terms) OR original_search_name ~ ANY(@TermRegexes)))
                 ))
+                OR (array_length(@LikeTerms, 1) IS NOT NULL AND (
+                    (search_name IS NOT NULL AND search_name LIKE ANY(@LikeTerms)) OR
+                    (original_search_name IS NOT NULL AND original_search_name LIKE ANY(@LikeTerms)) OR
+                    (regexp_replace(lower(title), '[^a-z0-9а-яё]+', '', 'g') LIKE ANY(@LikeTerms))
+                ))
+                OR (array_length(@RawLikeTerms, 1) IS NOT NULL AND (
+                    (lower(title) LIKE ANY(@RawLikeTerms))
+                ))
                 OR (@HasWeb AND search_tsv @@ websearch_to_tsquery('russian', @WebTerm))
             )
             ORDER BY sid DESC, update_time DESC
@@ -154,6 +165,8 @@ public class TorrentSearchService : ITorrentSearchService
         var rows = await connection.QueryAsync<Torrent>(sql, new
         {
             Terms = terms,
+            LikeTerms = likeTerms.Length > 0 ? likeTerms : Array.Empty<string>(),
+            RawLikeTerms = rawLikeTerms,
             TermRegexes = termRegexes,
             MaxRead = _config.MaxResultCount,
             HasWeb = !string.IsNullOrWhiteSpace(webTerm),
@@ -188,11 +201,13 @@ public class TorrentSearchService : ITorrentSearchService
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Distinct()
             .ToArray();
-        var likeTerms = terms.Select(t => $"%{t}%").ToArray();
         var suffixPattern = mediaType == 1 ? "(\\D|$)" : ".*";
         var termRegexes = terms
             .Select(t => $"^{Regex.Escape(t)}{suffixPattern}")
             .ToArray();
+        var likeTerms = terms.Select(t => $"%{t}%").ToArray();
+        var rawTerm = string.IsNullOrWhiteSpace(webTerm) ? string.Empty : webTerm.Trim().ToLowerInvariant();
+        var rawLikeTerms = string.IsNullOrWhiteSpace(rawTerm) ? Array.Empty<string>() : new[] { $"%{rawTerm}%" };
 
         var hasWeb = !string.IsNullOrWhiteSpace(webTerm);
 
@@ -235,7 +250,10 @@ public class TorrentSearchService : ITorrentSearchService
                                      OR (array_length(@LikeTerms, 1) IS NOT NULL AND (
                                          (search_name IS NOT NULL AND search_name LIKE ANY(@LikeTerms)) OR
                                          (original_search_name IS NOT NULL AND original_search_name LIKE ANY(@LikeTerms)) OR
-                                         (lower(title) LIKE ANY(@LikeTerms))
+                                         (regexp_replace(lower(title), '[^a-z0-9а-яё]+', '', 'g') LIKE ANY(@LikeTerms))
+                                     ))
+                                     OR (array_length(@RawLikeTerms, 1) IS NOT NULL AND (
+                                         (lower(title) LIKE ANY(@RawLikeTerms))
                                      ))
                                      OR (@HasWeb AND search_tsv @@ websearch_to_tsquery('russian', @WebTerm))
                                   )
@@ -248,6 +266,7 @@ public class TorrentSearchService : ITorrentSearchService
         {
             Terms = terms.Length > 0 ? terms : Array.Empty<string>(),
             LikeTerms = likeTerms.Length > 0 ? likeTerms : Array.Empty<string>(),
+            RawLikeTerms = rawLikeTerms,
             TermRegexes = termRegexes.Length > 0 ? termRegexes : Array.Empty<string>(),
             WebTerm = hasWeb ? webTerm : string.Empty,
             HasWeb = hasWeb,
