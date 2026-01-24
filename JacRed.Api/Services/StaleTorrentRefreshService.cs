@@ -79,9 +79,9 @@ public sealed class StaleTorrentRefreshService : BackgroundService
   
                 try  
                 {  
-                    var refreshed = await provider.RefreshAsync(query);  
+                    /*var refreshed = await provider.RefreshAsync(query);  
                     if (refreshed.Count > 0)  
-                        await _torrentRepository.AddOrUpdateAsync(refreshed);  
+                        await _torrentRepository.AddOrUpdateAsync(refreshed);  */
                 }  
                 catch (OperationCanceledException)  
                 {  

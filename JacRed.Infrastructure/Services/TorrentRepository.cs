@@ -134,6 +134,70 @@ public class TorrentRepository : ITorrentRepository
         return list;
     }
 
+    /// <summary>
+    ///     Возвращает торренты по трекеру. Можно дополнительно отфильтровать по давности (check_time &lt; now - olderThan) и ограничить количество.
+    /// </summary>
+    public async Task<List<TorrentDetails>> GetByTrackerAsync(
+        string trackerName,
+        TimeSpan? olderThan = null,
+        int? limit = null)
+    {
+        if (string.IsNullOrWhiteSpace(trackerName))
+            return new List<TorrentDetails>();
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        var sql = $@"
+            SELECT 
+                id                      AS ""Id"",
+                tracker_name            AS ""TrackerName"",
+                types                   AS ""Types"",
+                url                     AS ""Url"",
+                title                   AS ""Title"",
+                sid                     AS ""Sid"",
+                pir                     AS ""Pir"",
+                size_name               AS ""SizeName"",
+                create_time             AS ""CreateTime"",
+                update_time             AS ""UpdateTime"",
+                check_time              AS ""CheckTime"",
+                magnet                  AS ""Magnet"",
+                name                    AS ""Name"",
+                original_name           AS ""OriginalName"",
+                relased                 AS ""Relased"",
+                languages               AS ""Languages"",
+                source_season_number    AS ""SourceSeasonNumber"",
+                source_season_order     AS ""SourceSeasonOrder"",
+                size                    AS ""Size"",
+                quality                 AS ""Quality"",
+                video_type              AS ""VideoType"",
+                voices                  AS ""Voices"",
+                seasons                 AS ""Seasons""
+            FROM {Schema}.torrents
+            WHERE tracker_name = @TrackerName
+              AND (@UseOlderThan IS FALSE OR check_time < @Cutoff)
+            ORDER BY check_time ASC
+            { (limit.HasValue ? "LIMIT @Limit" : string.Empty) }";
+
+        var rows = await connection.QueryAsync<Torrent>(sql, new
+        {
+            TrackerName = trackerName,
+            UseOlderThan = olderThan.HasValue,
+            Cutoff = olderThan.HasValue ? DateTime.UtcNow - olderThan.Value : DateTime.MinValue,
+            Limit = limit
+        });
+
+        var result = new List<TorrentDetails>();
+        foreach (var db in rows)
+        {
+            var model = MapToDomainModel(db);
+            if (model != null)
+                result.Add(model);
+        }
+
+        return result;
+    }
+
     public async Task<IReadOnlyCollection<string>> GetSearchQueriesAsync(int limit)
     {
         if (limit <= 0)

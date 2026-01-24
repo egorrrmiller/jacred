@@ -7,6 +7,8 @@ using JacRed.Core.Utils;
 using JacRed.Infrastructure.Services;
 using JacRed.Infrastructure.Services.Trackers.Aniliberty;
 using JacRed.Infrastructure.Services.Trackers.RuTracker;
+using JacRed.Api.Services;
+using JacRed.Api.Services.RuTracker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -26,19 +28,17 @@ public static class ServicesConfiguration
             .AddScoped<ITorrentSearchPipeline, TorrentSearchPipeline>()
             .AddScoped<ITrackerSearchService, TrackerSearchService>()
             .AddScoped<ITrackerSearch, RuTrackerSearch>()
-            .AddScoped<ITrackerSearch, AnilibertySearch>();
+            .AddScoped<ITrackerSearch, AnilibertySearch>()
+            // крон сервисы
+            .AddScoped<ITrackerRefreshProvider, RuTrackerPopularService>()
+            .AddScoped<ITrackerRefreshProvider, RuTrackerRefreshService>()
+            .AddHostedService<RuTrackerPopularHostedService>()
+            .AddHostedService<RuTrackerRefreshHostedService>();
 
         // Singleton Services (должны жить все время работы приложения)
         services.AddSingleton<ICacheService, CacheService>();
         services.AddMemoryCache();
 
-        // Hosted Services (Фоновые задачи)
-        //.AddHostedService<StaleTorrentRefreshService>()
-        //.AddHostedService<TrackerCatalogPrefetchService>()
-
-        // Настройка HttpClient с поддержкой прокси
-        // HttpService регистрируем как Scoped или Transient, чтобы он мог использовать Scoped-конфиг, если понадобится,
-        // но HttpClient внутри него управляется фабрикой.
         services.AddHttpClient<HttpService>((sp, client) =>
             {
                 client.DefaultRequestHeaders.UserAgent.ParseAdd(HttpService.UserAgent);

@@ -20,19 +20,13 @@ public sealed class RuTrackerSearch : BaseRuTracker
     {
         var results = new Dictionary<string, TorrentDetails>(StringComparer.OrdinalIgnoreCase);
         var now = DateTime.UtcNow;
-        var requestHost = Host;
 
-        var url = BuildQueryUrl(requestHost, query, 0);
-        var html = await Get(
-            url,
-            RuEncoding,
-            timeoutSeconds: 10/*,
-            useProxy: AppInit.conf.Rutracker.useproxy*/);
+        var url = BuildQueryUrl(Host, query, 0);
+        var parsed = await FetchForumPageAsync(url, string.Empty, now);
 
-        if (string.IsNullOrWhiteSpace(html))
+        if (parsed.Count == 0)
             return new List<TorrentDetails>();
 
-        var parsed = ParseForumPage(html, string.Empty, Host, now);
         foreach (var item in parsed)
             results[item.Url] = item;
 
@@ -48,7 +42,7 @@ public sealed class RuTrackerSearch : BaseRuTracker
             {
                 await _torrentRepository.AddOrUpdateAsync(
                     new[] { torrent },
-                    (t, existing) => TryEnrichAsync(t, existing));
+                    TryEnrichAsync);
             });
 
         return results.Values.ToList();

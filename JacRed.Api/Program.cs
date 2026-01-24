@@ -30,7 +30,7 @@ var builder = WebApplication.CreateBuilder(args);
 DefaultTypeMap.MatchNamesWithUnderscores = true;
 
 // 1. Добавляем файл в общую конфигурацию приложения
-builder.Configuration.AddYamlFile("config.yml", optional: false, reloadOnChange: true);
+builder.Configuration.AddYamlFile("config.local.yml", optional: false, reloadOnChange: true);
 
 // 2. Регистрируем IOptions (теперь builder.Configuration содержит данные из YAML)
 builder.Services.Configure<Config>(builder.Configuration);

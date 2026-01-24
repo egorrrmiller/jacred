@@ -1,5 +1,6 @@
 using JacRed.Core.Enums;
 using JacRed.Core.Models.AppConf;
+using JacRed.Core.Models.Options.TrackerConfigs;
 using Microsoft.Extensions.Configuration;
 
 namespace JacRed.Core.Models.Options;
@@ -46,12 +47,6 @@ public class Config
     /// </summary>
     [ConfigurationKeyName("merge-duplicates")] 
     public bool MergeDuplicates { get; set; } = true;
-
-    /// <summary>
-    ///     Настройки для RuTracker (авторизация и т.д.).
-    /// </summary>
-    [ConfigurationKeyName("rutracker")]
-    public Tracker RuTracker { get; set; } = new();
     
     /// <summary>
     ///     Настройки прокси-серверов для исходящих запросов к трекерам.
@@ -76,4 +71,10 @@ public class Config
     /// </summary>
     [ConfigurationKeyName("disable-trackers")]
     public List<TrackerType> DisableTrackers { get; set; } = new();
+
+    /// <summary>
+    ///     Настройки для RuTracker (авторизация и т.д.).
+    /// </summary>
+    [ConfigurationKeyName("rutracker")]
+    public RuTrackerSettings RuTracker { get; set; } = new();
 }

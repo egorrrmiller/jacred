@@ -12,6 +12,12 @@ public interface ITorrentRepository
         where T : TorrentDetails;
 
     Task<List<TorrentDetails>> GetStaleAsync(TimeSpan olderThan, int limit);
+
+    /// <summary>
+    ///     Возвращает торренты конкретного трекера, опционально — только старше заданного срока, с лимитом.
+    /// </summary>
+    Task<List<TorrentDetails>> GetByTrackerAsync(string trackerName, TimeSpan? olderThan = null, int? limit = null);
+
     Task<IReadOnlyCollection<string>> GetSearchQueriesAsync(int limit);
     Task TrackSearchQueryAsync(string query);
     

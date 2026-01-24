@@ -1,5 +1,3 @@
-using JacRed.Core.Models.Details;
-
 namespace JacRed.Core.Interfaces;
 
 /// <summary>
@@ -7,6 +5,5 @@ namespace JacRed.Core.Interfaces;
 /// </summary>
 public interface ITrackerRefreshProvider : ITrackerSearch
 {
-    Task<IReadOnlyCollection<TorrentDetails>> RefreshAsync(string query)
-        => SearchAsync(query);
+    Task RefreshAsync();
 }

@@ -4,7 +4,6 @@ using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
-using JacRed.Core;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
@@ -454,7 +453,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         return int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : 0;
     }
 
-    protected static string NormalizeText(string text)
+    private static string NormalizeText(string text)
     {
         if (string.IsNullOrWhiteSpace(text))
             return string.Empty;
@@ -499,6 +498,32 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         {
             return (null, default);
         }
+    }
+
+    /// <summary>
+    ///     Загружает страницу tracker/viewforum и парсит её в коллекцию раздач.
+    ///     Можно переиспользовать в поиске, каталогах и рефреше.
+    /// </summary>
+    protected async Task<IReadOnlyCollection<TorrentDetails>> FetchForumPageAsync(
+        string url,
+        string categoryId,
+        DateTime now,
+        int timeoutSeconds = 10,
+        int maxResponseSize = 10_000_000,
+        bool useProxy = false)
+    {
+        var html = await Get(
+            url,
+            RuEncoding,
+            referer: url,
+            timeoutSeconds: timeoutSeconds,
+            maxResponseSize: maxResponseSize,
+            useProxy: useProxy);
+
+        if (string.IsNullOrWhiteSpace(html))
+            return Array.Empty<TorrentDetails>();
+
+        return ParseForumPage(html, categoryId, Host, now);
     }
 
     protected static string BuildCategoryUrl(string host, string categoryId, int page)
