@@ -366,8 +366,8 @@ public class TorrentRepository : ITorrentRepository
             SELECT *
             FROM {Schema}.torrents
             WHERE (
-                coalesce(search_name, regexp_replace(lower(coalesce(name, '')), '[^a-z0-9а-яё]+', '', 'g')) LIKE ANY(@Patterns)
-                OR coalesce(original_search_name, regexp_replace(lower(coalesce(original_name, '')), '[^a-z0-9а-яё]+', '', 'g')) LIKE ANY(@Patterns)
+                search_name LIKE ANY(@Patterns)
+                OR original_search_name LIKE ANY(@Patterns)
             )
             ORDER BY sid DESC, update_time DESC
             LIMIT @MaxRead";

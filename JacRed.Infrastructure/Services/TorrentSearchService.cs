@@ -151,8 +151,7 @@ public class TorrentSearchService : ITorrentSearchService
                 ))
                 OR (array_length(@LikeTerms, 1) IS NOT NULL AND (
                     (search_name IS NOT NULL AND search_name LIKE ANY(@LikeTerms)) OR
-                    (original_search_name IS NOT NULL AND original_search_name LIKE ANY(@LikeTerms)) OR
-                    (regexp_replace(lower(title), '[^a-z0-9а-яё]+', '', 'g') LIKE ANY(@LikeTerms))
+                    (original_search_name IS NOT NULL AND original_search_name LIKE ANY(@LikeTerms))
                 ))
                 OR (array_length(@RawLikeTerms, 1) IS NOT NULL AND (
                     (lower(title) LIKE ANY(@RawLikeTerms))
@@ -249,8 +248,7 @@ public class TorrentSearchService : ITorrentSearchService
                                      ))
                                      OR (array_length(@LikeTerms, 1) IS NOT NULL AND (
                                          (search_name IS NOT NULL AND search_name LIKE ANY(@LikeTerms)) OR
-                                         (original_search_name IS NOT NULL AND original_search_name LIKE ANY(@LikeTerms)) OR
-                                         (regexp_replace(lower(title), '[^a-z0-9а-яё]+', '', 'g') LIKE ANY(@LikeTerms))
+                                         (original_search_name IS NOT NULL AND original_search_name LIKE ANY(@LikeTerms))
                                      ))
                                      OR (array_length(@RawLikeTerms, 1) IS NOT NULL AND (
                                          (lower(title) LIKE ANY(@RawLikeTerms))
