@@ -188,6 +188,7 @@ public class TorrentSearchService : ITorrentSearchService
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Distinct()
             .ToArray();
+        var likeTerms = terms.Select(t => $"%{t}%").ToArray();
         var suffixPattern = mediaType == 1 ? "(\\D|$)" : ".*";
         var termRegexes = terms
             .Select(t => $"^{Regex.Escape(t)}{suffixPattern}")
@@ -227,20 +228,26 @@ public class TorrentSearchService : ITorrentSearchService
                                FROM {Schema}.torrents
                                WHERE 
                                    (
-                                      (array_length(@Terms, 1) IS NOT NULL AND (
-                                          (search_name IS NOT NULL AND (search_name = ANY(@Terms) OR search_name ~ ANY(@TermRegexes))) OR
-                                          (original_search_name IS NOT NULL AND (original_search_name = ANY(@Terms) OR original_search_name ~ ANY(@TermRegexes)))
-                                      ))
-                                      OR (@HasWeb AND search_tsv @@ websearch_to_tsquery('russian', @WebTerm))
-                                   )
-                                   AND @MaxRead > 0
-                               ORDER BY sid DESC, update_time DESC
+                                     (array_length(@Terms, 1) IS NOT NULL AND (
+                                         (search_name IS NOT NULL AND (search_name = ANY(@Terms) OR search_name ~ ANY(@TermRegexes))) OR
+                                         (original_search_name IS NOT NULL AND (original_search_name = ANY(@Terms) OR original_search_name ~ ANY(@TermRegexes)))
+                                     ))
+                                     OR (array_length(@LikeTerms, 1) IS NOT NULL AND (
+                                         (search_name IS NOT NULL AND search_name LIKE ANY(@LikeTerms)) OR
+                                         (original_search_name IS NOT NULL AND original_search_name LIKE ANY(@LikeTerms)) OR
+                                         (lower(title) LIKE ANY(@LikeTerms))
+                                     ))
+                                     OR (@HasWeb AND search_tsv @@ websearch_to_tsquery('russian', @WebTerm))
+                                  )
+                                  AND @MaxRead > 0
+                              ORDER BY sid DESC, update_time DESC
                                LIMIT @MaxRead
                    """;
 
         var torrents = await connection.QueryAsync<Torrent>(sql, new
         {
             Terms = terms.Length > 0 ? terms : Array.Empty<string>(),
+            LikeTerms = likeTerms.Length > 0 ? likeTerms : Array.Empty<string>(),
             TermRegexes = termRegexes.Length > 0 ? termRegexes : Array.Empty<string>(),
             WebTerm = hasWeb ? webTerm : string.Empty,
             HasWeb = hasWeb,
