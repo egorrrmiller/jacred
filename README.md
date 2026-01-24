@@ -27,6 +27,7 @@
 - Порты: приложение слушает `listen-port` из `config.yml`, наружный порт задает `APP_PORT`. Postgres доступен внутри сети compose (`db:5432`); чтобы открыть наружу, раскомментируйте `ports` у сервиса `db`.
 
 ## Пример конфига
+- Список категорий RuTracker [RuTrackers_categories.md](https://github.com/egorrrmiller/jacred/tree/main/JacRed.Infrastructure/Services/Trackers/RuTracker/RuTrackers_categories.md)
 ```yaml
 ##### настройка сервера
 listen-ip: any
@@ -62,7 +63,7 @@ rutracker:
     enable: true # включить/выключить
     timeout: 30 # задержка в минутах
     max-pages: 5 # глубина обхода в каждой категории
-    categories: # список категорий для парсинга (например: [ 549, 22, 1666 ]) 
+    categories: # список категорий для парсинга (например: [ 549, 22, 1666 ])
       []
 
   authorization:
