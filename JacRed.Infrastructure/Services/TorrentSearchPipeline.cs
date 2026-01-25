@@ -95,7 +95,9 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
             request.Season);
 
         var sorted = ApplySort(filtered, request.Sort);
-        var merged = await _mergeService.MergeAsync(sorted);
+        var merged = _config.MergeDuplicates
+            ? await _mergeService.MergeAsync(sorted)
+            : sorted.ToList();
 
         return new TorrentSearchPipelineResult
         {

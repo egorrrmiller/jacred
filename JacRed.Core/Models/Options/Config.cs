@@ -48,6 +48,10 @@ public class Config
     [ConfigurationKeyName("merge-duplicates")]
     public bool MergeDuplicates { get; set; } = true;
 
+    // Merge duplicates for NUM-style requests (same behavior as legacy).
+    [ConfigurationKeyName("merge-num-duplicates")]
+    public bool MergeNumDuplicates { get; set; } = true;
+
     /// <summary>
     ///     Настройки прокси-серверов для исходящих запросов к трекерам.
     /// </summary>

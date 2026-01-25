@@ -7,6 +7,7 @@ using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
 using JacRed.Infrastructure.Services;
 using JacRed.Infrastructure.Services.Trackers.Aniliberty;
+using JacRed.Infrastructure.Services.Trackers.RuTor;
 using JacRed.Infrastructure.Services.Trackers.RuTracker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -28,6 +29,7 @@ public static class ServicesConfiguration
             .AddScoped<ITrackerSearchService, TrackerSearchService>()
             .AddScoped<ITrackerSearch, RuTrackerSearch>()
             .AddScoped<ITrackerSearch, AnilibertySearch>()
+            .AddScoped<ITrackerSearch, RuTorSearch>()
             // крон сервисы
             .AddScoped<ITrackerRefreshProvider, RuTrackerPopularService>()
             .AddScoped<ITrackerRefreshProvider, RuTrackerRefreshService>()

@@ -191,14 +191,7 @@ public class JackettFacadeService : IJackettFacadeService
         if (!Enum.TryParse<TrackerType>(t.TrackerName, true, out var trackerType))
             return true; // Если трекер неизвестен, не фильтруем его (или можно false, если строгая политика)
 
-        if (_config.SyncTrackers != null && _config.SyncTrackers.Count > 0 &&
-            !_config.SyncTrackers.Contains(trackerType))
-            return false;
-
-        if (_config.DisableTrackers != null && _config.DisableTrackers.Contains(trackerType))
-            return false;
-
-        return true;
+        return !_config.DisableTrackers.Contains(trackerType);
     }
 
     private HashSet<int> GetCategoryIds(TorrentDetails t, out string? desc)
@@ -404,7 +397,9 @@ public class JackettFacadeService : IJackettFacadeService
             }
         }
 
-        var result = await _mergeService.MergeAsync(torrents);
+        var shouldMerge = (!isNumRequest && _config.MergeDuplicates) ||
+                          (isNumRequest && _config.MergeNumDuplicates);
+        var result = shouldMerge ? await _mergeService.MergeAsync(torrents) : torrents;
 
         if (apikey == "rus")
             result = result.Where(t => t.Languages?.Contains("rus") == true ||

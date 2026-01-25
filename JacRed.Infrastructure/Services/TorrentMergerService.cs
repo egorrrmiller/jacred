@@ -1,160 +1,137 @@
+using System;
 using System.Web;
-using JacRed.Core.Extensions;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using MonoTorrent;
 
 namespace JacRed.Infrastructure.Services;
 
-/// <summary>
-///     Объединяет дублирующиеся торренты, собирая лучшую информацию и единый magnet.
-/// </summary>
 public class TorrentMergerService : ITorrentMergerService
 {
-    /// <summary>
-    ///     Схлопывает коллекцию торрентов по infohash, объединяя метаданные.
-    /// </summary>
     public Task<List<TorrentDetails>> MergeAsync(IEnumerable<TorrentDetails> torrents)
     {
-        var result = torrents
-            .OrderByDescending(t => t.CreateTime)
-            .ThenBy(t => t.TrackerName == "selezen")
-            .GroupBy(t => GetInfoHash(t.Magnet))
-            .Select(group => MergeGroup(group.ToList()))
-            .ToList();
+        var temp =
+            new Dictionary<string, (TorrentDetails torrent, string? title, string? name, List<string> announceUrls)>();
 
-        return Task.FromResult(result);
-    }
-
-    /// <summary>
-    ///     Объединяет одну группу дублей в единый объект.
-    /// </summary>
-    private TorrentDetails MergeGroup(List<TorrentDetails> group)
-    {
-        var first = group.First();
-        var merged = (TorrentDetails)first.Clone();
-
-        var announceUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(first.Magnet))
-            foreach (var url in first.Magnet.AnnounceUrls() ?? [])
-                announceUrls.Add(url);
-        var voices = new HashSet<string>(first.Voices ?? [], StringComparer.OrdinalIgnoreCase);
-        var languages = new HashSet<string>(first.Languages ?? [], StringComparer.OrdinalIgnoreCase);
-        var seasons = new HashSet<int>(first.Seasons ?? []);
-
-        var titleOverride = first.TrackerName == "kinozal" ? first.Title : null;
-        var torrentName = !string.IsNullOrWhiteSpace(first.Magnet?.AnnounceName())
-            ? first.Magnet.AnnounceName()
-            : null;
-
-        // Сведение метаданных
-        foreach (var t in group.Skip(1))
+        foreach (var torrent in torrents
+                     .OrderByDescending(t => t.CreateTime)
+                     .ThenBy(t => t.TrackerName == "selezen"))
         {
-            var tAnnounceUrls = t.Magnet?.AnnounceUrls();
-            if (tAnnounceUrls?.Any() == true)
-                foreach (var url in tAnnounceUrls)
-                    announceUrls.Add(url);
-
-            if (t.Voices?.Any() == true)
+            if (string.IsNullOrWhiteSpace(torrent.Magnet))
             {
-                foreach (var v in t.Voices)
-                    voices.Add(v);
-                if (t.TrackerName == "kinozal")
-                    titleOverride = t.Title;
+                var fallbackKey = $"nomagnet:{torrent.Url ?? Guid.NewGuid().ToString()}";
+                if (!temp.ContainsKey(fallbackKey))
+                    temp.Add(fallbackKey, ((TorrentDetails)torrent.Clone(), null, null, new List<string>()));
+                continue;
             }
 
-            if (t.Languages?.Any() == true)
-                foreach (var lang in t.Languages)
-                    languages.Add(lang);
-
-            if (t.Seasons?.Any() == true)
-                foreach (var s in t.Seasons)
-                    seasons.Add(s);
-
-            if (t.TrackerName == "kinozal")
-                titleOverride = t.Title;
-
-            if (string.IsNullOrWhiteSpace(torrentName) && !string.IsNullOrWhiteSpace(t.Magnet?.AnnounceName()))
-                torrentName = t.Magnet?.AnnounceName();
-
-            if (merged.Relased == 0 && t.Relased > 0)
-                merged.Relased = t.Relased;
-
-            if (merged.Quality == 0 && t.Quality > 0)
-                merged.Quality = t.Quality;
-
-            if (string.IsNullOrWhiteSpace(merged.VideoType) && !string.IsNullOrWhiteSpace(t.VideoType))
-                merged.VideoType = t.VideoType;
-
-            if (merged.Size == 0.0 && t.Size > 0)
+            MagnetLink magnetLink;
+            try
             {
-                merged.Size = t.Size;
-                merged.SizeName = t.SizeName;
+                magnetLink = MagnetLink.Parse(torrent.Magnet);
+            }
+            catch
+            {
+                var fallbackKey = $"nomagnet:{torrent.Url ?? Guid.NewGuid().ToString()}";
+                if (!temp.ContainsKey(fallbackKey))
+                    temp.Add(fallbackKey, ((TorrentDetails)torrent.Clone(), null, null, new List<string>()));
+                continue;
             }
 
-            if (string.IsNullOrWhiteSpace(merged.Name) && !string.IsNullOrWhiteSpace(t.Name))
-                merged.Name = t.Name;
+            var hex = magnetLink.InfoHashes.V1OrV2.ToHex();
 
-            if (string.IsNullOrWhiteSpace(merged.OriginalName) && !string.IsNullOrWhiteSpace(t.OriginalName))
-                merged.OriginalName = t.OriginalName;
-
-            if (merged.Types == null && t.Types?.Any() == true)
-                merged.Types = t.Types;
-
-            if (string.IsNullOrWhiteSpace(merged.SourceSeasonNumber) &&
-                !string.IsNullOrWhiteSpace(t.SourceSeasonNumber))
-                merged.SourceSeasonNumber = t.SourceSeasonNumber;
-
-            if (string.IsNullOrWhiteSpace(merged.SourceSeasonOrder) && !string.IsNullOrWhiteSpace(t.SourceSeasonOrder))
-                merged.SourceSeasonOrder = t.SourceSeasonOrder;
-
-            if (t.TrackerName != "selezen")
+            if (!temp.TryGetValue(hex, out var entry))
             {
-                if (t.Sid > merged.Sid) merged.Sid = t.Sid;
-                if (t.Pir > merged.Pir) merged.Pir = t.Pir;
+                temp.Add(hex,
+                    ((TorrentDetails)torrent.Clone(),
+                        torrent.TrackerName == "kinozal" ? torrent.Title : null,
+                        magnetLink.Name,
+                        magnetLink.AnnounceUrls?.ToList() ?? new List<string>()));
+                continue;
             }
 
-            if (t.CreateTime > merged.CreateTime)
-                merged.CreateTime = t.CreateTime;
+            if (!entry.torrent.TrackerName.Contains(torrent.TrackerName))
+                entry.torrent.TrackerName += $", {torrent.TrackerName}";
+
+            void UpdateMagnet()
+            {
+                var updated = BuildMagnet(hex, entry.name, entry.announceUrls);
+                if (!string.IsNullOrWhiteSpace(updated))
+                    entry.torrent.Magnet = updated;
+            }
+
+            if (string.IsNullOrWhiteSpace(entry.name) && !string.IsNullOrWhiteSpace(magnetLink.Name))
+            {
+                entry.name = magnetLink.Name;
+                temp[hex] = entry;
+                UpdateMagnet();
+            }
+
+            if (magnetLink.AnnounceUrls != null && magnetLink.AnnounceUrls.Count > 0)
+            {
+                entry.announceUrls.AddRange(magnetLink.AnnounceUrls);
+                UpdateMagnet();
+            }
+
+            void UpdateTitle()
+            {
+                if (string.IsNullOrWhiteSpace(entry.title))
+                    return;
+
+                var title = entry.title;
+
+                if (entry.torrent.Voices != null && entry.torrent.Voices.Count > 0)
+                    title += $" | {string.Join(" | ", entry.torrent.Voices)}";
+
+                entry.torrent.Title = title;
+            }
+
+            if (torrent.TrackerName == "kinozal")
+            {
+                entry.title = torrent.Title;
+                temp[hex] = entry;
+                UpdateTitle();
+            }
+
+            if (torrent.Voices != null && torrent.Voices.Count > 0)
+            {
+                if (entry.torrent.Voices == null)
+                    entry.torrent.Voices = new HashSet<string>(torrent.Voices);
+                else
+                    foreach (var v in torrent.Voices)
+                        entry.torrent.Voices.Add(v);
+
+                UpdateTitle();
+            }
+
+            if (torrent.TrackerName != "selezen")
+            {
+                if (torrent.Sid > entry.torrent.Sid)
+                    entry.torrent.Sid = torrent.Sid;
+
+                if (torrent.Pir > entry.torrent.Pir)
+                    entry.torrent.Pir = torrent.Pir;
+            }
+
+            if (torrent.CreateTime > entry.torrent.CreateTime)
+                entry.torrent.CreateTime = torrent.CreateTime;
+
+            if (torrent.Languages != null && torrent.Languages.Count > 0)
+            {
+                if (entry.torrent.Languages == null)
+                    entry.torrent.Languages = new HashSet<string>();
+
+                foreach (var v in torrent.Languages)
+                    entry.torrent.Languages.Add(v);
+            }
+
+            temp[hex] = entry;
         }
 
-        var mergedMagnet = BuildMagnet(GetInfoHash(merged.Magnet), torrentName, announceUrls);
-        if (!string.IsNullOrWhiteSpace(mergedMagnet))
-            merged.Magnet = mergedMagnet;
-
-        if (!string.IsNullOrWhiteSpace(titleOverride))
-        {
-            merged.Title = titleOverride;
-            if (voices.Any())
-                merged.Title += $" | {string.Join(" | ", voices)}";
-        }
-
-        merged.Voices = voices;
-        merged.Languages = languages;
-        merged.Seasons = seasons;
-
-        return merged;
+        return Task.FromResult(temp.Select(i => i.Value.torrent).ToList());
     }
 
-    /// <summary>
-    ///     Достаёт infohash из магнита, при ошибке возвращает исходную строку.
-    /// </summary>
-    private string GetInfoHash(string magnet)
-    {
-        try
-        {
-            return MagnetLink.Parse(magnet).InfoHashes.V1OrV2.ToHex();
-        }
-        catch
-        {
-            return magnet;
-        }
-    }
-
-    /// <summary>
-    ///     Собирает новую magnet-ссылку из infohash, имени и списка трекеров.
-    /// </summary>
-    private string? BuildMagnet(string infoHash, string name, HashSet<string> announceUrls)
+    private string? BuildMagnet(string infoHash, string? name, List<string> announceUrls)
     {
         if (string.IsNullOrWhiteSpace(infoHash))
             return null;
@@ -164,12 +141,17 @@ public class TorrentMergerService : ITorrentMergerService
         if (!string.IsNullOrWhiteSpace(name))
             magnet += $"&dn={HttpUtility.UrlEncode(name)}";
 
-        foreach (var tr in announceUrls ?? [])
+        if (announceUrls.Count > 0)
         {
-            if (string.IsNullOrWhiteSpace(tr)) continue;
-            var encodedTr = tr.Contains("/") || tr.Contains(":") ? HttpUtility.UrlEncode(tr) : tr;
-            if (!magnet.Contains(encodedTr))
-                magnet += $"&tr={encodedTr}";
+            foreach (var tr in announceUrls)
+            {
+                if (string.IsNullOrWhiteSpace(tr))
+                    continue;
+
+                var encodedTr = tr.Contains("/") || tr.Contains(":") ? HttpUtility.UrlEncode(tr) : tr;
+                if (!magnet.Contains(encodedTr))
+                    magnet += $"&tr={encodedTr}";
+            }
         }
 
         return magnet;
