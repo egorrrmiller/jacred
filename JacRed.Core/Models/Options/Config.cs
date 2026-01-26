@@ -52,6 +52,9 @@ public class Config
     [ConfigurationKeyName("merge-num-duplicates")]
     public bool MergeNumDuplicates { get; set; } = true;
 
+    [ConfigurationKeyName("ffprobe")]
+    public Ffprobe Ffprobe { get; set; } = new();
+
     /// <summary>
     ///     Настройки прокси-серверов для исходящих запросов к трекерам.
     /// </summary>

@@ -125,6 +125,9 @@ public class TorrentMergerService : ITorrentMergerService
                     entry.torrent.Languages.Add(v);
             }
 
+            if (entry.torrent.Ffprobe == null && torrent.Ffprobe != null)
+                entry.torrent.Ffprobe = torrent.Ffprobe;
+
             temp[hex] = entry;
         }
 

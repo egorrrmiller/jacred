@@ -4,6 +4,7 @@ using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Api;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Options;
+using JacRed.Core.Models.Tracks;
 using JacRed.Core.Utils;
 using Microsoft.Extensions.Options;
 using TorrentInfo = JacRed.Core.Models.Api.TorrentInfo;
@@ -133,23 +134,18 @@ public class JackettFacadeService : IJackettFacadeService
 
         foreach (var t in torrents)
         {
-            var languages = new HashSet<string>(t.Languages ?? []);
+            var ffprobe = isNumRequest ? null : t.Ffprobe;
+            var languages = t.Languages?.Count > 0
+                ? new HashSet<string>(t.Languages)
+                : ExtractLanguagesFromFfprobe(ffprobe) ?? new HashSet<string>();
 
             var categoryIds = GetCategoryIds(t, out var categoryDesc);
-            var infoHash = ExtractInfoHash(t.Magnet);
-            var guid = !string.IsNullOrWhiteSpace(t.Magnet) ? t.Magnet : t.Url ?? t.Title;
-            var link = !string.IsNullOrWhiteSpace(t.Magnet) ? t.Magnet : t.Url ?? string.Empty;
             var details = t.Url?.StartsWith("http") == true ? t.Url : null;
 
             results.Add(new Result
             {
-                TrackerId = t.TrackerName,
-                TrackerType = "public",
                 Tracker = t.TrackerName,
-                Guid = guid ?? string.Empty,
-                Link = link,
-                Comments = details ?? string.Empty,
-                Details = details ?? string.Empty,
+                Details = details,
                 Title = t.Title,
                 Size = t.Size,
                 PublishDate = t.CreateTime,
@@ -157,15 +153,9 @@ public class JackettFacadeService : IJackettFacadeService
                 CategoryDesc = categoryDesc,
                 Seeders = t.Sid,
                 Peers = t.Pir,
-                Grabs = 0,
-                InfoHash = infoHash,
-                MagnetUri = t.Magnet,
+                MagnetUri = t.Magnet ?? string.Empty,
+                Ffprobe = ffprobe,
                 Languages = languages,
-                Description = t.Title,
-                DownloadVolumeFactor = 0,
-                UploadVolumeFactor = 1,
-                MinimumRatio = 0,
-                MinimumSeedTime = 0,
                 Info = isNumRequest
                     ? null
                     : new TorrentInfo
@@ -192,6 +182,25 @@ public class JackettFacadeService : IJackettFacadeService
             return true; // Если трекер неизвестен, не фильтруем его (или можно false, если строгая политика)
 
         return !_config.DisableTrackers.Contains(trackerType);
+    }
+
+    private static HashSet<string>? ExtractLanguagesFromFfprobe(List<FfStream>? streams)
+    {
+        if (streams == null || streams.Count == 0)
+            return null;
+
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var stream in streams)
+        {
+            if (!string.Equals(stream.CodecType, "audio", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var lang = stream.Tags?.Language;
+            if (!string.IsNullOrWhiteSpace(lang))
+                set.Add(lang);
+        }
+
+        return set.Count > 0 ? set : null;
     }
 
     private HashSet<int> GetCategoryIds(TorrentDetails t, out string? desc)
@@ -402,24 +411,14 @@ public class JackettFacadeService : IJackettFacadeService
         var result = shouldMerge ? await _mergeService.MergeAsync(torrents) : torrents;
 
         if (apikey == "rus")
-            result = result.Where(t => t.Languages?.Contains("rus") == true ||
-                                       t.Types?.Intersect(new[] { "sport", "tvshow", "docuserial" }).Any() == true)
+            result = result.Where(t =>
+                    (t.Languages?.Contains("rus") == true ||
+                     ExtractLanguagesFromFfprobe(t.Ffprobe)?.Contains("rus") == true) ||
+                    t.Types?.Intersect(new[] { "sport", "tvshow", "docuserial" }).Any() == true)
                 .ToList();
 
         var jResult = await BuildJackettResults(result, isNumRequest);
         return new RootObject { Results = jResult, Error = null };
-    }
-
-    private static string? ExtractInfoHash(string? magnet)
-    {
-        if (string.IsNullOrWhiteSpace(magnet))
-            return null;
-
-        var m = Regex.Match(magnet, "xt=urn:btih:([A-Za-z0-9]+)", RegexOptions.IgnoreCase);
-        if (m.Success && !string.IsNullOrWhiteSpace(m.Groups[1].Value))
-            return m.Groups[1].Value.ToUpperInvariant();
-
-        return null;
     }
 
     private static string BuildTrackerQuery(string query, string title, string titleOriginal)

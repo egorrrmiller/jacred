@@ -13,15 +13,24 @@ merge-duplicates: true
 # работает для сериалов/аниме и похожего контента
 merge-num-duplicates: true
 
+# ffprobe/языки через TorrServer
+ffprobe:
+  enable: true
+  timeout: 180 # таймаут между обновлениями торрентов в минутах
+  tsuri: 'http://127.0.0.1:1111' # адрес торрсервера
+  authorization: #авторизация на вашем торр сервере
+    login: 'login'
+    password: 'password'
+
 ##### настройка трекеров
 # список трекеров для синхронизации актуальности раздач, категорий
 sync-trackers:
   - rutracker
   - aniliberty
+  - rutor
 
 # трекеры, результаты которых будут удалены из ответа
 disable-trackers:
-  - aniliberty
 
 rutracker:
   # точечный рефреш всех торрентов рутрекера в базе

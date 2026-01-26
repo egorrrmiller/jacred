@@ -1,7 +1,9 @@
+using System.Text.Json;
 using Dapper;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Database;
 using JacRed.Core.Models.Details;
+using JacRed.Core.Models.Tracks;
 using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
 using JacRed.Infrastructure.Migrations.Configurations;
@@ -112,7 +114,9 @@ public class TorrentRepository : ITorrentRepository
                 quality                 AS ""Quality"",
                 video_type              AS ""VideoType"",
                 voices                  AS ""Voices"",
-                seasons                 AS ""Seasons""
+                seasons                 AS ""Seasons"",
+                ffprobe                 AS ""Ffprobe"",
+                ffprobe_attempts        AS ""FfprobeAttempts""
             FROM {Schema}.torrents
             WHERE update_time < @Cutoff
             ORDER BY tracker_name, update_time ASC
@@ -171,7 +175,9 @@ public class TorrentRepository : ITorrentRepository
                 quality                 AS ""Quality"",
                 video_type              AS ""VideoType"",
                 voices                  AS ""Voices"",
-                seasons                 AS ""Seasons""
+                seasons                 AS ""Seasons"",
+                ffprobe                 AS ""Ffprobe"",
+                ffprobe_attempts        AS ""FfprobeAttempts""
             FROM {Schema}.torrents
             WHERE tracker_name = @TrackerName
               AND (@UseOlderThan IS FALSE OR check_time < @Cutoff)
@@ -250,6 +256,117 @@ public class TorrentRepository : ITorrentRepository
         return result ?? new DateTime(2000, 1, 1);
     }
 
+    public async Task<List<TorrentDetails>> GetForMediaProbeAsync(
+        int limit,
+        int maxAttempts,
+        IReadOnlyCollection<string>? excludedTypes = null)
+    {
+        if (limit <= 0)
+            return new List<TorrentDetails>();
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        var excluded = excludedTypes?.ToArray() ?? Array.Empty<string>();
+
+        var sql = $@"
+            SELECT 
+                id                      AS ""Id"",
+                tracker_name            AS ""TrackerName"",
+                types                   AS ""Types"",
+                url                     AS ""Url"",
+                title                   AS ""Title"",
+                sid                     AS ""Sid"",
+                pir                     AS ""Pir"",
+                size_name               AS ""SizeName"",
+                create_time             AS ""CreateTime"",
+                update_time             AS ""UpdateTime"",
+                check_time              AS ""CheckTime"",
+                magnet                  AS ""Magnet"",
+                name                    AS ""Name"",
+                original_name           AS ""OriginalName"",
+                relased                 AS ""Relased"",
+                languages               AS ""Languages"",
+                source_season_number    AS ""SourceSeasonNumber"",
+                source_season_order     AS ""SourceSeasonOrder"",
+                size                    AS ""Size"",
+                quality                 AS ""Quality"",
+                video_type              AS ""VideoType"",
+                voices                  AS ""Voices"",
+                seasons                 AS ""Seasons"",
+                ffprobe                 AS ""Ffprobe"",
+                ffprobe_attempts        AS ""FfprobeAttempts""
+            FROM {Schema}.torrents
+            WHERE magnet IS NOT NULL
+              AND ffprobe IS NULL
+              AND ffprobe_attempts < @MaxAttempts
+              AND sid > 0
+              AND (@ExcludedCount = 0 OR NOT (types && @ExcludedTypes))
+            ORDER BY sid DESC, pir DESC, update_time DESC
+            LIMIT @Limit";
+
+        var rows = await connection.QueryAsync<Torrent>(sql, new
+        {
+            Limit = limit,
+            MaxAttempts = maxAttempts,
+            ExcludedTypes = excluded,
+            ExcludedCount = excluded.Length
+        });
+
+        var list = new List<TorrentDetails>();
+        foreach (var row in rows)
+        {
+            var model = MapToDomainModel(row);
+            if (model != null)
+                list.Add(model);
+        }
+
+        return list;
+    }
+
+    public async Task UpdateMediaProbeAsync(string url, List<FfStream> ffprobe, HashSet<string>? languages)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return;
+
+        var ffprobeJson = SerializeFfprobe(ffprobe);
+        if (string.IsNullOrWhiteSpace(ffprobeJson))
+            return;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        var sql = $@"
+            UPDATE {Schema}.torrents SET
+                ffprobe = @Ffprobe::jsonb,
+                languages = @Languages,
+                ffprobe_attempts = 0
+            WHERE url = @Url";
+
+        await connection.ExecuteAsync(sql, new
+        {
+            Url = url,
+            Ffprobe = ffprobeJson,
+            Languages = languages?.ToArray()
+        });
+    }
+
+    public async Task IncrementMediaProbeAttemptsAsync(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        var sql = $@"
+            UPDATE {Schema}.torrents
+            SET ffprobe_attempts = COALESCE(ffprobe_attempts, 0) + 1
+            WHERE url = @Url";
+
+        await connection.ExecuteAsync(sql, new { Url = url });
+    }
+
     #region Private Methods
 
     /// <summary>
@@ -281,9 +398,9 @@ public class TorrentRepository : ITorrentRepository
         var details = src;
         var now = DateTime.UtcNow;
 
-        var fetchSql = $@"SELECT types, name, original_name FROM {Schema}.torrents WHERE url = @Url";
+        var fetchSql = $@"SELECT types, name, original_name, languages FROM {Schema}.torrents WHERE url = @Url";
         var existing =
-            await connection.QueryFirstOrDefaultAsync<(string[] Types, string Name, string OriginalName)?>(fetchSql,
+            await connection.QueryFirstOrDefaultAsync<(string[] Types, string Name, string OriginalName, string[] Languages)?>(fetchSql,
                 new { src.Url });
         var exists = existing != null;
 
@@ -297,6 +414,10 @@ public class TorrentRepository : ITorrentRepository
 
             if (string.IsNullOrWhiteSpace(src.OriginalName) && !string.IsNullOrWhiteSpace(existing.Value.OriginalName))
                 src.OriginalName = existing.Value.OriginalName;
+
+            if ((src.Languages == null || src.Languages.Count == 0) &&
+                existing.Value.Languages is { Length: > 0 })
+                src.Languages = existing.Value.Languages.ToHashSet();
         }
 
         if (exists)
@@ -440,6 +561,8 @@ public class TorrentRepository : ITorrentRepository
             VideoType = details?.VideoType,
             Voices = details?.Voices?.ToArray(),
             Seasons = details?.Seasons?.ToArray(),
+            Ffprobe = SerializeFfprobe(details?.Ffprobe),
+            FfprobeAttempts = details?.FfprobeAttempts ?? 0,
             SearchName = searchName,
             OriginalSearchName = originalSearchName
         };
@@ -476,6 +599,8 @@ public class TorrentRepository : ITorrentRepository
                 VideoType = db.VideoType,
                 Voices = db.Voices?.ToHashSet(),
                 Seasons = db.Seasons?.ToHashSet(),
+                Ffprobe = DeserializeFfprobe(db.Ffprobe),
+                FfprobeAttempts = db.FfprobeAttempts,
                 Id = db.Id
             };
 
@@ -484,6 +609,30 @@ public class TorrentRepository : ITorrentRepository
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to map torrent {Url}", db.Url);
+            return null;
+        }
+    }
+
+    private static string? SerializeFfprobe(List<FfStream>? ffprobe)
+    {
+        if (ffprobe == null || ffprobe.Count == 0)
+            return null;
+
+        return JsonSerializer.Serialize(ffprobe);
+    }
+
+    private static List<FfStream>? DeserializeFfprobe(string? ffprobeJson)
+    {
+        if (string.IsNullOrWhiteSpace(ffprobeJson))
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<FfStream>>(ffprobeJson,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch
+        {
             return null;
         }
     }

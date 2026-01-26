@@ -212,7 +212,7 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
                 if (sizeParts.Length >= 2)
                 {
                     size = ParseSize(sizeParts[0], sizeParts[1]);
-                    sizeName = $"{sizeParts[0]} {sizeParts[1]}";
+                    sizeName = string.Concat((object?)sizeParts[0], (object?)sizeParts[1]);
                 }
             }
 

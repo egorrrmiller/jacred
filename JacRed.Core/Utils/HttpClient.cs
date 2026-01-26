@@ -49,6 +49,50 @@ public class HttpService
 
     #endregion
 
+    #region GetResponse
+
+    public async ValueTask<HttpResponseMessage> GetResponse(
+        string url,
+        string? cookie = null,
+        string? referer = null,
+        int timeoutSeconds = 15,
+        List<(string name, string val)>? addHeaders = null,
+        bool useProxy = false,
+        int httpVersion = 1,
+        bool allowRedirect = true)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, url)
+        {
+            Version = new Version(httpVersion, 0)
+        };
+
+        request.Headers.UserAgent.ParseAdd(UserAgent);
+        if (!string.IsNullOrEmpty(cookie)) request.Headers.Add("cookie", cookie);
+        if (!string.IsNullOrEmpty(referer)) request.Headers.Add("referer", referer);
+        if (addHeaders != null)
+            foreach (var (name, val) in addHeaders)
+                request.Headers.Add(name, val);
+
+        try
+        {
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+            return await GetClient(allowRedirect)
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (timeoutSeconds > 0)
+        {
+            return CreateErrorResponse(HttpStatusCode.RequestTimeout, url, HttpMethod.Get);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug("GetResponse failed for {Url}: {Error}", url, ex.Message);
+            return CreateErrorResponse(HttpStatusCode.InternalServerError, url, HttpMethod.Get);
+        }
+    }
+
+    #endregion
+
     #region Get<T>
 
     public async ValueTask<T> Get<T>(

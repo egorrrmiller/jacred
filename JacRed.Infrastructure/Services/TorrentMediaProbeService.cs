@@ -1,0 +1,232 @@
+using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
+using JacRed.Core.Interfaces;
+using JacRed.Core.Models.Options;
+using JacRed.Core.Models.Tracks;
+using JacRed.Core.Utils;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
+namespace JacRed.Infrastructure.Services;
+
+public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
+{
+    private const int BatchSize = 10;
+    private const int MaxAttempts = 3;
+
+    private readonly Config _config;
+    private readonly HttpService _httpService;
+    private readonly ILogger<TorrentMediaProbeService> _logger;
+    private readonly ITorrentRepository _torrentRepository;
+
+    public TorrentMediaProbeService(
+        ITorrentRepository torrentRepository,
+        HttpService httpService,
+        ILogger<TorrentMediaProbeService> logger,
+        IOptionsSnapshot<Config> config)
+    {
+        _torrentRepository = torrentRepository;
+        _httpService = httpService;
+        _logger = logger;
+        _config = config.Value;
+    }
+
+    public async Task ExecuteAsync(CancellationToken cancellationToken)
+    {
+        if (!_config.Ffprobe.Enable || _config.Ffprobe.TsUri is null)
+            return;
+
+        var torrents = await _torrentRepository.GetForMediaProbeAsync(
+            BatchSize,
+            MaxAttempts);
+
+        if (torrents.Count == 0)
+            return;
+
+        foreach (var torrent in torrents)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (string.IsNullOrWhiteSpace(torrent.Magnet))
+            {
+                await _torrentRepository.IncrementMediaProbeAttemptsAsync(torrent.Url);
+                continue;
+            }
+
+            try
+            {
+                var response = await RunFfprobeAsync(torrent.Magnet, cancellationToken);
+                var streams = response?.Streams;
+                if (streams == null || streams.Count == 0)
+                {
+                    await _torrentRepository.IncrementMediaProbeAttemptsAsync(torrent.Url);
+                    continue;
+                }
+
+                var languages = ExtractLanguagesFromFfprobe(streams);
+                await _torrentRepository.UpdateMediaProbeAsync(torrent.Url, streams, languages);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to probe torrent {Url}", torrent.Url);
+                await _torrentRepository.IncrementMediaProbeAttemptsAsync(torrent.Url);
+            }
+        }
+    }
+
+    private async Task<FfprobeResponse?> RunFfprobeAsync(string magnet, CancellationToken cancellationToken)
+    {
+        var uri = _config.Ffprobe.TsUri;
+        if (string.IsNullOrWhiteSpace(uri))
+            return null;
+
+        var baseUri = uri.TrimEnd('/');
+        var streamUrl = $"{baseUri}/stream?link={Uri.EscapeDataString(magnet)}&index=1&play";
+
+        var authHeader = BuildAuthHeader(_config.Ffprobe.Authorization.Login, _config.Ffprobe.Authorization.Password);
+        var headers = string.IsNullOrEmpty(authHeader)
+            ? null
+            : new List<(string name, string val)> { ("Authorization", authHeader) };
+
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+        var probeToken = linkedCts.Token;
+        using var response = await _httpService.GetResponse(
+            streamUrl,
+            timeoutSeconds: 180,
+            addHeaders: headers);
+
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        Process? process = null;
+
+        try
+        {
+            await using var stream = await response.Content.ReadAsStreamAsync(probeToken).ConfigureAwait(false);
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "ffprobe",
+                Arguments = "-v quiet -print_format json -show_format -show_streams -i pipe:0",
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            process = new Process { StartInfo = startInfo };
+            if (!process.Start())
+                return null;
+
+            var outputTask = process.StandardOutput.ReadToEndAsync();
+            var errorTask = process.StandardError.ReadToEndAsync();
+
+            try
+            {
+                var buffer = new byte[81920];
+                while (true)
+                {
+                    var read = await stream.ReadAsync(buffer, 0, buffer.Length, probeToken).ConfigureAwait(false);
+                    if (read == 0)
+                        break;
+
+                    if (process.HasExited)
+                        break;
+
+                    try
+                    {
+                        await process.StandardInput.BaseStream.WriteAsync(buffer, 0, read, probeToken)
+                            .ConfigureAwait(false);
+                    }
+                    catch (IOException)
+                    {
+                        break;
+                    }
+                }
+            }
+            finally
+            {
+                try
+                {
+                    process.StandardInput.Close();
+                }
+                catch
+                {
+                    // ignored
+                }
+            }
+
+            await process.WaitForExitAsync(probeToken).ConfigureAwait(false);
+
+            var output = await outputTask.ConfigureAwait(false);
+            var error = await errorTask.ConfigureAwait(false);
+
+            if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(output))
+            {
+                if (!string.IsNullOrWhiteSpace(error))
+                    _logger.LogDebug("ffprobe failed: {Error}", error);
+                return null;
+            }
+
+            return JsonSerializer.Deserialize<FfprobeResponse>(
+                output,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "ffprobe crashed");
+            return null;
+        }
+        finally
+        {
+            try
+            {
+                if (process is { HasExited: false })
+                    process.Kill(true);
+            }
+            catch
+            {
+                // ignored
+            }
+        }
+    }
+
+    private static string? BuildAuthHeader(string? user, string? password)
+    {
+        if (string.IsNullOrWhiteSpace(user) || password == null)
+            return null;
+
+        var raw = $"{user}:{password}";
+        return $"Basic {Convert.ToBase64String(Encoding.UTF8.GetBytes(raw))}";
+    }
+
+    private static HashSet<string>? ExtractLanguagesFromFfprobe(List<FfStream>? streams)
+    {
+        if (streams == null || streams.Count == 0)
+            return null;
+
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var stream in streams)
+        {
+            if (!string.Equals(stream.CodecType, "audio", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var lang = stream.Tags?.Language;
+            if (!string.IsNullOrWhiteSpace(lang))
+                set.Add(lang);
+        }
+
+        return set.Count > 0 ? set : null;
+    }
+}

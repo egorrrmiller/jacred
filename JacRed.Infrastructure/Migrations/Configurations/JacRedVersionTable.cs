@@ -1,7 +1,6 @@
 using FluentMigrator.Runner.VersionTableInfo;
-using JacRed.Infrastructure.Migrations.Configurations;
 
-namespace JacRed.Infrastructure.Migrations;
+namespace JacRed.Infrastructure.Migrations.Configurations;
 
 public class JacRedVersionTable : IVersionTableMetaData
 {

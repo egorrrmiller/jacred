@@ -1,3 +1,5 @@
+using JacRed.Core.Models.Tracks;
+
 namespace JacRed.Core.Models.Details;
 
 /// <summary>
@@ -50,6 +52,10 @@ public class TorrentDetails : ICloneable
     public HashSet<string>? Voices { get; set; }
 
     public HashSet<int>? Seasons { get; set; }
+
+    public List<FfStream>? Ffprobe { get; set; }
+
+    public int FfprobeAttempts { get; set; }
 
     public object Clone()
     {

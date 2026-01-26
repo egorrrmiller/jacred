@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using JacRed.Api.Services.Media;
 using JacRed.Api.Services.RuTracker;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Options;
@@ -24,6 +25,7 @@ public static class ServicesConfiguration
             .AddScoped<ITorrentEnricher, TorrentEnricher>()
             .AddScoped<ITorrentSearchService, TorrentSearchService>()
             .AddScoped<ITorrentMergerService, TorrentMergerService>()
+            .AddScoped<ITorrentMediaProbeService, TorrentMediaProbeService>()
             .AddScoped<IJackettFacadeService, JackettFacadeService>()
             .AddScoped<ITorrentSearchPipeline, TorrentSearchPipeline>()
             .AddScoped<ITrackerSearchService, TrackerSearchService>()
@@ -33,6 +35,7 @@ public static class ServicesConfiguration
             // крон сервисы
             .AddScoped<ITrackerRefreshProvider, RuTrackerPopularService>()
             .AddScoped<ITrackerRefreshProvider, RuTrackerRefreshService>()
+            .AddHostedService<TorrentMediaProbeHostedService>()
             .AddHostedService<RuTrackerPopularHostedService>()
             .AddHostedService<RuTrackerRefreshHostedService>();
 
@@ -71,3 +74,6 @@ public static class ServicesConfiguration
             });
     }
 }
+
+
+

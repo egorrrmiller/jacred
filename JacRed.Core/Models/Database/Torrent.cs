@@ -53,6 +53,10 @@ public class Torrent
 
     public int[]? Seasons { get; set; }
 
+    public string? Ffprobe { get; set; }
+
+    public int FfprobeAttempts { get; set; }
+
     public NpgsqlTsVector? SearchTsv { get; set; }
 
     public string? SearchName { get; set; }
