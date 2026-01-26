@@ -5,7 +5,7 @@ namespace JacRed.Core.Models.Options;
 public class Ffprobe
 {
     [ConfigurationKeyName("enable")]
-    public bool Enable { get; set; } = true;
+    public bool Enable { get; set; } = false;
     
     [ConfigurationKeyName("timeout")] 
     public long TimeOut { get; set; }
