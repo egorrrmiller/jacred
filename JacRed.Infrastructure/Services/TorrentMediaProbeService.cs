@@ -12,9 +12,6 @@ namespace JacRed.Infrastructure.Services;
 
 public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
 {
-    private const int BatchSize = 10;
-    private const int MaxAttempts = 3;
-
     private readonly Config _config;
     private readonly HttpService _httpService;
     private readonly ILogger<TorrentMediaProbeService> _logger;
@@ -38,20 +35,20 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
             return;
 
         var torrents = await _torrentRepository.GetForMediaProbeAsync(
-            BatchSize,
-            MaxAttempts);
+            _config.Ffprobe.BatchSize,
+            _config.Ffprobe.Attempts);
 
         if (torrents.Count == 0)
             return;
 
-        foreach (var torrent in torrents)
+        await Parallel.ForEachAsync(torrents, cancellationToken, async (torrent, _) =>
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             if (string.IsNullOrWhiteSpace(torrent.Magnet))
             {
                 await _torrentRepository.IncrementMediaProbeAttemptsAsync(torrent.Url);
-                continue;
+                return;
             }
 
             try
@@ -61,9 +58,10 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
                 if (streams == null || streams.Count == 0)
                 {
                     await _torrentRepository.IncrementMediaProbeAttemptsAsync(torrent.Url);
-                    continue;
+                    return;
                 }
 
+                NormalizeStreamTitles(streams);
                 var languages = ExtractLanguagesFromFfprobe(streams);
                 await _torrentRepository.UpdateMediaProbeAsync(torrent.Url, streams, languages);
             }
@@ -75,6 +73,32 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
             {
                 _logger.LogDebug(ex, "Failed to probe torrent {Url}", torrent.Url);
                 await _torrentRepository.IncrementMediaProbeAttemptsAsync(torrent.Url);
+            }
+        });
+    }
+
+    private void NormalizeStreamTitles(List<FfStream> streams)
+    {
+        foreach (var stream in streams)
+        {
+            if (stream.Tags?.Title == null) continue;
+
+            if (stream.Tags.Title.Any(c => c >= 0x2500 && c <= 0x257F))
+            {
+                try
+                {
+                    Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+                    var cp866 = Encoding.GetEncoding("cp866");
+                    var bytes = cp866.GetBytes(stream.Tags.Title);
+                    var decoded = Encoding.UTF8.GetString(bytes);
+                    
+                    if (decoded.Any(c => c >= 'а' && c <= 'я'))
+                        stream.Tags.Title = decoded;
+                }
+                catch
+                {
+                    // ignored
+                }
             }
         }
     }

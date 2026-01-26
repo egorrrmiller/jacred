@@ -56,7 +56,7 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
 
     public async Task<bool> TryEnrichAsync(TorrentDetails torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
     {
-        if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
+        if (string.IsNullOrWhiteSpace(torrent.Url))
             return false;
 
         if (existing.TryGetValue(torrent.Url, out var cached))
@@ -70,7 +70,7 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
             if (cached.Relased > 0)
                 torrent.Relased = cached.Relased;
             
-            if (cached.Types != null && cached.Types.Length > 0)
+            if (cached.Types.Length > 0)
                 torrent.Types = cached.Types;
 
             if (!string.IsNullOrWhiteSpace(torrent.Name))
@@ -109,11 +109,16 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
             {
                 var category = href.Trim('/').Split('/').LastOrDefault();
                 if (category != null)
-                    torrent.Types = MapCategory(category);
+                {
+                    var types = MapCategory(category);
+                    if (types.Length == 0)
+                        return false;
+                    
+                    torrent.Types = types;
+                }
             }
         }
         
-        // Parse Quality, VideoType, Voices from details
         var qualityElement = detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Качество:"));
         if (qualityElement?.NextSibling != null)
         {
