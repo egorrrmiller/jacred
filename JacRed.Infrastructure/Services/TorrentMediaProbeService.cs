@@ -41,10 +41,14 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
         if (torrents.Count == 0)
             return;
 
-        await Parallel.ForEachAsync(torrents, cancellationToken, async (torrent, _) =>
+        var options = new ParallelOptions
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            MaxDegreeOfParallelism = 1,
+            CancellationToken = cancellationToken
+        };
 
+        await Parallel.ForEachAsync(torrents, options, async (torrent, _) =>
+        {
             if (string.IsNullOrWhiteSpace(torrent.Magnet))
             {
                 await _torrentRepository.IncrementMediaProbeAttemptsAsync(torrent.Url);

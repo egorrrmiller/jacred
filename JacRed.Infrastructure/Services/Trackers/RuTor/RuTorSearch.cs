@@ -38,7 +38,7 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
         
         var options = new ParallelOptions
         {
-            MaxDegreeOfParallelism = Environment.ProcessorCount
+            MaxDegreeOfParallelism = Math.Max(4, Environment.ProcessorCount)
         };
 
         await Parallel.ForEachAsync(
@@ -51,12 +51,13 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
                     TryEnrichAsync);
             });
 
-        return torrents;
+        // Фильтруем раздачи, у которых не определился тип
+        return torrents.Where(t => t.Types != null && t.Types.Length > 0).ToList();
     }
 
     public async Task<bool> TryEnrichAsync(TorrentDetails torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
     {
-        if (string.IsNullOrWhiteSpace(torrent.Url))
+        if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
             return false;
 
         if (existing.TryGetValue(torrent.Url, out var cached))
@@ -70,7 +71,7 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
             if (cached.Relased > 0)
                 torrent.Relased = cached.Relased;
             
-            if (cached.Types.Length > 0)
+            if (cached.Types != null && cached.Types.Length > 0)
                 torrent.Types = cached.Types;
 
             if (!string.IsNullOrWhiteSpace(torrent.Name))
@@ -109,16 +110,11 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
             {
                 var category = href.Trim('/').Split('/').LastOrDefault();
                 if (category != null)
-                {
-                    var types = MapCategory(category);
-                    if (types.Length == 0)
-                        return false;
-                    
-                    torrent.Types = types;
-                }
+                    torrent.Types = MapCategory(category);
             }
         }
         
+        // Parse Quality, VideoType, Voices from details
         var qualityElement = detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Качество:"));
         if (qualityElement?.NextSibling != null)
         {
@@ -170,14 +166,14 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
 
     private IReadOnlyCollection<TorrentDetails> Parse(string html)
     {
-        var list = new ConcurrentBag<TorrentDetails>();
+        var list = new List<TorrentDetails>();
         var document = _parser.ParseDocument(html);
         var rows = document.QuerySelectorAll("#index tr.gai, #index tr.tum");
 
-        Parallel.ForEach(rows, row =>
+        foreach (var row in rows)
         {
             var cells = row.QuerySelectorAll("td");
-            if (cells.Length < 4) return;
+            if (cells.Length < 4) continue;
 
             var dateCell = cells[0];
             var titleCell = cells[1];
@@ -197,10 +193,10 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
             }
             
             var magnetLink = titleCell.QuerySelector("a[href^='magnet:']")?.GetAttribute("href");
-            if (string.IsNullOrWhiteSpace(magnetLink)) return;
+            if (string.IsNullOrWhiteSpace(magnetLink)) continue;
 
             var titleLink = titleCell.QuerySelector("a[href^='/torrent/']");
-            if (titleLink == null) return;
+            if (titleLink == null) continue;
 
             var title = titleLink.TextContent.Trim();
             var url = titleLink.GetAttribute("href");
@@ -274,7 +270,7 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
                 CheckTime = DateTime.Now,
                 Types = Array.Empty<string>()
             });
-        });
+        }
 
         return list;
     }

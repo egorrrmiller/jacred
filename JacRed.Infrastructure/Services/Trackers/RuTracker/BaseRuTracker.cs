@@ -168,28 +168,27 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
             return Array.Empty<TorrentDetails>();
 
         var cleaned = ReplaceBadNames(html);
-        var results = new ConcurrentBag<TorrentDetails>();
+        var results = new List<TorrentDetails>();
         var baseForumUri = new Uri(new Uri(host), "forum/");
 
         var rows = SplitRows(cleaned, 800);
         if (!rows.Any())
             rows = RowRegex.Matches(cleaned).Select(m => m.Value);
-        var options = new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount };
 
-        Parallel.ForEach(rows, options, (row, _) =>
+        foreach (var row in rows)
         {
             var linkMatch = LinkRegex.Match(row);
             if (!linkMatch.Success)
-                return;
+                continue;
 
             var href = NormalizeHref(linkMatch.Groups["url"].Value);
             if (string.IsNullOrWhiteSpace(href))
-                return;
+                continue;
 
             var titleRaw = linkMatch.Groups["title"].Value;
             var title = NormalizeText(WebUtility.HtmlDecode(StripTags(titleRaw)));
             if (string.IsNullOrWhiteSpace(title))
-                return;
+                continue;
 
             var url = new Uri(baseForumUri, href).ToString();
 
@@ -208,18 +207,18 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
             {
                 rowCategoryId = ExtractCategoryId(row);
                 if (!TryGetCategory(rowCategoryId, out category))
-                    return;
+                    continue;
             }
 
             var (name, originalName, relased) = ParseTitle(title, category);
             if (category.Parser == CategoryParser.Generic && SeasonMarkerRegex.IsMatch(title))
-                return;
+                continue;
 
             if (string.IsNullOrWhiteSpace(name))
             {
                 name = Regex.Split(title, "(\\[|\\/|\\(|\\|)", RegexOptions.IgnoreCase)[0].Trim();
                 if (string.IsNullOrWhiteSpace(name))
-                    return;
+                    continue;
             }
 
             results.Add(new TorrentDetails
@@ -239,7 +238,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
                 Relased = relased,
                 Size = sizeBytes
             });
-        });
+        }
 
         return results;
     }
