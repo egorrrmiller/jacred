@@ -3,8 +3,8 @@ using Dapper;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Database;
 using JacRed.Core.Models.Details;
-using JacRed.Core.Models.Tracks;
 using JacRed.Core.Models.Options;
+using JacRed.Core.Models.Tracks;
 using JacRed.Core.Utils;
 using JacRed.Infrastructure.Migrations.Configurations;
 using Microsoft.Extensions.Logging;
@@ -400,8 +400,10 @@ public class TorrentRepository : ITorrentRepository
 
         var fetchSql = $@"SELECT types, name, original_name, languages FROM {Schema}.torrents WHERE url = @Url";
         var existing =
-            await connection.QueryFirstOrDefaultAsync<(string[] Types, string Name, string OriginalName, string[] Languages)?>(fetchSql,
-                new { src.Url });
+            await connection
+                .QueryFirstOrDefaultAsync<(string[] Types, string Name, string OriginalName, string[] Languages)?>(
+                    fetchSql,
+                    new { src.Url });
         var exists = existing != null;
 
         if (exists && existing.HasValue)

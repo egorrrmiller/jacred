@@ -74,6 +74,3 @@ public static class ServicesConfiguration
             });
     }
 }
-
-
-

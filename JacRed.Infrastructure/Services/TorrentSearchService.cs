@@ -1,5 +1,5 @@
-using System.Text.RegularExpressions;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Dapper;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Database;
@@ -424,6 +424,3 @@ public class TorrentSearchService : ITorrentSearchService
 
     #endregion
 }
-
-
-

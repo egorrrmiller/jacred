@@ -88,14 +88,13 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
             if (stream.Tags?.Title == null) continue;
 
             if (stream.Tags.Title.Any(c => c >= 0x2500 && c <= 0x257F))
-            {
                 try
                 {
                     Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
                     var cp866 = Encoding.GetEncoding("cp866");
                     var bytes = cp866.GetBytes(stream.Tags.Title);
                     var decoded = Encoding.UTF8.GetString(bytes);
-                    
+
                     if (decoded.Any(c => c >= 'а' && c <= 'я'))
                         stream.Tags.Title = decoded;
                 }
@@ -103,7 +102,6 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
                 {
                     // ignored
                 }
-            }
         }
     }
 

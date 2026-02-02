@@ -1,4 +1,3 @@
-using System;
 using System.Web;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
@@ -145,7 +144,6 @@ public class TorrentMergerService : ITorrentMergerService
             magnet += $"&dn={HttpUtility.UrlEncode(name)}";
 
         if (announceUrls.Count > 0)
-        {
             foreach (var tr in announceUrls)
             {
                 if (string.IsNullOrWhiteSpace(tr))
@@ -155,7 +153,6 @@ public class TorrentMergerService : ITorrentMergerService
                 if (!magnet.Contains(encodedTr))
                     magnet += $"&tr={encodedTr}";
             }
-        }
 
         return magnet;
     }

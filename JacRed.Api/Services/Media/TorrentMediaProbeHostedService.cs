@@ -13,8 +13,8 @@ public class TorrentMediaProbeHostedService : BackgroundService
 {
     private readonly Config _config;
     private readonly ITorrentMediaProbeService _torrentMediaProbeService;
-    
-    
+
+
     public TorrentMediaProbeHostedService(IServiceScopeFactory scopeFactory)
     {
         using var scope = scopeFactory.CreateScope();
@@ -26,7 +26,6 @@ public class TorrentMediaProbeHostedService : BackgroundService
     {
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(_config.Ffprobe.TimeOut));
         while (await timer.WaitForNextTickAsync(stoppingToken))
-        {
             try
             {
                 await _torrentMediaProbeService.ExecuteAsync(stoppingToken);
@@ -39,6 +38,5 @@ public class TorrentMediaProbeHostedService : BackgroundService
             {
                 // ignored
             }
-        }
     }
 }

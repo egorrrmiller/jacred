@@ -1,6 +1,6 @@
-using System.Collections.Concurrent;
 using System.Globalization;
 using System.Net;
+using System.Text.RegularExpressions;
 using AngleSharp.Html.Parser;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
@@ -12,8 +12,8 @@ namespace JacRed.Infrastructure.Services.Trackers.RuTor;
 public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
 {
     private readonly HttpService _httpService;
-    private readonly ITorrentRepository _torrentRepository;
     private readonly HtmlParser _parser = new();
+    private readonly ITorrentRepository _torrentRepository;
 
     public RuTorSearch(HttpService httpService, ITorrentRepository torrentRepository)
     {
@@ -26,35 +26,6 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
     public override string Host => "http://rutor.info/";
     private string SearchUrl => $"{Host}search/0/0/000/2/";
 
-    public override async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(string query)
-    {
-        var url = SearchUrl + query;
-        var html = await _httpService.Get(url, referer: url);
-        
-        if (string.IsNullOrWhiteSpace(html))
-            return Array.Empty<TorrentDetails>();
-
-        var torrents = Parse(html);
-        
-        var options = new ParallelOptions
-        {
-            MaxDegreeOfParallelism = Math.Max(4, Environment.ProcessorCount)
-        };
-
-        await Parallel.ForEachAsync(
-            torrents,
-            options,
-            async (torrent, _) =>
-            {
-                await _torrentRepository.AddOrUpdateAsync(
-                    new[] { torrent },
-                    TryEnrichAsync);
-            });
-
-        // Фильтруем раздачи, у которых не определился тип
-        return torrents.Where(t => t.Types != null && t.Types.Length > 0).ToList();
-    }
-
     public async Task<bool> TryEnrichAsync(TorrentDetails torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
     {
         if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
@@ -64,13 +35,13 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
         {
             if (!string.IsNullOrWhiteSpace(cached.Name))
                 torrent.Name = cached.Name;
-            
+
             if (!string.IsNullOrWhiteSpace(cached.OriginalName))
                 torrent.OriginalName = cached.OriginalName;
-            
+
             if (cached.Relased > 0)
                 torrent.Relased = cached.Relased;
-            
+
             if (cached.Types != null && cached.Types.Length > 0)
                 torrent.Types = cached.Types;
 
@@ -91,7 +62,8 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
         if (nameElement?.NextSibling != null)
             torrent.Name = nameElement.NextSibling.TextContent.Trim();
 
-        var originalNameElement = detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Оригинальное название:"));
+        var originalNameElement = detailsTable.QuerySelectorAll("b")
+            .FirstOrDefault(e => e.TextContent.Contains("Оригинальное название:"));
         if (originalNameElement?.NextSibling != null)
             torrent.OriginalName = originalNameElement.NextSibling.TextContent.Trim();
 
@@ -113,39 +85,65 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
                     torrent.Types = MapCategory(category);
             }
         }
-        
+
         // Parse Quality, VideoType, Voices from details
-        var qualityElement = detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Качество:"));
+        var qualityElement =
+            detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Качество:"));
         if (qualityElement?.NextSibling != null)
         {
             var qualityText = qualityElement.NextSibling.TextContent.Trim();
             torrent.Quality = StringConvert.ParseQuality(qualityText);
         }
-        
+
         var formatElement = detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Формат:"));
-        if (formatElement?.NextSibling != null)
-        {
-            torrent.VideoType = formatElement.NextSibling.TextContent.Trim();
-        }
-        
-        var translationElement = detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Перевод:"));
+        if (formatElement?.NextSibling != null) torrent.VideoType = formatElement.NextSibling.TextContent.Trim();
+
+        var translationElement =
+            detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Перевод:"));
         if (translationElement?.NextSibling != null)
         {
             var translationText = translationElement.NextSibling.TextContent.Trim();
             if (!string.IsNullOrWhiteSpace(translationText))
-            {
                 torrent.Voices = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { translationText };
-            }
         }
 
         return !string.IsNullOrWhiteSpace(torrent.Name);
+    }
+
+    public override async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(string query)
+    {
+        var url = SearchUrl + query;
+        var html = await _httpService.Get(url, referer: url);
+
+        if (string.IsNullOrWhiteSpace(html))
+            return Array.Empty<TorrentDetails>();
+
+        var torrents = Parse(html);
+
+        var options = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = Math.Max(4, Environment.ProcessorCount)
+        };
+
+        await Parallel.ForEachAsync(
+            torrents,
+            options,
+            async (torrent, _) =>
+            {
+                await _torrentRepository.AddOrUpdateAsync(
+                    new[] { torrent },
+                    TryEnrichAsync);
+            });
+
+        // Фильтруем раздачи, у которых не определился тип
+        return torrents.Where(t => t.Types != null && t.Types.Length > 0).ToList();
     }
 
     private static string[] MapCategory(string category)
     {
         if (string.IsNullOrWhiteSpace(category))
             return Array.Empty<string>();
-        
+
         if (category.Contains("seriali", StringComparison.OrdinalIgnoreCase))
             return new[] { "serial" };
         if (category.Contains("anime", StringComparison.OrdinalIgnoreCase))
@@ -183,7 +181,7 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
             // Handle colspan=2 for title
             if (cells.Length == 4 && cells[1].GetAttribute("colspan") == "2")
             {
-                 // Standard layout with colspan
+                // Standard layout with colspan
             }
             else if (cells.Length == 5)
             {
@@ -191,7 +189,7 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
                 sizeCell = cells[3];
                 seedsPeersCell = cells[4];
             }
-            
+
             var magnetLink = titleCell.QuerySelector("a[href^='magnet:']")?.GetAttribute("href");
             if (string.IsNullOrWhiteSpace(magnetLink)) continue;
 
@@ -217,8 +215,8 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
                 }
             }
 
-            int seeds = 0;
-            int peers = 0;
+            var seeds = 0;
+            var peers = 0;
             if (seedsPeersCell != null)
             {
                 var seedsElement = seedsPeersCell.QuerySelector("span.green");
@@ -228,16 +226,16 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
                 {
                     // Extract number from text like "S 20" or just "20"
                     var seedsText = seedsElement.TextContent.Trim();
-                    var seedsMatch = System.Text.RegularExpressions.Regex.Match(seedsText, @"\d+");
+                    var seedsMatch = Regex.Match(seedsText, @"\d+");
                     if (seedsMatch.Success)
                         int.TryParse(seedsMatch.Value, out seeds);
                 }
-                
+
                 if (peersElement != null)
                 {
                     // Extract number from text like "L 5" or just "5"
                     var peersText = peersElement.TextContent.Trim();
-                    var peersMatch = System.Text.RegularExpressions.Regex.Match(peersText, @"\d+");
+                    var peersMatch = Regex.Match(peersText, @"\d+");
                     if (peersMatch.Success)
                         int.TryParse(peersMatch.Value, out peers);
                 }
@@ -249,10 +247,7 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
                 // Format: 09 Янв 26
                 var dateText = dateCell.TextContent.Trim();
                 var dateParts = dateText.Split(new[] { ' ', '&', '\u00A0' }, StringSplitOptions.RemoveEmptyEntries);
-                if (dateParts.Length >= 3)
-                {
-                    date = ParseDate(dateParts[0], dateParts[1], dateParts[2]);
-                }
+                if (dateParts.Length >= 3) date = ParseDate(dateParts[0], dateParts[1], dateParts[2]);
             }
 
             list.Add(new TorrentDetails
@@ -296,9 +291,9 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
     {
         if (!int.TryParse(d, out var day)) day = 1;
         if (!int.TryParse(y, out var year)) year = 0;
-        
+
         year += 2000; // Assuming 2 digits year
-        
+
         var month = m.ToLowerInvariant() switch
         {
             "янв" => 1,

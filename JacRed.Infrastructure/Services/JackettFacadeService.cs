@@ -412,8 +412,8 @@ public class JackettFacadeService : IJackettFacadeService
 
         if (apikey == "rus")
             result = result.Where(t =>
-                    (t.Languages?.Contains("rus") == true ||
-                     ExtractLanguagesFromFfprobe(t.Ffprobe)?.Contains("rus") == true) ||
+                    t.Languages?.Contains("rus") == true ||
+                    ExtractLanguagesFromFfprobe(t.Ffprobe)?.Contains("rus") == true ||
                     t.Types?.Intersect(new[] { "sport", "tvshow", "docuserial" }).Any() == true)
                 .ToList();
 

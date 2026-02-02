@@ -8,42 +8,29 @@ namespace JacRed.Core.Models.Api;
 /// </summary>
 public class Result
 {
-    [JsonPropertyName("Tracker")]
-    public string Tracker { get; set; } = null!;
+    [JsonPropertyName("Tracker")] public string Tracker { get; set; } = null!;
 
-    [JsonPropertyName("Details")]
-    public string? Details { get; set; }
+    [JsonPropertyName("Details")] public string? Details { get; set; }
 
-    [JsonPropertyName("Title")]
-    public string Title { get; set; } = null!;
+    [JsonPropertyName("Title")] public string Title { get; set; } = null!;
 
-    [JsonPropertyName("Size")]
-    public double Size { get; set; }
+    [JsonPropertyName("Size")] public double Size { get; set; }
 
-    [JsonPropertyName("PublishDate")]
-    public DateTime PublishDate { get; set; }
+    [JsonPropertyName("PublishDate")] public DateTime PublishDate { get; set; }
 
-    [JsonPropertyName("Category")]
-    public HashSet<int> Category { get; set; } = new();
+    [JsonPropertyName("Category")] public HashSet<int> Category { get; set; } = new();
 
-    [JsonPropertyName("CategoryDesc")]
-    public string? CategoryDesc { get; set; }
+    [JsonPropertyName("CategoryDesc")] public string? CategoryDesc { get; set; }
 
-    [JsonPropertyName("Seeders")]
-    public int Seeders { get; set; }
+    [JsonPropertyName("Seeders")] public int Seeders { get; set; }
 
-    [JsonPropertyName("Peers")]
-    public int Peers { get; set; }
+    [JsonPropertyName("Peers")] public int Peers { get; set; }
 
-    [JsonPropertyName("MagnetUri")]
-    public string MagnetUri { get; set; } = null!;
+    [JsonPropertyName("MagnetUri")] public string MagnetUri { get; set; } = null!;
 
-    [JsonPropertyName("ffprobe")]
-    public List<FfStream>? Ffprobe { get; set; }
+    [JsonPropertyName("ffprobe")] public List<FfStream>? Ffprobe { get; set; }
 
-    [JsonPropertyName("languages")]
-    public HashSet<string> Languages { get; set; } = new();
+    [JsonPropertyName("languages")] public HashSet<string> Languages { get; set; } = new();
 
-    [JsonPropertyName("info")]
-    public TorrentInfo? Info { get; set; }
+    [JsonPropertyName("info")] public TorrentInfo? Info { get; set; }
 }
