@@ -14,26 +14,25 @@ namespace JacRed.Api.Services.RuTracker;
 
 public class RuTrackerRefreshHostedService : BackgroundService
 {
-    private readonly Config _config;
-    private readonly RuTrackerRefreshService _ruTrackerRefreshService;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     public RuTrackerRefreshHostedService(IServiceScopeFactory scopeFactory)
     {
-        using var scope = scopeFactory.CreateScope();
-        _config = scope.ServiceProvider.GetRequiredService<IOptionsSnapshot<Config>>().Value;
-        var providers = scope.ServiceProvider.GetRequiredService<IEnumerable<ITrackerRefreshProvider>>();
-        _ruTrackerRefreshService =
-            providers.FirstOrDefault(x => x is RuTrackerRefreshService) as RuTrackerRefreshService ??
-            throw new ArgumentException(nameof(providers));
+        _scopeFactory = scopeFactory;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(_config.RuTracker.Refresh.TimeOut));
+        using var scope = _scopeFactory.CreateScope();
+        var config = scope.ServiceProvider.GetRequiredService<IOptionsSnapshot<Config>>().Value;
+        var providers = scope.ServiceProvider.GetRequiredService<IEnumerable<ITrackerRefreshProvider>>();
+        var ruTrackerRefreshService = providers.FirstOrDefault(x => x is RuTrackerRefreshService) as RuTrackerRefreshService ?? throw new ArgumentException(nameof(providers));
+
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(config.RuTracker.Refresh.TimeOut));
         while (await timer.WaitForNextTickAsync(stoppingToken))
             try
             {
-                await _ruTrackerRefreshService.InvokeAsync();
+                await ruTrackerRefreshService.InvokeAsync();
             }
             catch (OperationCanceledException)
             {
