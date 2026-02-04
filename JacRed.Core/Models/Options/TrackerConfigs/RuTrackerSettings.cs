@@ -27,21 +27,21 @@ public class RefreshSettings
 {
     [ConfigurationKeyName("enable")] public bool Enable { get; set; } = false;
 
-    [ConfigurationKeyName("timeout")] public long TimeOut { get; set; }
+    [ConfigurationKeyName("timeout")] public int TimeOut { get; set; }
 
     [ConfigurationKeyName("older-than-min")]
     public long OlderThanMin { get; set; } = 120;
 
-    [ConfigurationKeyName("limit")] public long Limit { get; set; } = 100;
+    [ConfigurationKeyName("limit")] public int Limit { get; set; } = 100;
 }
 
 public class Popular
 {
     [ConfigurationKeyName("enable")] public bool Enable { get; set; } = false;
 
-    [ConfigurationKeyName("timeout")] public long TimeOut { get; set; }
+    [ConfigurationKeyName("timeout")] public int TimeOut { get; set; }
 
-    [ConfigurationKeyName("max-pages")] public long MaxPages { get; set; }
+    [ConfigurationKeyName("max-pages")] public int MaxPages { get; set; }
 
-    [ConfigurationKeyName("categories")] public IReadOnlyCollection<long> Categories { get; set; } = [];
+    [ConfigurationKeyName("categories")] public IReadOnlyCollection<int> Categories { get; set; } = [];
 }

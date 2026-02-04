@@ -12,21 +12,23 @@ namespace JacRed.Api.Services.Media;
 public class TorrentMediaProbeHostedService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
-    public TorrentMediaProbeHostedService(IServiceScopeFactory scopeFactory)
+    private readonly Config _config;
+
+    public TorrentMediaProbeHostedService(IServiceScopeFactory scopeFactory, IOptions<Config> config)
     {
         _scopeFactory = scopeFactory;
+        _config = config.Value;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var config = scope.ServiceProvider.GetRequiredService<IOptionsSnapshot<Config>>().Value;
-        var torrentMediaProbeService = scope.ServiceProvider.GetRequiredService<ITorrentMediaProbeService>();
-        
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(config.Ffprobe.TimeOut));
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(_config.Ffprobe.TimeOut));
         while (await timer.WaitForNextTickAsync(stoppingToken))
             try
             {
+                using var scope = _scopeFactory.CreateScope();
+                var torrentMediaProbeService = scope.ServiceProvider.GetRequiredService<ITorrentMediaProbeService>();
+                
                 await torrentMediaProbeService.ExecuteAsync(stoppingToken);
             }
             catch (OperationCanceledException)

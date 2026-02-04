@@ -15,23 +15,24 @@ namespace JacRed.Api.Services.RuTracker;
 public class RuTrackerPopularHostedService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly Config _config;
 
-    public RuTrackerPopularHostedService(IServiceScopeFactory scopeFactory)
+    public RuTrackerPopularHostedService(IServiceScopeFactory scopeFactory, IOptions<Config> config)
     {
         _scopeFactory = scopeFactory;
+        _config = config.Value;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var config = scope.ServiceProvider.GetRequiredService<IOptionsSnapshot<Config>>().Value;
-        var providers = scope.ServiceProvider.GetRequiredService<IEnumerable<ITrackerRefreshProvider>>();
-        var ruTrackerPopularService = providers.FirstOrDefault(x => x is RuTrackerPopularService) as RuTrackerPopularService ?? throw new ArgumentException(nameof(providers));
-        
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(config.RuTracker.Popular.TimeOut));
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(_config.RuTracker.Popular.TimeOut));
         while (await timer.WaitForNextTickAsync(stoppingToken))
             try
             {
+                using var scope = _scopeFactory.CreateScope();
+                var providers = scope.ServiceProvider.GetRequiredService<IEnumerable<ITrackerRefreshProvider>>();
+                var ruTrackerPopularService = providers.FirstOrDefault(x => x is RuTrackerPopularService) as RuTrackerPopularService ?? throw new ArgumentException(nameof(providers));
+                
                 await ruTrackerPopularService.InvokeAsync();
             }
             catch (OperationCanceledException)
