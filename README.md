@@ -101,7 +101,7 @@ volumes:
 
 ## ⚙️ 3. Конфигурация приложения (config.yml)
 
-Создайте файл `config.yml`. Файл монтируется в контейнер как `/app/config.local.yml`.
+Создайте файл `config.yml` рядом с `docker-compose.yml`. Файл монтируется в контейнер как `/app/config.local.yml`.
 > Полный список категорий RuTracker доступен [здесь](https://github.com/egorrrmiller/jacred/tree/main/JacRed.Infrastructure/Services/Trackers/RuTracker/RuTrackers_categories.md).
 
 ```yaml
