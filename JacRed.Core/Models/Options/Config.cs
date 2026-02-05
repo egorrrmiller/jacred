@@ -83,4 +83,10 @@ public class Config
     /// </summary>
     [ConfigurationKeyName("rutracker")]
     public RuTrackerSettings RuTracker { get; set; } = new();
+
+    /// <summary>
+    ///     Настройки для LostFilm.
+    /// </summary>
+    [ConfigurationKeyName("lostfilm")]
+    public LostFilmSettings LostFilm { get; set; } = new();
 }

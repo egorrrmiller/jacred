@@ -1,7 +1,7 @@
 ##### настройка сервера
 listen-ip: any
 listen-port: 9117
-api-key: 'key'
+api-key: ''
 web: true
 
 ##### настройка выдачи
@@ -15,7 +15,7 @@ merge-num-duplicates: true
 
 # ffprobe/языки через TorrServer
 ffprobe:
-  enable: false
+  enable: true
   timeout: 10
   tsuri: ''
   batch-size: 5 # кол-во торрентов для обработки за раз
@@ -33,6 +33,9 @@ sync-trackers:
 
 # трекеры, результаты которых будут удалены из ответа
 disable-trackers:
+  - rutracker
+  - aniliberty
+  - rutor
 
 rutracker:
   # точечный рефреш всех торрентов рутрекера в базе
@@ -53,3 +56,6 @@ rutracker:
   authorization:
     login: ''
     password: ''
+
+lostfilm:
+  cookie: ''
