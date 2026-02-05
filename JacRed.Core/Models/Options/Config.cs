@@ -85,8 +85,8 @@ public class Config
     public RuTrackerSettings RuTracker { get; set; } = new();
 
     /// <summary>
-    ///     Настройки для LostFilm.
+    ///     Настройки для AnimeLayer.
     /// </summary>
-    [ConfigurationKeyName("lostfilm")]
-    public LostFilmSettings LostFilm { get; set; } = new();
+    [ConfigurationKeyName("animelayer")]
+    public AnimeLayerSettings AnimeLayer { get; set; } = new();
 }

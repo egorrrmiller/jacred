@@ -210,12 +210,12 @@ public class HttpService
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
             using var response = await _httpClient
-                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
 
             if (response.StatusCode != HttpStatusCode.OK)
                 return null;
 
-            var bytes = await response.Content.ReadAsByteArrayAsync(cts.Token).ConfigureAwait(false);
+            var bytes = await response.Content.ReadAsByteArrayAsync(cts.Token);
             return bytes.Length == 0 ? null : bytes;
         }
         catch
@@ -287,33 +287,6 @@ public class HttpService
 
     #region Post
 
-    public ValueTask<string> Post(
-        string url,
-        string data,
-        string? cookie = null,
-        int maxResponseSize = 10_000_000,
-        int timeoutSeconds = 15,
-        List<(string name, string val)>? addHeaders = null,
-        bool useProxy = false,
-        bool allowRedirect = true)
-    {
-        var content = new StringContent(data, Encoding.UTF8, "application/x-www-form-urlencoded");
-        return Post(url, content, cookie, timeoutSeconds, addHeaders, useProxy, null, maxResponseSize, allowRedirect);
-    }
-
-    public ValueTask<HttpResponseMessage> PostResponse(
-        string url,
-        string data,
-        string? cookie = null,
-        int timeoutSeconds = 15,
-        List<(string name, string val)>? addHeaders = null,
-        bool useProxy = false,
-        bool allowRedirect = true)
-    {
-        var content = new StringContent(data, Encoding.UTF8, "application/x-www-form-urlencoded");
-        return PostResponse(url, content, cookie, timeoutSeconds, addHeaders, useProxy, allowRedirect);
-    }
-
     public async ValueTask<HttpResponseMessage> PostResponse(
         string url,
         HttpContent content,
@@ -384,55 +357,6 @@ public class HttpService
         catch
         {
             return string.Empty;
-        }
-    }
-
-    #endregion
-
-    #region Post<T>
-
-    public async ValueTask<T> Post<T>(
-        string url,
-        string data,
-        string? cookie = null,
-        int timeoutSeconds = 15,
-        List<(string name, string val)>? addHeaders = null,
-        bool useProxy = false,
-        Encoding? encoding = null,
-        bool ignoreDeserializeErrors = false,
-        int maxResponseSize = 10_000_000,
-        bool allowRedirect = true)
-    {
-        var content = new StringContent(data, Encoding.UTF8, "application/x-www-form-urlencoded");
-        return await Post<T>(url, content, cookie, timeoutSeconds, addHeaders, useProxy, encoding,
-            ignoreDeserializeErrors, maxResponseSize, allowRedirect);
-    }
-
-    public async ValueTask<T> Post<T>(
-        string url,
-        HttpContent content,
-        string? cookie = null,
-        int timeoutSeconds = 15,
-        List<(string name, string val)>? addHeaders = null,
-        bool useProxy = false,
-        Encoding? encoding = null,
-        bool ignoreDeserializeErrors = false,
-        int maxResponseSize = 10_000_000,
-        bool allowRedirect = true)
-    {
-        try
-        {
-            var json = await Post(url, content, cookie, timeoutSeconds, addHeaders, useProxy, encoding, maxResponseSize,
-                allowRedirect);
-            if (string.IsNullOrEmpty(json)) return default!;
-            var settings = ignoreDeserializeErrors
-                ? new JsonSerializerSettings { Error = (se, ev) => ev.ErrorContext.Handled = true }
-                : null;
-            return JsonConvert.DeserializeObject<T>(json, settings)!;
-        }
-        catch
-        {
-            return default!;
         }
     }
 

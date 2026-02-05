@@ -56,3 +56,8 @@ rutracker:
   authorization:
     login: ''
     password: ''
+
+animelayer:
+  authorization:
+    login: ''
+    password: ''

@@ -14,8 +14,8 @@ namespace JacRed.Api.Services.RuTracker;
 
 public class RuTrackerPopularHostedService : BackgroundService
 {
-    private readonly IServiceScopeFactory _scopeFactory;
     private readonly Config _config;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     public RuTrackerPopularHostedService(IServiceScopeFactory scopeFactory, IOptions<Config> config)
     {
@@ -31,8 +31,10 @@ public class RuTrackerPopularHostedService : BackgroundService
             {
                 using var scope = _scopeFactory.CreateScope();
                 var providers = scope.ServiceProvider.GetRequiredService<IEnumerable<ITrackerRefreshProvider>>();
-                var ruTrackerPopularService = providers.FirstOrDefault(x => x is RuTrackerPopularService) as RuTrackerPopularService ?? throw new ArgumentException(nameof(providers));
-                
+                var ruTrackerPopularService =
+                    providers.FirstOrDefault(x => x is RuTrackerPopularService) as RuTrackerPopularService ??
+                    throw new ArgumentException(nameof(providers));
+
                 await ruTrackerPopularService.InvokeAsync();
             }
             catch (OperationCanceledException)
