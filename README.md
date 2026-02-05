@@ -7,11 +7,22 @@
 
 ---
 
-## 🚀 Быстрый старт
+## 🚀 1. Настройка окружения (.env)
 
-### 1. Подготовка окружения
-Создайте файл `.env` рядом с `docker-compose.yml`:
+Создайте файл `.env`. Параметры определяют настройки контейнеров и подключения к БД.
 
+### Описание параметров
+| Переменная | Описание |
+|------------|----------|
+| `APP_PORT` | Внешний порт приложения |
+| `HEALTHCHECK_PORT` | Порт для проверки здоровья контейнера |
+| `TZ`, `UMASK` | Часовой пояс и маска прав доступа |
+| `DB_*` | Параметры подключения к Postgres (Host, Port, Name, User, Password) |
+| `DB_CONNECTION` | Полная строка подключения (перекрывает параметры `DB_*`) |
+| `IMAGE_NAME` | Тег Docker-образа |
+| `CONFIG_PATH` | Путь к локальному файлу конфигурации |
+
+### Пример файла .env
 ```env
 APP_PORT=9117
 HEALTHCHECK_PORT=9117
@@ -27,24 +38,11 @@ DB_PASSWORD=jacred
 IMAGE_NAME=ghcr.io/egorrrmiller/jacred:latest
 ```
 
-### 2. Конфигурация
-Скопируйте пример конфига в файл `config.yml` рядом с `docker-compose.yml`.
-Файл будет автоматически примонтирован в контейнер как `/app/config.local.yml`.
-
-### 3. Запуск
-```bash
-# Стандартный запуск (если .env лежит рядом)
-docker-compose up -d --build
-
-# Если .env файл находится в другой директории
-docker-compose --env-file /path/to/.env up -d --build
-```
-
 ---
 
-## 🐳 Docker Compose
+## 🐳 2. Docker Compose
 
-Пример файла `docker-compose.yml` для развертывания:
+Создайте файл `docker-compose.yml` рядом с `.env`.
 
 ```yaml
 name: jacred
@@ -99,22 +97,12 @@ volumes:
   jacred-db:
 ```
 
-### Переменные окружения
-| Переменная | Описание |
-|------------|----------|
-| `APP_PORT` | Внешний порт приложения |
-| `HEALTHCHECK_PORT` | Порт для проверки здоровья контейнера |
-| `TZ`, `UMASK` | Часовой пояс и маска прав доступа |
-| `DB_*` | Параметры подключения к Postgres (Host, Port, Name, User, Password) |
-| `DB_CONNECTION` | Полная строка подключения (перекрывает параметры `DB_*`) |
-| `IMAGE_NAME` | Тег Docker-образа |
-| `CONFIG_PATH` | Путь к локальному файлу конфигурации |
-
 ---
 
-## ⚙️ Конфигурация (config.yml)
+## ⚙️ 3. Конфигурация приложения (config.yml)
 
-Полный список категорий RuTracker доступен [здесь](https://github.com/egorrrmiller/jacred/tree/main/JacRed.Infrastructure/Services/Trackers/RuTracker/RuTrackers_categories.md).
+Создайте файл `config.yml`. Файл монтируется в контейнер как `/app/config.local.yml`.
+> Полный список категорий RuTracker доступен [здесь](https://github.com/egorrrmiller/jacred/tree/main/JacRed.Infrastructure/Services/Trackers/RuTracker/RuTrackers_categories.md).
 
 ```yaml
 ##### Настройка сервера
@@ -182,9 +170,25 @@ rutor:
 
 ---
 
-## 📝 Примечания
-- **Миграции БД**: Выполняются автоматически при старте контейнера.
-- **Сброс данных**: Команда для полной переинициализации (с удалением базы данных):
-  ```bash
-  docker-compose down -v && docker-compose up -d --build
-  ```
+## 🚀 4. Запуск
+
+Запуск контейнеров в фоновом режиме:
+```bash
+docker-compose up -d --build
+```
+
+Если `.env` файл находится в другой директории:
+```bash
+docker-compose --env-file /path/to/.env up -d --build
+```
+
+---
+
+## 📝 5. Примечания
+
+**Миграции БД**: Выполняются автоматически при старте контейнера.
+
+**Сброс данных**: Команда для полной переинициализации (с удалением базы данных):
+```bash
+docker-compose down -v && docker-compose up -d --build
+```
