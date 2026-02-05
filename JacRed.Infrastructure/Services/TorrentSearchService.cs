@@ -48,7 +48,7 @@ public class TorrentSearchService : ITorrentSearchService
         bool exact = false)
     {
         if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(originalTitle))
-            return new List<TorrentDetails>();
+            return [];
 
         var queryForTracking = !string.IsNullOrWhiteSpace(title)
             ? title
@@ -61,7 +61,7 @@ public class TorrentSearchService : ITorrentSearchService
 
         if (exact)
         {
-            var torrents = await SearchExactByNormalizedNamesAsync(new[] { searchName, searchOriginal }, year,
+            var torrents = await SearchExactByNormalizedNamesAsync([searchName, searchOriginal], year,
                 mediaType, $"{title} {originalTitle}");
             return torrents;
         }
@@ -79,14 +79,14 @@ public class TorrentSearchService : ITorrentSearchService
         bool exact = false)
     {
         if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
-            return new List<TorrentDetails>();
+            return [];
 
         await _torrentRepository.TrackSearchQueryAsync(query);
 
         var searchQuery = StringConvert.SearchName(query);
 
         if (exact)
-            return await SearchExactByNormalizedNamesAsync(new[] { searchQuery }, null, mediaType, query);
+            return await SearchExactByNormalizedNamesAsync([searchQuery], null, mediaType, query);
 
         return await SearchByFtsAndTrigramAsync(searchQuery, searchQuery, query, null, mediaType);
     }
@@ -104,7 +104,7 @@ public class TorrentSearchService : ITorrentSearchService
     {
         var terms = normalizedTerms.Where(t => !string.IsNullOrWhiteSpace(t)).Distinct().ToArray();
         if (terms.Length == 0)
-            return new List<TorrentDetails>();
+            return [];
 
         var suffixPattern = mediaType == 1 ? "(\\D|$)" : ".*";
         var termRegexes = terms
@@ -168,7 +168,7 @@ public class TorrentSearchService : ITorrentSearchService
         var rows = await connection.QueryAsync<Torrent>(sql, new
         {
             Terms = terms,
-            LikeTerms = likeTerms.Length > 0 ? likeTerms : Array.Empty<string>(),
+            LikeTerms = likeTerms.Length > 0 ? likeTerms : [],
             RawLikeTerms = rawLikeTerms,
             TermRegexes = termRegexes,
             MaxRead = _config.MaxResultCount,
@@ -268,10 +268,10 @@ public class TorrentSearchService : ITorrentSearchService
 
         var torrents = await connection.QueryAsync<Torrent>(sql, new
         {
-            Terms = terms.Length > 0 ? terms : Array.Empty<string>(),
-            LikeTerms = likeTerms.Length > 0 ? likeTerms : Array.Empty<string>(),
+            Terms = terms.Length > 0 ? terms : [],
+            LikeTerms = likeTerms.Length > 0 ? likeTerms : [],
             RawLikeTerms = rawLikeTerms,
-            TermRegexes = termRegexes.Length > 0 ? termRegexes : Array.Empty<string>(),
+            TermRegexes = termRegexes.Length > 0 ? termRegexes : [],
             WebTerm = hasWeb ? webTerm : string.Empty,
             HasWeb = hasWeb,
             MaxRead = _config.MaxResultCount

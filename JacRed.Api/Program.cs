@@ -74,7 +74,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services.AddResponseCompression(options =>
 {
     options.MimeTypes = ResponseCompressionDefaults.MimeTypes
-        .Concat(new[] { "application/vnd.apple.mpegurl", "image/svg+xml" });
+        .Concat(["application/vnd.apple.mpegurl", "image/svg+xml"]);
 });
 
 builder.Services.AddRouting(options => options.LowercaseUrls = true);

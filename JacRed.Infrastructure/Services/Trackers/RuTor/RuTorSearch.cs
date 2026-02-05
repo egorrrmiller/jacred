@@ -116,7 +116,7 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
         var html = await _httpService.Get(url, referer: url);
 
         if (string.IsNullOrWhiteSpace(html))
-            return Array.Empty<TorrentDetails>();
+            return [];
 
         var torrents = Parse(html);
 
@@ -131,7 +131,7 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
             async (torrent, _) =>
             {
                 await _torrentRepository.AddOrUpdateAsync(
-                    new[] { torrent },
+                    [torrent],
                     TryEnrichAsync);
             });
 
@@ -142,24 +142,24 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
     private static string[] MapCategory(string category)
     {
         if (string.IsNullOrWhiteSpace(category))
-            return Array.Empty<string>();
+            return [];
 
         if (category.Contains("seriali", StringComparison.OrdinalIgnoreCase))
-            return new[] { "serial" };
+            return ["serial"];
         if (category.Contains("anime", StringComparison.OrdinalIgnoreCase))
-            return new[] { "anime" };
+            return ["anime"];
         if (category.Contains("kino", StringComparison.OrdinalIgnoreCase))
-            return new[] { "movie" };
+            return ["movie"];
         if (category.Contains("nashe_kino", StringComparison.OrdinalIgnoreCase))
-            return new[] { "movie" };
+            return ["movie"];
         if (category.Contains("nashi_seriali", StringComparison.OrdinalIgnoreCase))
-            return new[] { "serial" };
+            return ["serial"];
         if (category.Contains("tv", StringComparison.OrdinalIgnoreCase))
-            return new[] { "tvshow" };
+            return ["tvshow"];
         if (category.Contains("multiki", StringComparison.OrdinalIgnoreCase))
-            return new[] { "multfilm" };
+            return ["multfilm"];
 
-        return Array.Empty<string>();
+        return [];
     }
 
     private IReadOnlyCollection<TorrentDetails> Parse(string html)
@@ -246,7 +246,7 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
             {
                 // Format: 09 Янв 26
                 var dateText = dateCell.TextContent.Trim();
-                var dateParts = dateText.Split(new[] { ' ', '&', '\u00A0' }, StringSplitOptions.RemoveEmptyEntries);
+                var dateParts = dateText.Split([' ', '&', '\u00A0'], StringSplitOptions.RemoveEmptyEntries);
                 if (dateParts.Length >= 3) date = ParseDate(dateParts[0], dateParts[1], dateParts[2]);
             }
 
@@ -263,7 +263,7 @@ public class RuTorSearch : BaseTrackerSearch, ITrackerCatalogEnricher
                 CreateTime = date,
                 UpdateTime = DateTime.UtcNow,
                 CheckTime = DateTime.Now,
-                Types = Array.Empty<string>()
+                Types = []
             });
         }
 

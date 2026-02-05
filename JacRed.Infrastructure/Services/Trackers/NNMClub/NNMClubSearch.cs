@@ -1,18 +1,19 @@
+using System.Text;
+using System.Web;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
 using Microsoft.Extensions.Options;
 
-namespace JacRed.Infrastructure.Services.Trackers.RuTracker;
+namespace JacRed.Infrastructure.Services.Trackers.NNMClub;
 
-public sealed class RuTrackerSearch : BaseRuTracker
+public class NNMClubSearch : BaseNNMClub
 {
     private readonly ITorrentRepository _torrentRepository;
     private readonly Config _config;
-
-    public RuTrackerSearch(ICacheService cacheService, HttpService httpService, IOptionsSnapshot<Config> config,
-        ITorrentRepository torrentRepository) : base(cacheService, httpService, config)
+    
+    public NNMClubSearch(HttpService httpService, ITorrentRepository torrentRepository, IOptionsSnapshot<Config> config) : base(httpService)
     {
         _torrentRepository = torrentRepository;
         _config = config.Value;
@@ -20,21 +21,31 @@ public sealed class RuTrackerSearch : BaseRuTracker
 
     public override async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(string query)
     {
-        if (!_config.RuTracker.EnableSearch)
+        if (!_config.NNMClub.EnableSearch)
             return [];
 
         var results = new Dictionary<string, TorrentDetails>(StringComparer.OrdinalIgnoreCase);
-        var now = DateTime.UtcNow;
+        var parameters = GetSearchParameters(query);
+        var url = $"{Host}/forum/tracker.php";
+        
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        var encoding = Encoding.GetEncoding("windows-1251");
+        
+        var pairs = parameters.Select(kv => $"{HttpUtility.UrlEncode(kv.Key)}={HttpUtility.UrlEncode(kv.Value, encoding)}");
+        var formEncoded = string.Join("&", pairs);
+        
+        var content = new StringContent(formEncoded, encoding, "application/x-www-form-urlencoded");
+        
+        var html = await _httpService.Post(url, content, encoding: encoding);
+        
+        if (string.IsNullOrWhiteSpace(html))
+            return [];
 
-        var url = BuildQueryUrl(Host, query, 0);
-        var parsed = await FetchForumPageAsync(url, string.Empty, now);
-
-        if (parsed.Count == 0)
-            return new List<TorrentDetails>();
-
+        var parsed =  ParseTrackerPage(html, Host);
+        
         foreach (var item in parsed)
             results[item.Url] = item;
-
+        
         var options = new ParallelOptions
         {
             MaxDegreeOfParallelism = Environment.ProcessorCount

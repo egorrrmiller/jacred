@@ -25,7 +25,7 @@ public abstract class BaseAnimeLayer : BaseTrackerSearch
         _config = config.Value;
     }
 
-    public override TrackerType Tracker => TrackerType.Animelayer;
+    public override TrackerType Tracker => TrackerType.AnimeLayer;
     public override string TrackerName => "animelayer";
     public override string Host => "https://animelayer.ru";
 

@@ -4,7 +4,7 @@ public enum TrackerType
 {
     Anifilm = 0,
     Aniliberty = 1,
-    Animelayer = 2,
+    AnimeLayer = 2,
     Baibako = 3,
     Bitru = 4,
     Kinozal = 5,

@@ -45,25 +45,29 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
     {
         var (search, altname) = await ResolveKpImdb(request.Search, request.AltName);
 
-        // В старой ручке /api/v1.0/torrents типы фильтровались после выборки.
-        // Чтобы не отсекать результаты (например, фильмы с пометкой "сезон"),
-        // не передаем mediaType в поиск и фильтруем по type ниже.
+        // 1. Ищем локально в базе данных
         var torrents = await SearchLocalAsync(search, altname, null, request.Exact);
+        
+        // 2. Фильтруем результаты. Если трекер выключен (EnableSearch = false), 
+        // мы скрываем его раздачи, даже если они есть в базе.
         torrents = FilterAllowedTrackers(torrents).ToList();
         var usedFallback = false;
 
-        // Если точный поиск ничего не дал — пробуем нестрогий вариант локально (как в старой логике).
+        // Если точный поиск ничего не дал — пробуем нестрогий вариант локально.
         if (request.Exact && torrents.Count == 0)
         {
             torrents = await SearchLocalAsync(search, altname, null, false);
             torrents = FilterAllowedTrackers(torrents).ToList();
         }
 
+        // 3. Если локально пусто (или все отфильтровано), идем во внешние источники
         if (torrents.Count == 0)
         {
             var trackerQuery = BuildTrackerQuery(search, altname);
             if (!string.IsNullOrWhiteSpace(trackerQuery))
             {
+                // TrackerSearchService сам вызовет только те трекеры, у которых EnableSearch = true
+                // (проверка внутри самих реализаций трекеров)
                 var fetched = await _trackerSearchService.SearchAsync(
                     trackerQuery,
                     _trackerSearchService.GetSupportedTrackers());
@@ -72,6 +76,8 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
                 {
                     await _torrentRepository.AddOrUpdateAsync(fetched);
                     usedFallback = true;
+                    
+                    // Повторный поиск в базе, чтобы применились все локальные фильтры и нормализация
                     torrents = await SearchLocalAsync(search, altname, null, request.Exact);
                     torrents = FilterAllowedTrackers(torrents).ToList();
 
@@ -202,19 +208,6 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
         return $"{search} {altname}".Trim();
     }
 
-    private static int? TypeToId(string? type)
-    {
-        return type switch
-        {
-            "movie" => 1,
-            "serial" => 2,
-            "tvshow" => 3,
-            "docuserial" => 4,
-            "anime" => 5,
-            _ => null
-        };
-    }
-
     private IEnumerable<TorrentDetails> FilterAllowedTrackers(IEnumerable<TorrentDetails> source)
     {
         return source.Where(t =>
@@ -222,11 +215,21 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
             if (!Enum.TryParse<TrackerType>(t.TrackerName, true, out var trackerType))
                 return false;
 
-            if (_config.SyncTrackers.Count > 0 &&
-                !_config.SyncTrackers.Contains(trackerType))
-                return false;
-
-            return !_config.DisableTrackers.Contains(trackerType);
+            // Если EnableSearch = false, мы скрываем результаты этого трекера из выдачи
+            return IsTrackerSearchEnabled(trackerType);
         });
+    }
+
+    private bool IsTrackerSearchEnabled(TrackerType type)
+    {
+        return type switch
+        {
+            TrackerType.Rutracker => _config.RuTracker.EnableSearch,
+            TrackerType.AnimeLayer => _config.AnimeLayer.EnableSearch,
+            TrackerType.NNMClub => _config.NNMClub.EnableSearch,
+            TrackerType.Rutor => _config.RuTor.EnableSearch,
+            TrackerType.Aniliberty => _config.Aniliberty.EnableSearch,
+            _ => true // Если трекер не описан в конфиге явно, считаем его включенным
+        };
     }
 }

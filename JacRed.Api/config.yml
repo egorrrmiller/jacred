@@ -25,19 +25,11 @@ ffprobe:
     password: ''
 
 ##### настройка трекеров
-# список трекеров для синхронизации актуальности раздач, категорий
-sync-trackers:
-  - rutracker
-  - aniliberty
-  - rutor
-
-# трекеры, результаты которых будут удалены из ответа
-disable-trackers:
-  - rutracker
-  - aniliberty
-  - rutor
 
 rutracker:
+  enable-search: true
+  enable-sync: true
+  
   # точечный рефреш всех торрентов рутрекера в базе
   refresh:
     enable: true # включить/выключить
@@ -58,6 +50,15 @@ rutracker:
     password: ''
 
 animelayer:
+  enable-search: false
+  enable-sync: false
   authorization:
     login: ''
     password: ''
+
+nnmclub:
+  enable-search: true
+  enable-sync: false
+
+rutor:
+  enable-search: true

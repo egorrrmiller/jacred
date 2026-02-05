@@ -67,18 +67,6 @@ public class Config
     public Cache Cache { get; set; } = new();
 
     /// <summary>
-    ///     Список трекеров, которые будут синхронизированы.
-    /// </summary>
-    [ConfigurationKeyName("sync-trackers")]
-    public List<TrackerType> SyncTrackers { get; set; } = new();
-
-    /// <summary>
-    ///     Список трекеров, результаты которых будут удалены из ответа.
-    /// </summary>
-    [ConfigurationKeyName("disable-trackers")]
-    public List<TrackerType> DisableTrackers { get; set; } = new();
-
-    /// <summary>
     ///     Настройки для RuTracker (авторизация и т.д.).
     /// </summary>
     [ConfigurationKeyName("rutracker")]
@@ -89,4 +77,22 @@ public class Config
     /// </summary>
     [ConfigurationKeyName("animelayer")]
     public AnimeLayerSettings AnimeLayer { get; set; } = new();
+    
+    /// <summary>
+    ///     Настройки для NNMClub.
+    /// </summary>
+    [ConfigurationKeyName("nnmclub")]
+    public NNMClubSettings NNMClub { get; set; } = new();
+    
+    /// <summary>
+    ///     Настройки для RuTor.
+    /// </summary>
+    [ConfigurationKeyName("rutor")]
+    public RuTorSettings RuTor { get; set; } = new();
+    
+    /// <summary>
+    ///     Настройки для Aniliberty.
+    /// </summary>
+    [ConfigurationKeyName("aniliberty")]
+    public AnilibertySettings Aniliberty { get; set; } = new();
 }

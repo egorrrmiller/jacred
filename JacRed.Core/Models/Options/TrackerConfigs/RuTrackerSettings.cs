@@ -2,7 +2,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace JacRed.Core.Models.Options.TrackerConfigs;
 
-public class RuTrackerSettings
+public class RuTrackerSettings : BaseTrackerConfig
 {
     /// <summary>
     ///     Точечный рефреш всех торрентов рутрекера в базе

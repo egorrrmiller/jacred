@@ -146,7 +146,7 @@ public class TorrentRepository : ITorrentRepository
         int? limit = null)
     {
         if (string.IsNullOrWhiteSpace(trackerName))
-            return new List<TorrentDetails>();
+            return [];
 
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
@@ -206,7 +206,7 @@ public class TorrentRepository : ITorrentRepository
     public async Task<IReadOnlyCollection<string>> GetSearchQueriesAsync(int limit)
     {
         if (limit <= 0)
-            return Array.Empty<string>();
+            return [];
 
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
@@ -262,12 +262,12 @@ public class TorrentRepository : ITorrentRepository
         IReadOnlyCollection<string>? excludedTypes = null)
     {
         if (limit <= 0)
-            return new List<TorrentDetails>();
+            return [];
 
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
 
-        var excluded = excludedTypes?.ToArray() ?? Array.Empty<string>();
+        var excluded = excludedTypes?.ToArray() ?? [];
 
         var sql = $@"
             SELECT 
@@ -519,7 +519,7 @@ public class TorrentRepository : ITorrentRepository
     private static string[] ExtractKeyTerms(string key)
     {
         if (string.IsNullOrWhiteSpace(key))
-            return Array.Empty<string>();
+            return [];
 
         return key
             .Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)

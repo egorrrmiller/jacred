@@ -20,7 +20,7 @@ public class TorrentMergerService : ITorrentMergerService
             {
                 var fallbackKey = $"nomagnet:{torrent.Url ?? Guid.NewGuid().ToString()}";
                 if (!temp.ContainsKey(fallbackKey))
-                    temp.Add(fallbackKey, ((TorrentDetails)torrent.Clone(), null, null, new List<string>()));
+                    temp.Add(fallbackKey, ((TorrentDetails)torrent.Clone(), null, null, []));
                 continue;
             }
 
@@ -33,7 +33,7 @@ public class TorrentMergerService : ITorrentMergerService
             {
                 var fallbackKey = $"nomagnet:{torrent.Url ?? Guid.NewGuid().ToString()}";
                 if (!temp.ContainsKey(fallbackKey))
-                    temp.Add(fallbackKey, ((TorrentDetails)torrent.Clone(), null, null, new List<string>()));
+                    temp.Add(fallbackKey, ((TorrentDetails)torrent.Clone(), null, null, []));
                 continue;
             }
 
@@ -45,7 +45,7 @@ public class TorrentMergerService : ITorrentMergerService
                     ((TorrentDetails)torrent.Clone(),
                         torrent.TrackerName == "kinozal" ? torrent.Title : null,
                         magnetLink.Name,
-                        magnetLink.AnnounceUrls?.ToList() ?? new List<string>()));
+                        magnetLink.AnnounceUrls?.ToList() ?? []));
                 continue;
             }
 
@@ -95,7 +95,7 @@ public class TorrentMergerService : ITorrentMergerService
             if (torrent.Voices != null && torrent.Voices.Count > 0)
             {
                 if (entry.torrent.Voices == null)
-                    entry.torrent.Voices = new HashSet<string>(torrent.Voices);
+                    entry.torrent.Voices = [..torrent.Voices];
                 else
                     foreach (var v in torrent.Voices)
                         entry.torrent.Voices.Add(v);
@@ -118,7 +118,7 @@ public class TorrentMergerService : ITorrentMergerService
             if (torrent.Languages != null && torrent.Languages.Count > 0)
             {
                 if (entry.torrent.Languages == null)
-                    entry.torrent.Languages = new HashSet<string>();
+                    entry.torrent.Languages = [];
 
                 foreach (var v in torrent.Languages)
                     entry.torrent.Languages.Add(v);

@@ -24,11 +24,11 @@ public class AnilibertySearch : BaseTrackerSearch
     {
         // Хитрость: Aniliberty — только аниме. Если запрос короткий/пустой, выходим.
         if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
-            return Array.Empty<TorrentDetails>();
+            return [];
 
         var releases = await SearchReleasesAsync(query);
         if (releases.Count == 0)
-            return Array.Empty<TorrentDetails>();
+            return [];
 
         var torrents = new ConcurrentBag<TorrentDetails>();
 
@@ -55,11 +55,11 @@ public class AnilibertySearch : BaseTrackerSearch
         {
             var json = await _http.Get(url, timeoutSeconds: 10);
             if (string.IsNullOrWhiteSpace(json))
-                return new List<ReleaseDto>();
+                return [];
 
             var data = JsonDocument.Parse(json);
             if (data.RootElement.ValueKind != JsonValueKind.Array)
-                return new List<ReleaseDto>();
+                return [];
 
             return data.RootElement
                 .EnumerateArray()
@@ -81,7 +81,7 @@ public class AnilibertySearch : BaseTrackerSearch
         }
         catch
         {
-            return new List<ReleaseDto>();
+            return [];
         }
     }
 
@@ -93,11 +93,11 @@ public class AnilibertySearch : BaseTrackerSearch
         {
             var json = await _http.Get(url, timeoutSeconds: 10);
             if (string.IsNullOrWhiteSpace(json))
-                return new List<TorrentDto>();
+                return [];
 
             var doc = JsonDocument.Parse(json);
             if (doc.RootElement.ValueKind != JsonValueKind.Array)
-                return new List<TorrentDto>();
+                return [];
 
             return doc.RootElement
                 .EnumerateArray()
@@ -130,7 +130,7 @@ public class AnilibertySearch : BaseTrackerSearch
         }
         catch
         {
-            return new List<TorrentDto>();
+            return [];
         }
     }
 
@@ -147,7 +147,7 @@ public class AnilibertySearch : BaseTrackerSearch
         return new TorrentDetails
         {
             TrackerName = TrackerName,
-            Types = new[] { "anime" },
+            Types = ["anime"],
             Url = url,
             Title = name ?? title,
             Sid = t.Seeders,

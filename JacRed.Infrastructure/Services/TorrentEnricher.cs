@@ -7,8 +7,8 @@ namespace JacRed.Infrastructure.Services;
 
 public class TorrentEnricher : ITorrentEnricher
 {
-    private static readonly HashSet<string> allVoices = new()
-    {
+    private static readonly HashSet<string> allVoices =
+    [
         "Ozz",
         "Laci",
         "Kerob",
@@ -942,10 +942,10 @@ public class TorrentEnricher : ITorrentEnricher
         "Cinemaker",
         "sweet.tv",
         "DreamCast"
-    };
+    ];
 
-    private static HashSet<string> rusVoices = new()
-    {
+    private static HashSet<string> rusVoices =
+    [
         "LostFilm",
         "Горчаков",
         "Кириллица",
@@ -1526,10 +1526,10 @@ public class TorrentEnricher : ITorrentEnricher
         "Sound Film",
         "Twix",
         "Zone Studio"
-    };
+    ];
 
-    private static readonly HashSet<string> ukrVoices = new()
-    {
+    private static readonly HashSet<string> ukrVoices =
+    [
         "QTV",
         "DniproFilm",
         "AdrianZP",
@@ -1588,7 +1588,7 @@ public class TorrentEnricher : ITorrentEnricher
         "FlameStudio",
         "HATOSHI",
         "Sengoku"
-    };
+    ];
 
     private static readonly Dictionary<string, string> VoiceMap = allVoices
         .Where(v => v.Length > 4)

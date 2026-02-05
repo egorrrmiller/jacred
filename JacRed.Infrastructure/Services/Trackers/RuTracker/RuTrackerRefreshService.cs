@@ -38,7 +38,7 @@ public class RuTrackerRefreshService : BaseRuTracker
             var parsed = await FetchForumPageAsync(torrent.Url, string.Empty, now);
             foreach (var parse in parsed)
                 await _torrentRepository.AddOrUpdateAsync(
-                    new[] { parse },
+                    [parse],
                     TryEnrichAsync);
         }
     }

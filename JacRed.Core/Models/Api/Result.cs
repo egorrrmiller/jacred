@@ -18,7 +18,7 @@ public class Result
 
     [JsonPropertyName("PublishDate")] public DateTime PublishDate { get; set; }
 
-    [JsonPropertyName("Category")] public HashSet<int> Category { get; set; } = new();
+    [JsonPropertyName("Category")] public HashSet<int> Category { get; set; } = [];
 
     [JsonPropertyName("CategoryDesc")] public string? CategoryDesc { get; set; }
 
@@ -30,7 +30,7 @@ public class Result
 
     [JsonPropertyName("ffprobe")] public List<FfStream>? Ffprobe { get; set; }
 
-    [JsonPropertyName("languages")] public HashSet<string> Languages { get; set; } = new();
+    [JsonPropertyName("languages")] public HashSet<string> Languages { get; set; } = [];
 
     [JsonPropertyName("info")] public TorrentInfo? Info { get; set; }
 }

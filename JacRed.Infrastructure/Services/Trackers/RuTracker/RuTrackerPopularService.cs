@@ -48,7 +48,7 @@ public class RuTrackerPopularService : BaseRuTracker
                 async (torrent, _) =>
                 {
                     await _torrentRepository.AddOrUpdateAsync(
-                        new[] { torrent },
+                        [torrent],
                         TryEnrichAsync);
                 });
 
@@ -70,7 +70,7 @@ public class RuTrackerPopularService : BaseRuTracker
                     async (torrent, _) =>
                     {
                         await _torrentRepository.AddOrUpdateAsync(
-                            new[] { torrent },
+                            [torrent],
                             TryEnrichAsync);
                     });
             }

@@ -29,7 +29,7 @@ public class AnimeLayerSearch : BaseAnimeLayer
         var html = await Get(url, url);
 
         if (string.IsNullOrWhiteSpace(html) || !html.Contains("id=\"wrapper\""))
-            return Array.Empty<TorrentDetails>();
+            return [];
 
         var torrents = Parse(html);
 
@@ -44,7 +44,7 @@ public class AnimeLayerSearch : BaseAnimeLayer
             async (torrent, _) =>
             {
                 await _torrentRepository.AddOrUpdateAsync(
-                    new[] { torrent },
+                    [torrent],
                     TryEnrichAsync);
             });
 
@@ -174,7 +174,7 @@ public class AnimeLayerSearch : BaseAnimeLayer
                 list.Add(new TorrentDetails
                 {
                     TrackerName = TrackerName,
-                    Types = new[] { "anime" },
+                    Types = ["anime"],
                     Url = url,
                     Title = title,
                     Sid = sid,

@@ -179,9 +179,20 @@ public class JackettFacadeService : IJackettFacadeService
     private bool IsAllowedTracker(TorrentDetails t)
     {
         if (!Enum.TryParse<TrackerType>(t.TrackerName, true, out var trackerType))
-            return true; // Если трекер неизвестен, не фильтруем его (или можно false, если строгая политика)
+            return true; 
 
-        return !_config.DisableTrackers.Contains(trackerType);
+        return IsTrackerSearchEnabled(trackerType);
+    }
+
+    private bool IsTrackerSearchEnabled(TrackerType type)
+    {
+        return type switch
+        {
+            TrackerType.Rutracker => _config.RuTracker.EnableSearch,
+            TrackerType.AnimeLayer => _config.AnimeLayer.EnableSearch,
+            TrackerType.NNMClub => _config.NNMClub.EnableSearch,
+            _ => true 
+        };
     }
 
     private static HashSet<string>? ExtractLanguagesFromFfprobe(List<FfStream>? streams)

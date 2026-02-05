@@ -37,11 +37,11 @@ public class TrackerSearchService : ITrackerSearchService
         IReadOnlyCollection<TrackerType>? trackers = null)
     {
         if (string.IsNullOrWhiteSpace(query))
-            return Array.Empty<TorrentDetails>();
+            return [];
 
         var targetTrackers = ResolveTrackers(trackers);
         if (targetTrackers.Count == 0)
-            return Array.Empty<TorrentDetails>();
+            return [];
 
         var normalizedQuery = StringConvert.SearchName(query) ?? query.Trim();
         var trackerKey = string.Join(",", targetTrackers.OrderBy(t => t).Select(t => t.ToString()));
@@ -55,29 +55,11 @@ public class TrackerSearchService : ITrackerSearchService
 
     private IReadOnlyCollection<TrackerType> ResolveTrackers(IReadOnlyCollection<TrackerType>? trackers)
     {
-        if (trackers == null || trackers.Count == 0)
-            return _providers.Values
-                .Where(p =>
-                {
-                    if (!Enum.TryParse<TrackerType>(p.TrackerName, true, out var trackerType))
-                        return false;
-
-                    return !_config.DisableTrackers.Contains(trackerType);
-                })
-                .Select(p => p.Tracker)
-                .ToArray();
-
-        return trackers
-            .Where(t => _providers.ContainsKey(t))
-            .Where(t =>
-            {
-                if (!Enum.TryParse<TrackerType>(_providers[t].TrackerName, true, out var trackerType))
-                    return false;
-
-                return !_config.DisableTrackers.Contains(trackerType);
-            })
-            .Distinct()
-            .ToArray();
+        var candidates = trackers == null || trackers.Count == 0
+            ? _providers.Keys
+            : trackers.Where(t => _providers.ContainsKey(t));
+        
+        return candidates.Distinct().ToArray();
     }
 
     private async Task<IReadOnlyCollection<TorrentDetails>> SearchUncachedAsync(
@@ -111,7 +93,7 @@ public class TrackerSearchService : ITrackerSearchService
         string query)
     {
         if (!_providers.TryGetValue(tracker, out var provider))
-            return Array.Empty<TorrentDetails>();
+            return [];
 
         try
         {
@@ -126,6 +108,6 @@ public class TrackerSearchService : ITrackerSearchService
             _logger.LogWarning(ex, "Tracker search failed for {Tracker}", tracker);
         }
 
-        return Array.Empty<TorrentDetails>();
+        return [];
     }
 }

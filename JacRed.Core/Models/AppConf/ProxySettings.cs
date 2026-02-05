@@ -17,7 +17,7 @@ public class ProxySettings
     ///     Список адресов прокси-серверов (например, "http://proxy:8080").
     /// </summary>
     [ConfigurationKeyName("list")]
-    public List<string> List { get; set; } = new();
+    public List<string> List { get; set; } = [];
 
     /// <summary>
     ///     Пароль для авторизации на прокси (если требуется).
