@@ -55,10 +55,7 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
     {
         try
         {
-            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-            var encoding = Encoding.GetEncoding("windows-1251");
-            
-            var html = await _httpService.Get(url, encoding: encoding);
+            var html = await _httpService.Get(url, encoding: RuEncoding);
             if (string.IsNullOrWhiteSpace(html))
                 return null;
 

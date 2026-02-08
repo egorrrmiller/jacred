@@ -166,6 +166,14 @@ aniliberty:
 
 rutor:
   enable-search: true   # Включить поиск по трекеру
+
+kinozal:
+  enable-search: true
+
+  authorization:
+    login: ''
+    password: ''
+
 ```
 
 ---

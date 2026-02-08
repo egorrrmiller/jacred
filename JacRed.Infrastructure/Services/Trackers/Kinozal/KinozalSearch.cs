@@ -5,40 +5,42 @@ using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
 using Microsoft.Extensions.Options;
 
-namespace JacRed.Infrastructure.Services.Trackers.RuTor;
+namespace JacRed.Infrastructure.Services.Trackers.Kinozal;
 
-public class RuTorSearch : BaseRuTor
+public class KinozalSearch : BaseKinozal
 {
     private readonly ITorrentRepository _torrentRepository;
-    private readonly Config _config;
 
-    public RuTorSearch(HttpService httpService, ITorrentRepository torrentRepository, IOptionsSnapshot<Config> config) 
-        : base(httpService)
+    public KinozalSearch(HttpService httpService, ICacheService cacheService, IOptionsSnapshot<Config> config,
+        ITorrentRepository torrentRepository)
+        : base(httpService, cacheService, config)
     {
         _torrentRepository = torrentRepository;
-        _config = config.Value;
     }
 
     public override async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(string query)
     {
-        if (!_config.RuTor.EnableSearch)
+        if (!_config.Kinozal.EnableSearch)
             return [];
 
-        var url = SearchUrl + query;
-        var html = await HttpService.Get(url, referer: url, encoding: RuEncoding);
-
+        var url = $"{Host}/browse.php?s={query}&g=0&c=0&v=0&d=0&w=0&t=1&f=0";
+        
+        var html = await Get(url, RuEncoding);
         if (string.IsNullOrWhiteSpace(html))
             return [];
 
-        var torrents = Parse(html).Where(t => t.Types.Length > 0).ToList();
+        var results = ParseBrowsePage(html, Host);
+        
+        if (results.Count == 0)
+            return [];
 
         var options = new ParallelOptions
         {
-            MaxDegreeOfParallelism = Math.Max(4, Environment.ProcessorCount)
+            MaxDegreeOfParallelism = Environment.ProcessorCount
         };
 
         await Parallel.ForEachAsync(
-            torrents,
+            results,
             options,
             async (torrent, _) =>
             {
@@ -47,6 +49,6 @@ public class RuTorSearch : BaseRuTor
                     TryEnrichAsync);
             });
 
-        return torrents;
+        return results;
     }
 }

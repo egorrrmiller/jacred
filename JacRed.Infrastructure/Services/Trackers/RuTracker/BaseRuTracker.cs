@@ -15,11 +15,7 @@ namespace JacRed.Infrastructure.Services.Trackers.RuTracker;
 
 public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
 {
-    protected const int MaxPagesPerCategory = 5;
-
     private const string CookieKey = "rutracker:cookie";
-
-    protected static readonly Encoding RuEncoding = Encoding.GetEncoding("windows-1251");
 
     private static readonly Regex MaxPageRegex =
         new("Страница <b>1</b> из <b>(?<pages>\\d+)</b>", RegexOptions.IgnoreCase | RegexOptions.Compiled);

@@ -215,7 +215,6 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
             if (!Enum.TryParse<TrackerType>(t.TrackerName, true, out var trackerType))
                 return false;
 
-            // Если EnableSearch = false, мы скрываем результаты этого трекера из выдачи
             return IsTrackerSearchEnabled(trackerType);
         });
     }
@@ -229,6 +228,7 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
             TrackerType.NNMClub => _config.NNMClub.EnableSearch,
             TrackerType.Rutor => _config.RuTor.EnableSearch,
             TrackerType.Aniliberty => _config.Aniliberty.EnableSearch,
+            TrackerType.Kinozal => _config.Kinozal.EnableSearch,
             _ => true // Если трекер не описан в конфиге явно, считаем его включенным
         };
     }

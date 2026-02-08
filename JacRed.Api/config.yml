@@ -65,3 +65,10 @@ rutor:
 
 aniliberty:
   enable-search: true
+  
+kinozal:
+  enable-search: true
+
+  authorization:
+    login: ''
+    password: ''

@@ -28,15 +28,12 @@ public class NNMClubSearch : BaseNNMClub
         var parameters = GetSearchParameters(query);
         var url = $"{Host}/forum/tracker.php";
         
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-        var encoding = Encoding.GetEncoding("windows-1251");
-        
-        var pairs = parameters.Select(kv => $"{HttpUtility.UrlEncode(kv.Key)}={HttpUtility.UrlEncode(kv.Value, encoding)}");
+        var pairs = parameters.Select(kv => $"{HttpUtility.UrlEncode(kv.Key)}={HttpUtility.UrlEncode(kv.Value)}");
         var formEncoded = string.Join("&", pairs);
         
-        var content = new StringContent(formEncoded, encoding, "application/x-www-form-urlencoded");
+        var content = new StringContent(formEncoded, RuEncoding, "application/x-www-form-urlencoded");
         
-        var html = await _httpService.Post(url, content, encoding: encoding);
+        var html = await _httpService.Post(url, content);
         
         if (string.IsNullOrWhiteSpace(html))
             return [];

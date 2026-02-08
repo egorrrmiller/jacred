@@ -2,17 +2,21 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using JacRed.Core.Enums;
 using JacRed.Core.Models.Details;
+using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
+using Microsoft.Extensions.Options;
 
 namespace JacRed.Infrastructure.Services.Trackers.Aniliberty;
 
 public class AnilibertySearch : BaseTrackerSearch
 {
     private readonly HttpService _http;
+    private readonly Config _config;
 
-    public AnilibertySearch(HttpService http)
+    public AnilibertySearch(IOptionsSnapshot<Config> config, HttpService http)
     {
         _http = http;
+        _config = config.Value;
     }
 
     public override TrackerType Tracker => TrackerType.Aniliberty;
@@ -22,8 +26,7 @@ public class AnilibertySearch : BaseTrackerSearch
     public override async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(
         string query)
     {
-        // Хитрость: Aniliberty — только аниме. Если запрос короткий/пустой, выходим.
-        if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
+        if (!_config.Aniliberty.EnableSearch)
             return [];
 
         var releases = await SearchReleasesAsync(query);

@@ -9,6 +9,7 @@ using JacRed.Core.Utils;
 using JacRed.Infrastructure.Services;
 using JacRed.Infrastructure.Services.Trackers.Aniliberty;
 using JacRed.Infrastructure.Services.Trackers.AnimeLayer;
+using JacRed.Infrastructure.Services.Trackers.Kinozal;
 using JacRed.Infrastructure.Services.Trackers.NNMClub;
 using JacRed.Infrastructure.Services.Trackers.RuTor;
 using JacRed.Infrastructure.Services.Trackers.RuTracker;
@@ -36,6 +37,7 @@ public static class ServicesConfiguration
             .AddScoped<ITrackerSearch, RuTorSearch>()
             .AddScoped<ITrackerSearch, AnimeLayerSearch>()
             .AddScoped<ITrackerSearch, NNMClubSearch>()
+            .AddScoped<ITrackerSearch, KinozalSearch>()
             // крон сервисы
             .AddScoped<ITrackerRefreshProvider, RuTrackerPopularService>()
             .AddScoped<ITrackerRefreshProvider, RuTrackerRefreshService>()

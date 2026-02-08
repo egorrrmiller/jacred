@@ -12,6 +12,8 @@ namespace JacRed.Infrastructure.Services.Trackers.AnimeLayer;
 public class AnimeLayerSearch : BaseAnimeLayer
 {
     private readonly ITorrentRepository _torrentRepository;
+    private readonly Config _config;
+
 
     public AnimeLayerSearch(
         ICacheService cacheService,
@@ -21,10 +23,14 @@ public class AnimeLayerSearch : BaseAnimeLayer
         : base(cacheService, httpService, config)
     {
         _torrentRepository = torrentRepository;
+        _config = config.Value;
     }
 
     public override async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(string query)
     {
+        if(!_config.AnimeLayer.EnableSearch)
+            return [];
+        
         var url = $"{Host}/torrents/anime/?q={Uri.EscapeDataString(query)}";
         var html = await Get(url, url);
 

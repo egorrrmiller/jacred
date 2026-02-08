@@ -95,4 +95,10 @@ public class Config
     /// </summary>
     [ConfigurationKeyName("aniliberty")]
     public AnilibertySettings Aniliberty { get; set; } = new();
+    
+    /// <summary>
+    ///     Настройки для Kinozal.
+    /// </summary>
+    [ConfigurationKeyName("kinozal")]
+    public KinozalSettings Kinozal { get; set; } = new();
 }
