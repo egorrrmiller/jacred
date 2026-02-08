@@ -11,8 +11,8 @@ namespace JacRed.Infrastructure.Services.Trackers.AnimeLayer;
 
 public class AnimeLayerSearch : BaseAnimeLayer
 {
-    private readonly ITorrentRepository _torrentRepository;
     private readonly Config _config;
+    private readonly ITorrentRepository _torrentRepository;
 
 
     public AnimeLayerSearch(
@@ -28,9 +28,9 @@ public class AnimeLayerSearch : BaseAnimeLayer
 
     public override async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(string query)
     {
-        if(!_config.AnimeLayer.EnableSearch)
+        if (!_config.AnimeLayer.EnableSearch)
             return [];
-        
+
         var url = $"{Host}/torrents/anime/?q={Uri.EscapeDataString(query)}";
         var html = await Get(url, url);
 
@@ -57,7 +57,8 @@ public class AnimeLayerSearch : BaseAnimeLayer
         return torrents;
     }
 
-    private async Task<bool> TryEnrichAsync(TorrentDetails torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
+    private async Task<bool> TryEnrichAsync(TorrentDetails torrent,
+        IReadOnlyDictionary<string, TorrentDetails> existing)
     {
         if (string.IsNullOrWhiteSpace(torrent.Url))
             return false;
@@ -126,7 +127,7 @@ public class AnimeLayerSearch : BaseAnimeLayer
             var sizeMatch = Regex.Match(row,
                 @"class=""icon s-icons-download""></i>\d+\s*<span class=""gray"">\s*\|\s*</span>\s*([\d\.,]+\s*[TGMK]B)",
                 RegexOptions.IgnoreCase);
-            
+
             long size = 0;
             string? sizeName = null;
 

@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text;
 using System.Text.RegularExpressions;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
@@ -10,6 +9,25 @@ namespace JacRed.Infrastructure.Services.Trackers.NNMClub;
 
 public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
 {
+    protected static readonly IReadOnlyDictionary<string, CategoryInfo> CategoryMap =
+        new Dictionary<string, CategoryInfo>
+        {
+            ["10"] = new(["movie"]),
+            ["13"] = new(["movie"]),
+            ["6"] = new(["movie"]),
+            ["4"] = new(["serial"]),
+            ["3"] = new(["serial"]),
+            ["22"] = new(["docuserial", "documovie"]),
+            ["23"] = new(["docuserial", "documovie"]),
+            ["1"] = new(["anime"]),
+            ["7"] = new(["multfilm", "multserial"]),
+            ["11"] = new(["movie"]),
+            ["14"] = new(["movie"]),
+
+            ["24"] = new(["anime"]),
+            ["26"] = new(["multfilm", "multserial"])
+        };
+
     protected readonly HttpService _httpService;
 
     public BaseNNMClub(HttpService httpService)
@@ -55,7 +73,7 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
     {
         try
         {
-            var html = await _httpService.Get(url, encoding: RuEncoding);
+            var html = await _httpService.Get(url, RuEncoding);
             if (string.IsNullOrWhiteSpace(html))
                 return null;
 
@@ -93,7 +111,7 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
             { "sds", "-1" },
             { "nm", query },
             { "pn", "" },
-            { "submit", "Поиск" },
+            { "submit", "Поиск" }
         };
     }
 
@@ -107,33 +125,34 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
         foreach (Match match in matches)
         {
             var row = match.Value;
-            
+
             var catMatch = Regex.Match(row, @"tracker\.php\?c=(?<cat>\d+)");
             if (!catMatch.Success) continue;
-            
+
             var catId = catMatch.Groups["cat"].Value;
             if (!CategoryMap.TryGetValue(catId, out var category))
                 continue;
 
-            var titleMatch = Regex.Match(row, @"viewtopic\.php\?t=(?<id>\d+)""[^>]*><b>(?<title>.*?)</b>", RegexOptions.Singleline);
+            var titleMatch = Regex.Match(row, @"viewtopic\.php\?t=(?<id>\d+)""[^>]*><b>(?<title>.*?)</b>",
+                RegexOptions.Singleline);
             if (!titleMatch.Success) continue;
-            
+
             var topicId = titleMatch.Groups["id"].Value;
             var titleRaw = titleMatch.Groups["title"].Value;
             var title = WebUtility.HtmlDecode(titleRaw);
-            
+
             var sizeMatch = Regex.Match(row, @"<u>(?<bytes>\d+)</u>\s*(?<text>.*?)</td>", RegexOptions.Singleline);
             long size = 0;
             string? sizeName = null;
             if (sizeMatch.Success)
             {
-                 long.TryParse(sizeMatch.Groups["bytes"].Value, out size);
-                 sizeName = sizeMatch.Groups["text"].Value.Trim();
+                long.TryParse(sizeMatch.Groups["bytes"].Value, out size);
+                sizeName = sizeMatch.Groups["text"].Value.Trim();
             }
 
             var seedMatch = Regex.Match(row, @"title=""Seeders""[^>]*><b>(?<val>\d+)</b>");
             var leechMatch = Regex.Match(row, @"title=""Leechers""[^>]*><b>(?<val>\d+)</b>");
-            
+
             int seed = 0, leech = 0;
             if (seedMatch.Success) int.TryParse(seedMatch.Groups["val"].Value, out seed);
             if (leechMatch.Success) int.TryParse(leechMatch.Groups["val"].Value, out leech);
@@ -141,9 +160,7 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
             var dateMatch = Regex.Match(row, @"title=""Добавлено""[^>]*><u>(?<ts>\d+)</u>");
             DateTime date = default;
             if (dateMatch.Success && long.TryParse(dateMatch.Groups["ts"].Value, out var ts))
-            {
                 date = DateTimeOffset.FromUnixTimeSeconds(ts).UtcDateTime;
-            }
 
             var (name, originalName, relased) = ParseTitle(title);
 
@@ -165,7 +182,7 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
                 Relased = relased
             });
         }
-        
+
         return list;
     }
 
@@ -175,12 +192,12 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
             return (null, null, 0);
 
         var year = ExtractYear(title);
-        
+
         var parts = Regex.Split(title, @"\s+(?:/|\|)\s+")
-                         .Select(p => p.Trim())
-                         .Where(p => !string.IsNullOrWhiteSpace(p))
-                         .ToArray();
-        
+            .Select(p => p.Trim())
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .ToArray();
+
         string? name = null;
         string? originalName = null;
 
@@ -200,7 +217,7 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
                     originalName = cleaned;
             }
         }
-        
+
         if (name == null && originalName != null)
             name = originalName;
 
@@ -212,11 +229,11 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
         var indexBracket = part.IndexOf('[');
         if (indexBracket >= 0)
             part = part.Substring(0, indexBracket);
-            
+
         var indexParen = part.IndexOf('(');
         if (indexParen >= 0)
             part = part.Substring(0, indexParen);
-            
+
         return part.Trim();
     }
 
@@ -225,24 +242,6 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
         var match = Regex.Match(title, @"\b(19|20)\d{2}\b");
         return match.Success && int.TryParse(match.Value, out var year) ? year : 0;
     }
-
-    protected static readonly IReadOnlyDictionary<string, CategoryInfo> CategoryMap = new Dictionary<string, CategoryInfo>
-    {
-        ["10"] = new(["movie"]),
-        ["13"] = new(["movie"]),
-        ["6"] = new(["movie"]),
-        ["4"] = new(["serial"]),
-        ["3"] = new(["serial"]),
-        ["22"] = new(["docuserial", "documovie"]),
-        ["23"] = new(["docuserial", "documovie"]),
-        ["1"] = new(["anime"]),
-        ["7"] = new(["multfilm", "multserial"]),
-        ["11"] = new(["movie"]),
-        ["14"] = new(["movie"]),
-        
-        ["24"] = new(["anime"]),
-        ["26"] = new(["multfilm", "multserial"]),
-    };
 
     protected record CategoryInfo(string[] Types);
 }

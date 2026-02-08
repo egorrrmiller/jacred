@@ -47,7 +47,7 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
 
         // 1. Ищем локально в базе данных
         var torrents = await SearchLocalAsync(search, altname, null, request.Exact);
-        
+
         // 2. Фильтруем результаты. Если трекер выключен (EnableSearch = false), 
         // мы скрываем его раздачи, даже если они есть в базе.
         torrents = FilterAllowedTrackers(torrents).ToList();
@@ -76,7 +76,7 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
                 {
                     await _torrentRepository.AddOrUpdateAsync(fetched);
                     usedFallback = true;
-                    
+
                     // Повторный поиск в базе, чтобы применились все локальные фильтры и нормализация
                     torrents = await SearchLocalAsync(search, altname, null, request.Exact);
                     torrents = FilterAllowedTrackers(torrents).ToList();

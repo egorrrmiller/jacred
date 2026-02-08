@@ -179,7 +179,7 @@ public class JackettFacadeService : IJackettFacadeService
     private bool IsAllowedTracker(TorrentDetails t)
     {
         if (!Enum.TryParse<TrackerType>(t.TrackerName, true, out var trackerType))
-            return true; 
+            return true;
 
         return IsTrackerSearchEnabled(trackerType);
     }
@@ -191,7 +191,7 @@ public class JackettFacadeService : IJackettFacadeService
             TrackerType.Rutracker => _config.RuTracker.EnableSearch,
             TrackerType.AnimeLayer => _config.AnimeLayer.EnableSearch,
             TrackerType.NNMClub => _config.NNMClub.EnableSearch,
-            _ => true 
+            _ => true
         };
     }
 

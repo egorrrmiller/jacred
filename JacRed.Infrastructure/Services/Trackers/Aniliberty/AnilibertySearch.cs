@@ -10,8 +10,8 @@ namespace JacRed.Infrastructure.Services.Trackers.Aniliberty;
 
 public class AnilibertySearch : BaseTrackerSearch
 {
-    private readonly HttpService _http;
     private readonly Config _config;
+    private readonly HttpService _http;
 
     public AnilibertySearch(IOptionsSnapshot<Config> config, HttpService http)
     {

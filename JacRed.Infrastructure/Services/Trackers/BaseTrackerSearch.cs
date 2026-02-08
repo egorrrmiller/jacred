@@ -8,7 +8,7 @@ namespace JacRed.Infrastructure.Services.Trackers;
 public abstract class BaseTrackerSearch : ITrackerRefreshProvider
 {
     protected static readonly Encoding RuEncoding = Encoding.GetEncoding("windows-1251");
-    
+
     public abstract TrackerType Tracker { get; }
     public abstract string TrackerName { get; }
     public abstract string Host { get; }

@@ -58,7 +58,7 @@ public class TrackerSearchService : ITrackerSearchService
         var candidates = trackers == null || trackers.Count == 0
             ? _providers.Keys
             : trackers.Where(t => _providers.ContainsKey(t));
-        
+
         return candidates.Distinct().ToArray();
     }
 

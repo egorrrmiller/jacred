@@ -13,11 +13,11 @@ namespace JacRed.Infrastructure.Services.Trackers.Kinozal;
 
 public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
 {
-    protected readonly HttpService _httpService;
+    private const string CookieKey = "kinozal:cookie";
     protected readonly ICacheService _cacheService;
     protected readonly Config _config;
-    private const string CookieKey = "kinozal:cookie";
-    
+    protected readonly HttpService _httpService;
+
     public BaseKinozal(HttpService httpService, ICacheService cacheService, IOptionsSnapshot<Config> config)
     {
         _httpService = httpService;
@@ -28,7 +28,7 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
     public override TrackerType Tracker => TrackerType.Kinozal;
     public override string TrackerName => "kinozal";
     public override string Host => "https://kinozal.tv";
-    
+
     public async Task<bool> TryEnrichAsync(TorrentDetails torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
     {
         if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
@@ -69,16 +69,13 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
 
             var id = idMatch.Groups[1].Value;
             var detailsUrl = $"{Host}/get_srv_details.php?id={id}&action=2";
-            
+
             var html = await Get(detailsUrl, null);
             if (string.IsNullOrWhiteSpace(html))
                 return null;
 
             var hashMatch = Regex.Match(html, @"Инфо хеш: ([A-Fa-f0-9]{40})");
-            if (hashMatch.Success)
-            {
-                return $"magnet:?xt=urn:btih:{hashMatch.Groups[1].Value}";
-            }
+            if (hashMatch.Success) return $"magnet:?xt=urn:btih:{hashMatch.Groups[1].Value}";
 
             return null;
         }
@@ -93,12 +90,12 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
         if (!_cacheService.TryGetValue(CookieKey, out string? cookie))
             cookie = await Authorize();
 
-        var html = await _httpService.Get(url, encoding: encoding, cookie: cookie);
+        var html = await _httpService.Get(url, encoding, cookie);
 
         if (string.IsNullOrWhiteSpace(html) || html.Contains("Вход в систему"))
         {
             cookie = await Authorize(true);
-            html = await _httpService.Get(url, encoding: encoding, cookie: cookie);
+            html = await _httpService.Get(url, encoding, cookie);
         }
 
         return html;
@@ -106,7 +103,8 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
 
     private async Task<string> Authorize(bool reAuth = false)
     {
-        var login = _config.Kinozal.Authorization.Login;;
+        var login = _config.Kinozal.Authorization.Login;
+        ;
         var password = _config.Kinozal.Authorization.Password;
 
         if (string.IsNullOrWhiteSpace(login) || string.IsNullOrWhiteSpace(password))
@@ -120,7 +118,7 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
         });
 
         var response = await _httpService.PostResponse($"{Host}/takelogin.php", content, allowRedirect: false);
-        
+
         if (response.Headers.TryGetValues("Set-Cookie", out var cookies))
         {
             var cookie = string.Join("; ", cookies);
@@ -179,7 +177,8 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
             if (dateMatch.Success)
             {
                 var dateStr = $"{dateMatch.Groups[1].Value} {dateMatch.Groups[2].Value}";
-                DateTime.TryParseExact(dateStr, "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out createTime);
+                DateTime.TryParseExact(dateStr, "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None,
+                    out createTime);
             }
 
             // Year from title
@@ -209,7 +208,8 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
     {
         return cat switch
         {
-            "8" or "6" or "15" or "17" or "35" or "39" or "13" or "14" or "24" or "11" or "9" or "47" or "18" or "37" or "12" or "10" or "7" or "16" => new[] { "movie" },
+            "8" or "6" or "15" or "17" or "35" or "39" or "13" or "14" or "24" or "11" or "9" or "47" or "18" or "37"
+                or "12" or "10" or "7" or "16" => new[] { "movie" },
             "45" or "46" => new[] { "serial" },
             "49" or "50" => new[] { "tvshow" },
             "21" or "22" => new[] { "multfilm", "multserial" },
@@ -221,7 +221,7 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
     private static long ParseSize(string value, string unit)
     {
         if (!double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var num)) return 0;
-        
+
         return unit switch
         {
             "ТБ" => (long)(num * 1024 * 1024 * 1024 * 1024),

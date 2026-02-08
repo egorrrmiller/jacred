@@ -11,8 +11,8 @@ namespace JacRed.Infrastructure.Services.Trackers.RuTor;
 
 public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
 {
-    protected readonly HttpService HttpService;
     private readonly HtmlParser _parser = new();
+    protected readonly HttpService HttpService;
 
     public BaseRuTor(HttpService httpService)
     {

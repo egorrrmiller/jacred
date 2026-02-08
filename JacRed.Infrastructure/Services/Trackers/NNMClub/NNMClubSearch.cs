@@ -1,4 +1,3 @@
-using System.Text;
 using System.Web;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
@@ -10,10 +9,11 @@ namespace JacRed.Infrastructure.Services.Trackers.NNMClub;
 
 public class NNMClubSearch : BaseNNMClub
 {
-    private readonly ITorrentRepository _torrentRepository;
     private readonly Config _config;
-    
-    public NNMClubSearch(HttpService httpService, ITorrentRepository torrentRepository, IOptionsSnapshot<Config> config) : base(httpService)
+    private readonly ITorrentRepository _torrentRepository;
+
+    public NNMClubSearch(HttpService httpService, ITorrentRepository torrentRepository, IOptionsSnapshot<Config> config)
+        : base(httpService)
     {
         _torrentRepository = torrentRepository;
         _config = config.Value;
@@ -27,22 +27,22 @@ public class NNMClubSearch : BaseNNMClub
         var results = new Dictionary<string, TorrentDetails>(StringComparer.OrdinalIgnoreCase);
         var parameters = GetSearchParameters(query);
         var url = $"{Host}/forum/tracker.php";
-        
+
         var pairs = parameters.Select(kv => $"{HttpUtility.UrlEncode(kv.Key)}={HttpUtility.UrlEncode(kv.Value)}");
         var formEncoded = string.Join("&", pairs);
-        
+
         var content = new StringContent(formEncoded, RuEncoding, "application/x-www-form-urlencoded");
-        
+
         var html = await _httpService.Post(url, content);
-        
+
         if (string.IsNullOrWhiteSpace(html))
             return [];
 
-        var parsed =  ParseTrackerPage(html, Host);
-        
+        var parsed = ParseTrackerPage(html, Host);
+
         foreach (var item in parsed)
             results[item.Url] = item;
-        
+
         var options = new ParallelOptions
         {
             MaxDegreeOfParallelism = Environment.ProcessorCount

@@ -1,4 +1,3 @@
-using System.Text;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Options;
@@ -9,10 +8,10 @@ namespace JacRed.Infrastructure.Services.Trackers.RuTor;
 
 public class RuTorSearch : BaseRuTor
 {
-    private readonly ITorrentRepository _torrentRepository;
     private readonly Config _config;
+    private readonly ITorrentRepository _torrentRepository;
 
-    public RuTorSearch(HttpService httpService, ITorrentRepository torrentRepository, IOptionsSnapshot<Config> config) 
+    public RuTorSearch(HttpService httpService, ITorrentRepository torrentRepository, IOptionsSnapshot<Config> config)
         : base(httpService)
     {
         _torrentRepository = torrentRepository;

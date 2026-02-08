@@ -1,4 +1,3 @@
-using JacRed.Core.Enums;
 using JacRed.Core.Models.AppConf;
 using JacRed.Core.Models.Options.TrackerConfigs;
 using Microsoft.Extensions.Configuration;
@@ -77,25 +76,25 @@ public class Config
     /// </summary>
     [ConfigurationKeyName("animelayer")]
     public AnimeLayerSettings AnimeLayer { get; set; } = new();
-    
+
     /// <summary>
     ///     Настройки для NNMClub.
     /// </summary>
     [ConfigurationKeyName("nnmclub")]
     public NNMClubSettings NNMClub { get; set; } = new();
-    
+
     /// <summary>
     ///     Настройки для RuTor.
     /// </summary>
     [ConfigurationKeyName("rutor")]
     public RuTorSettings RuTor { get; set; } = new();
-    
+
     /// <summary>
     ///     Настройки для Aniliberty.
     /// </summary>
     [ConfigurationKeyName("aniliberty")]
     public AnilibertySettings Aniliberty { get; set; } = new();
-    
+
     /// <summary>
     ///     Настройки для Kinozal.
     /// </summary>

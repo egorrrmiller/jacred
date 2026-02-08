@@ -1,4 +1,3 @@
-using System.Text;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Options;
@@ -24,13 +23,13 @@ public class KinozalSearch : BaseKinozal
             return [];
 
         var url = $"{Host}/browse.php?s={query}&g=0&c=0&v=0&d=0&w=0&t=1&f=0";
-        
+
         var html = await Get(url, RuEncoding);
         if (string.IsNullOrWhiteSpace(html))
             return [];
 
         var results = ParseBrowsePage(html, Host);
-        
+
         if (results.Count == 0)
             return [];
 
