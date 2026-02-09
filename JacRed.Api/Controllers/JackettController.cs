@@ -30,19 +30,6 @@ public class JackettController : ControllerBase
         return Ok(new { status = "OK" });
     }
 
-    [Route("version")]
-    public ActionResult Version()
-    {
-        return Content("11", "text/plain; charset=utf-8");
-    }
-
-    [Route("lastupdatedb")]
-    public async Task<ActionResult> LastUpdateDB()
-    {
-        var latest = await _facade.GetLastUpdateDb();
-        return Content(latest.ToString("dd.MM.yyyy HH:mm"), "text/plain; charset=utf-8");
-    }
-
     [Route("api/v1.0/conf")]
     public IActionResult JacRedConf(string apikey)
     {

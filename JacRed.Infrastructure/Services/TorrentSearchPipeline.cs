@@ -45,29 +45,22 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
     {
         var (search, altname) = await ResolveKpImdb(request.Search, request.AltName);
 
-        // 1. Ищем локально в базе данных
         var torrents = await SearchLocalAsync(search, altname, null, request.Exact);
 
-        // 2. Фильтруем результаты. Если трекер выключен (EnableSearch = false), 
-        // мы скрываем его раздачи, даже если они есть в базе.
         torrents = FilterAllowedTrackers(torrents).ToList();
         var usedFallback = false;
 
-        // Если точный поиск ничего не дал — пробуем нестрогий вариант локально.
         if (request.Exact && torrents.Count == 0)
         {
             torrents = await SearchLocalAsync(search, altname, null, false);
             torrents = FilterAllowedTrackers(torrents).ToList();
         }
 
-        // 3. Если локально пусто (или все отфильтровано), идем во внешние источники
         if (torrents.Count == 0)
         {
             var trackerQuery = BuildTrackerQuery(search, altname);
             if (!string.IsNullOrWhiteSpace(trackerQuery))
             {
-                // TrackerSearchService сам вызовет только те трекеры, у которых EnableSearch = true
-                // (проверка внутри самих реализаций трекеров)
                 var fetched = await _trackerSearchService.SearchAsync(
                     trackerQuery,
                     _trackerSearchService.GetSupportedTrackers());
@@ -77,7 +70,6 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
                     await _torrentRepository.AddOrUpdateAsync(fetched);
                     usedFallback = true;
 
-                    // Повторный поиск в базе, чтобы применились все локальные фильтры и нормализация
                     torrents = await SearchLocalAsync(search, altname, null, request.Exact);
                     torrents = FilterAllowedTrackers(torrents).ToList();
 
@@ -101,13 +93,10 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
             request.Season);
 
         var sorted = ApplySort(filtered, request.Sort);
-        var merged = _config.MergeDuplicates
-            ? await _mergeService.MergeAsync(sorted)
-            : sorted.ToList();
 
         return new TorrentSearchPipelineResult
         {
-            Items = merged,
+            Items = sorted.ToList(),
             UsedTrackerFallback = usedFallback
         };
     }

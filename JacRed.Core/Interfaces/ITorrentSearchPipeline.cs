@@ -11,6 +11,5 @@ public interface ITorrentSearchPipeline
     /// <summary>
     ///     Выполняет поиск по запросу с учетом настроек и возвращает итоговый результат пайплайна.
     /// </summary>
-    Task<TorrentSearchPipelineResult> SearchAsync(
-        TorrentSearchRequest request);
+    Task<TorrentSearchPipelineResult> SearchAsync(TorrentSearchRequest request);
 }

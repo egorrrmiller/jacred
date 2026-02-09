@@ -24,8 +24,7 @@ public interface IJackettFacadeService
     /// <summary>
     ///     Ищет торренты по локальному каталогу с фильтрами (точное совпадение, тип, трекер, качество и т.п.).
     /// </summary>
-    Task<IReadOnlyCollection<V1TorrentResponse>> SearchTorrentsAsync(
-        string search,
+    Task<IReadOnlyCollection<V1TorrentResponse>> SearchTorrentsAsync(string search,
         string altname,
         bool exact,
         string? type,
