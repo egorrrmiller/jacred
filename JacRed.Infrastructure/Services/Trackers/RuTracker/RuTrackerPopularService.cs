@@ -10,22 +10,19 @@ namespace JacRed.Infrastructure.Services.Trackers.RuTracker;
 /// </summary>
 public class RuTrackerPopularService : BaseRuTracker
 {
-    private readonly Config _config;
     private readonly ITorrentRepository _torrentRepository;
 
-    public RuTrackerPopularService(ICacheService cacheService, HttpService httpService, IOptionsSnapshot<Config> config,
-        ITorrentRepository torrentRepository) : base(cacheService, httpService, config)
+    public RuTrackerPopularService(IOptions<Config> config, HttpService httpService, ICacheService cacheService, ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
     {
         _torrentRepository = torrentRepository;
-        _config = config.Value;
     }
 
     public override async Task InvokeAsync()
     {
-        if (!_config.RuTracker.Popular.Enable)
+        if (!Config.RuTracker.Popular.Enable)
             return;
 
-        var categories = _config.RuTracker.Popular.Categories;
+        var categories = Config.RuTracker.Popular.Categories;
         var now = DateTime.UtcNow;
 
         foreach (var category in categories)
@@ -55,7 +52,7 @@ public class RuTrackerPopularService : BaseRuTracker
             var maxPage = GetMaxPages(html);
             if (maxPage == 0) continue;
 
-            var maxPages = _config.RuTracker.Popular.MaxPages;
+            var maxPages = Config.RuTracker.Popular.MaxPages;
             if (maxPage <= maxPages)
                 maxPages = maxPage;
 

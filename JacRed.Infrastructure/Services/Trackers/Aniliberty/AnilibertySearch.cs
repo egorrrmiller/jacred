@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using JacRed.Core.Enums;
+using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
@@ -10,13 +11,8 @@ namespace JacRed.Infrastructure.Services.Trackers.Aniliberty;
 
 public class AnilibertySearch : BaseTrackerSearch
 {
-    private readonly Config _config;
-    private readonly HttpService _http;
-
-    public AnilibertySearch(IOptionsSnapshot<Config> config, HttpService http)
+    public AnilibertySearch(IOptions<Config> config, HttpService httpService, ICacheService cacheService) : base(config, httpService, cacheService)
     {
-        _http = http;
-        _config = config.Value;
     }
 
     public override TrackerType Tracker => TrackerType.Aniliberty;
@@ -26,7 +22,7 @@ public class AnilibertySearch : BaseTrackerSearch
     public override async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(
         string query)
     {
-        if (!_config.Aniliberty.EnableSearch)
+        if (!Config.Aniliberty.EnableSearch)
             return [];
 
         var releases = await SearchReleasesAsync(query);
@@ -56,7 +52,7 @@ public class AnilibertySearch : BaseTrackerSearch
         var url = $"{Host}/api/v1/app/search/releases?query={Uri.EscapeDataString(query)}&include=id,name,year,alias";
         try
         {
-            var json = await _http.Get(url, timeoutSeconds: 10);
+            var json = await HttpService.Get(url, timeoutSeconds: 10);
             if (string.IsNullOrWhiteSpace(json))
                 return [];
 
@@ -94,7 +90,7 @@ public class AnilibertySearch : BaseTrackerSearch
             $"{Host}/api/v1/anime/torrents/release/{releaseId}?include=id,hash,size,type,quality,label,magnet,filename,seeders,leechers,updated_at,created_at,description";
         try
         {
-            var json = await _http.Get(url, timeoutSeconds: 10);
+            var json = await HttpService.Get(url, timeoutSeconds: 10);
             if (string.IsNullOrWhiteSpace(json))
                 return [];
 

@@ -14,15 +14,9 @@ namespace JacRed.Infrastructure.Services.Trackers.Kinozal;
 public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
 {
     private const string CookieKey = "kinozal:cookie";
-    protected readonly ICacheService _cacheService;
-    protected readonly Config _config;
-    protected readonly HttpService _httpService;
 
-    public BaseKinozal(HttpService httpService, ICacheService cacheService, IOptionsSnapshot<Config> config)
+    protected BaseKinozal(IOptions<Config> config, HttpService httpService, ICacheService cacheService) : base(config, httpService, cacheService)
     {
-        _httpService = httpService;
-        _cacheService = cacheService;
-        _config = config.Value;
     }
 
     public override TrackerType Tracker => TrackerType.Kinozal;
@@ -87,15 +81,15 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
 
     protected async Task<string> Get(string url, Encoding? encoding)
     {
-        if (!_cacheService.TryGetValue(CookieKey, out string? cookie))
+        if (!CacheService.TryGetValue(CookieKey, out string? cookie))
             cookie = await Authorize();
 
-        var html = await _httpService.Get(url, encoding, cookie);
+        var html = await HttpService.Get(url, encoding, cookie);
 
         if (string.IsNullOrWhiteSpace(html) || html.Contains("Вход в систему"))
         {
             cookie = await Authorize(true);
-            html = await _httpService.Get(url, encoding, cookie);
+            html = await HttpService.Get(url, encoding, cookie);
         }
 
         return html;
@@ -103,9 +97,9 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
 
     private async Task<string> Authorize(bool reAuth = false)
     {
-        var login = _config.Kinozal.Authorization.Login;
+        var login = Config.Kinozal.Authorization.Login;
         ;
-        var password = _config.Kinozal.Authorization.Password;
+        var password = Config.Kinozal.Authorization.Password;
 
         if (string.IsNullOrWhiteSpace(login) || string.IsNullOrWhiteSpace(password))
             return string.Empty;
@@ -117,12 +111,12 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
             { "returnto", "" }
         });
 
-        var response = await _httpService.PostResponse($"{Host}/takelogin.php", content, allowRedirect: false);
+        var response = await HttpService.PostResponse($"{Host}/takelogin.php", content, allowRedirect: false);
 
         if (response.Headers.TryGetValues("Set-Cookie", out var cookies))
         {
             var cookie = string.Join("; ", cookies);
-            await _cacheService.SetAsync(CookieKey, cookie, TimeSpan.FromDays(1));
+            await CacheService.SetAsync(CookieKey, cookie, TimeSpan.FromDays(1));
             return cookie;
         }
 

@@ -5,5 +5,4 @@ namespace JacRed.Core.Models;
 public class TorrentSearchPipelineResult
 {
     public IReadOnlyCollection<TorrentDetails> Items { get; init; } = [];
-    public bool UsedTrackerFallback { get; init; }
 }

@@ -8,19 +8,16 @@ namespace JacRed.Infrastructure.Services.Trackers.RuTor;
 
 public class RuTorSearch : BaseRuTor
 {
-    private readonly Config _config;
     private readonly ITorrentRepository _torrentRepository;
 
-    public RuTorSearch(HttpService httpService, ITorrentRepository torrentRepository, IOptionsSnapshot<Config> config)
-        : base(httpService)
+    public RuTorSearch(IOptions<Config> config, HttpService httpService, ICacheService cacheService, ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
     {
         _torrentRepository = torrentRepository;
-        _config = config.Value;
     }
 
     public override async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(string query)
     {
-        if (!_config.RuTor.EnableSearch)
+        if (!Config.RuTor.EnableSearch)
             return [];
 
         var url = SearchUrl + query;

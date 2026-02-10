@@ -9,17 +9,15 @@ namespace JacRed.Infrastructure.Services.Trackers.Kinozal;
 public class KinozalSearch : BaseKinozal
 {
     private readonly ITorrentRepository _torrentRepository;
-
-    public KinozalSearch(HttpService httpService, ICacheService cacheService, IOptionsSnapshot<Config> config,
-        ITorrentRepository torrentRepository)
-        : base(httpService, cacheService, config)
+    
+    public KinozalSearch(IOptions<Config> config, HttpService httpService, ICacheService cacheService, ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
     {
         _torrentRepository = torrentRepository;
     }
 
     public override async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(string query)
     {
-        if (!_config.Kinozal.EnableSearch)
+        if (!Config.Kinozal.EnableSearch)
             return [];
 
         var url = $"{Host}/browse.php?s={query}&g=0&c=0&v=0&d=0&w=0&t=1&f=0";

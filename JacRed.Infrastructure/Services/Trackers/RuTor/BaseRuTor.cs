@@ -5,18 +5,18 @@ using AngleSharp.Html.Parser;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
+using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
+using Microsoft.Extensions.Options;
 
 namespace JacRed.Infrastructure.Services.Trackers.RuTor;
 
 public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
 {
     private readonly HtmlParser _parser = new();
-    protected readonly HttpService HttpService;
 
-    public BaseRuTor(HttpService httpService)
+    protected BaseRuTor(IOptions<Config> config, HttpService httpService, ICacheService cacheService) : base(config, httpService, cacheService)
     {
-        HttpService = httpService;
     }
 
     public override TrackerType Tracker => TrackerType.Rutor;

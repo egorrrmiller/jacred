@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using JacRed.Core.Interfaces;
+using JacRed.Core.Models.Api;
 using JacRed.Core.Models.Options;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -10,11 +11,11 @@ namespace JacRed.Api.Controllers;
 public class JackettController : ControllerBase
 {
     private readonly Config _config;
-    private readonly IJackettFacadeService _facade;
+    private readonly ISearchService _searchService;
 
-    public JackettController(IJackettFacadeService facade, IOptions<Config> config)
+    public JackettController(IOptions<Config> config, ISearchService searchService)
     {
-        _facade = facade;
+        _searchService = searchService;
         _config = config.Value;
     }
 
@@ -49,22 +50,25 @@ public class JackettController : ControllerBase
         Dictionary<string, string> category,
         int is_serial = -1)
     {
-        var root = await _facade.SearchJackettAsync(
-            apikey,
-            query,
-            title,
-            title_original,
-            year,
-            category,
-            is_serial,
-            HttpContext.Request.Headers.UserAgent,
-            HttpContext.Request.QueryString.Value ?? string.Empty);
+        var root = await _searchService.SearchJackettAsync(new TorrentSearchRequest
+        {
+            ApiKey = apikey,
+            Query = query,
+            Title = title,
+            TitleOriginal = title_original,
+            Year = year,
+            Categories = category,
+            IsSerial = is_serial,
+            UserAgent = HttpContext.Request.Headers.UserAgent,
+            QueryString = HttpContext.Request.QueryString.Value ?? string.Empty
+        });
 
         return Ok(root);
     }
 
     [Route("/api/v1.0/torrents")]
     public async Task<IActionResult> Torrents(
+        string apiKey,
         string search,
         string altname,
         bool exact = false,
@@ -73,22 +77,25 @@ public class JackettController : ControllerBase
         string tracker = null,
         string voice = null,
         string videotype = null,
-        long relased = 0,
-        long quality = 0,
-        long season = 0)
+        int relased = 0,
+        int quality = 0,
+        int season = 0)
     {
-        var response = await _facade.SearchTorrentsAsync(
-            search,
-            altname,
-            exact,
-            type,
-            sort,
-            tracker,
-            voice,
-            videotype,
-            relased,
-            quality,
-            season);
+        var response = await _searchService.SearchTorrentsAsync(new TorrentSearchRequest
+        {
+            ApiKey = apiKey,
+            Title = search,
+            TitleOriginal = altname,
+            Year = relased,
+            Exact = exact,
+            Type = type,
+            Sort = sort,
+            Tracker = tracker,
+            Voice = voice,
+            VideoType = videotype,
+            Quality = quality,
+            Season = season
+        });
 
         return Ok(response);
     }

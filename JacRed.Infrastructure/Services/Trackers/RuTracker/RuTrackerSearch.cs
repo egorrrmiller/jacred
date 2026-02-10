@@ -8,19 +8,16 @@ namespace JacRed.Infrastructure.Services.Trackers.RuTracker;
 
 public sealed class RuTrackerSearch : BaseRuTracker
 {
-    private readonly Config _config;
     private readonly ITorrentRepository _torrentRepository;
 
-    public RuTrackerSearch(ICacheService cacheService, HttpService httpService, IOptionsSnapshot<Config> config,
-        ITorrentRepository torrentRepository) : base(cacheService, httpService, config)
+    public RuTrackerSearch(IOptions<Config> config, HttpService httpService, ICacheService cacheService, ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
     {
         _torrentRepository = torrentRepository;
-        _config = config.Value;
     }
 
     public override async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(string query)
     {
-        if (!_config.RuTracker.EnableSearch)
+        if (!Config.RuTracker.EnableSearch)
             return [];
 
         var results = new Dictionary<string, TorrentDetails>(StringComparer.OrdinalIgnoreCase);

@@ -9,19 +9,16 @@ namespace JacRed.Infrastructure.Services.Trackers.NNMClub;
 
 public class NNMClubSearch : BaseNNMClub
 {
-    private readonly Config _config;
     private readonly ITorrentRepository _torrentRepository;
-
-    public NNMClubSearch(HttpService httpService, ITorrentRepository torrentRepository, IOptionsSnapshot<Config> config)
-        : base(httpService)
+    
+    public NNMClubSearch(IOptions<Config> config, HttpService httpService, ICacheService cacheService, ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
     {
         _torrentRepository = torrentRepository;
-        _config = config.Value;
     }
 
     public override async Task<IReadOnlyCollection<TorrentDetails>> SearchAsync(string query)
     {
-        if (!_config.NNMClub.EnableSearch)
+        if (!Config.NNMClub.EnableSearch)
             return [];
 
         var results = new Dictionary<string, TorrentDetails>(StringComparer.OrdinalIgnoreCase);
@@ -33,7 +30,7 @@ public class NNMClubSearch : BaseNNMClub
 
         var content = new StringContent(formEncoded, RuEncoding, "application/x-www-form-urlencoded");
 
-        var html = await _httpService.Post(url, content);
+        var html = await HttpService.Post(url, content);
 
         if (string.IsNullOrWhiteSpace(html))
             return [];

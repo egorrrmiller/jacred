@@ -17,18 +17,18 @@ namespace JacRed.Infrastructure.Services;
 /// <summary>
 ///     Сервис полнотекстового и быстрого поиска по торрентам с использованием кэшей индексов.
 /// </summary>
-public class TorrentSearchService : ITorrentSearchService
+public class LocalSearchService : ILocalSearchService
 {
     private const string Schema = DbSchema.Name;
     private readonly Config _config;
     private readonly string _connectionString;
-    private readonly ILogger<TorrentSearchService> _logger;
+    private readonly ILogger<LocalSearchService> _logger;
     private readonly ITorrentRepository _torrentRepository;
 
-    public TorrentSearchService(
+    public LocalSearchService(
         ITorrentRepository torrentRepository,
         string connectionString,
-        ILogger<TorrentSearchService> logger,
+        ILogger<LocalSearchService> logger,
         IOptions<Config> config)
     {
         _torrentRepository = torrentRepository;

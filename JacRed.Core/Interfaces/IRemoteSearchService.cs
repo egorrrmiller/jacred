@@ -6,7 +6,7 @@ namespace JacRed.Core.Interfaces;
 /// <summary>
 ///     Координатор поисковых запросов по набору поддерживаемых трекеров.
 /// </summary>
-public interface ITrackerSearchService
+public interface IRemoteSearchService
 {
     /// <summary>
     ///     Возвращает список поддерживаемых трекеров.

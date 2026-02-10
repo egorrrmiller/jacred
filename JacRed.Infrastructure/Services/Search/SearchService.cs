@@ -1,0 +1,223 @@
+using System.Text.RegularExpressions;
+using JacRed.Core.Enums;
+using JacRed.Core.Interfaces;
+using JacRed.Core.Models.Api;
+using JacRed.Core.Models.Details;
+using JacRed.Core.Models.Options;
+using JacRed.Core.Models.Tracks;
+using JacRed.Core.Utils;
+using Microsoft.Extensions.Options;
+using TorrentInfo = JacRed.Core.Models.Api.TorrentInfo;
+
+namespace JacRed.Infrastructure.Services.Search;
+
+public class SearchService : BaseSearchService, ISearchService
+{
+    private readonly ILocalSearchService _localSearch;
+    private readonly IRemoteSearchService _remoteSearch;
+    private readonly ITorrentRepository _repository;
+    private readonly ISearchHistoryRepository _history;
+    private readonly ITorrentMergerService _merger;
+
+    public SearchService(
+        IOptions<Config> config,
+        HttpService httpService,
+        ICacheService cacheService,
+        ILocalSearchService localSearch,
+        IRemoteSearchService remoteSearch,
+        ITorrentRepository repository,
+        ISearchHistoryRepository history,
+        ITorrentMergerService merger) : base(config.Value, httpService, cacheService)
+    {
+        _localSearch = localSearch;
+        _remoteSearch = remoteSearch;
+        _repository = repository;
+        _history = history;
+        _merger = merger;
+    }
+
+    public async Task<IReadOnlyCollection<V1TorrentResponse>> SearchTorrentsAsync(TorrentSearchRequest request)
+    {
+        var cacheKey = CacheKeyBuilder.Build("api", "v1.0", "torrents", request.Title, request.TitleOriginal, request.Exact.ToString(), request.Type, request.Sort, request.Tracker, request.Voice, request.VideoType, request.Year.ToString(), request.Quality.ToString(), request.Season.ToString());
+        
+        return await CacheService.GetOrCreateAsync(cacheKey, async () =>
+        {
+            var torrents = await ExecuteUnifiedSearch(request);
+            
+            return torrents.Take(2000).Select(t => new V1TorrentResponse
+            {
+                tracker = t.TrackerName,
+                url = t.Url?.StartsWith("http") == true ? t.Url : null,
+                title = t.Title,
+                size = t.Size,
+                sizeName = t.SizeName,
+                createTime = t.CreateTime,
+                sid = t.Sid,
+                pir = t.Pir,
+                magnet = t.Magnet,
+                name = t.Name,
+                originalname = t.OriginalName,
+                relased = t.Relased,
+                videotype = t.VideoType,
+                quality = t.Quality,
+                voices = t.Voices?.ToArray(),
+                seasons = t.Seasons?.ToArray(),
+                types = t.Types
+            }).ToList();
+        }, TimeSpan.FromMinutes(5));
+    }
+
+    public async Task<RootObject> SearchJackettAsync(TorrentSearchRequest request)
+    {
+        var cacheKey = CacheKeyBuilder.Build("jackett", request.Query, request.Title, request.TitleOriginal, request.Year.ToString(), CacheKeyBuilder.NormalizeCategory(request.Categories), request.IsSerial.ToString());
+        
+        return await CacheService.GetOrCreateAsync(cacheKey, async () =>
+        {
+            var isNumRequest = IsNumRequest(request);
+            var contentType = DetermineContentType(request.IsSerial, request.Categories);
+            var (title, titleOriginal, year) = ApplyNumQueryHeuristic(request.Query, request.Title, request.TitleOriginal, request.Year, isNumRequest);
+
+            request.Title = title;
+            request.TitleOriginal = titleOriginal;
+            request.Year = year;
+
+            if (string.IsNullOrWhiteSpace(request.Title) && string.IsNullOrWhiteSpace(request.TitleOriginal) && !string.IsNullOrWhiteSpace(request.Query))
+            {
+                var parts = request.Query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                request.Title = (parts.Length > 0 && !parts[0].Any(c => (c >= 'а' && c <= 'я') || (c >= 'А' && c <= 'Я'))) ? parts[0] : request.Query;
+            }
+
+            var torrents = await ExecuteUnifiedSearch(request);
+
+            if (request.ApiKey == "rus")
+                torrents = torrents.Where(t => t.Languages?.Contains("rus") == true || t.Types?.Intersect(new[] { "sport", "tvshow", "docuserial" }).Any() == true).ToList();
+
+            var shouldMerge = (!isNumRequest && Config.MergeDuplicates) || (isNumRequest && Config.MergeNumDuplicates);
+            var result = shouldMerge ? await _merger.MergeAsync(torrents) : torrents;
+
+            return new RootObject { Results = await BuildJackettResults(result, isNumRequest), Error = null };
+        }, TimeSpan.FromMinutes(5));
+    }
+
+    private async Task<List<TorrentDetails>> ExecuteUnifiedSearch(TorrentSearchRequest request)
+    {
+        var (search, altname) = await ResolveKpImdb(request.Title, request.TitleOriginal);
+        
+        var torrents = await _localSearch.SearchByTitleAsync(search, altname, (int?)request.Year, null, request.Exact);
+        torrents = torrents.Where(t => IsTrackerSearchEnabled(Enum.Parse<TrackerType>(t.TrackerName, true))).ToList();
+
+        if (request.Exact && torrents.Count == 0)
+        {
+            torrents = await _localSearch.SearchByTitleAsync(search, altname, (int?)request.Year, null, false);
+            torrents = torrents.Where(t => IsTrackerSearchEnabled(Enum.Parse<TrackerType>(t.TrackerName, true))).ToList();
+        }
+
+        var trackerQuery = BuildTrackerQuery(search, altname);
+        if (!string.IsNullOrWhiteSpace(trackerQuery))
+        {
+            var normalizedQuery = StringConvert.SearchName(trackerQuery) ?? trackerQuery.Trim();
+            var currentTrackersHash = GetTrackersHash();
+            var history = await _history.GetAsync(normalizedQuery);
+
+            if (torrents.Count == 0 || history == null || (DateTime.UtcNow - history.LastSearchTime) > TimeSpan.FromHours(12) || history.TrackersHash != currentTrackersHash)
+            {
+                var fetched = await _remoteSearch.SearchAsync(trackerQuery, _remoteSearch.GetSupportedTrackers());
+                if (fetched.Count > 0)
+                {
+                    await _repository.AddOrUpdateAsync(fetched);
+                    torrents = await _localSearch.SearchByTitleAsync(search, altname, (int?)request.Year, null, request.Exact);
+                    if (request.Exact && torrents.Count == 0)
+                        torrents = await _localSearch.SearchByTitleAsync(search, altname, (int?)request.Year, null, false);
+                    
+                    torrents = torrents.Where(t => IsTrackerSearchEnabled(Enum.Parse<TrackerType>(t.TrackerName, true))).ToList();
+                }
+                await _history.AddOrUpdateAsync(normalizedQuery, DateTime.UtcNow, currentTrackersHash);
+            }
+        }
+
+        var filtered = ApplyFilters(torrents, request.Type, request.Tracker, request.Year, request.Quality, request.VideoType, request.Voice, request.Season);
+        return ApplySort(filtered, request.Sort).ToList();
+    }
+
+    #region Jackett Helpers
+    private bool IsNumRequest(TorrentSearchRequest r) => r.Query != null && r.UserAgent == "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36" && !string.IsNullOrEmpty(r.QueryString) && !r.QueryString.Contains("&is_serial=");
+
+    private (string, string, int) ApplyNumQueryHeuristic(string? query, string title, string orig, int year, bool isNum)
+    {
+        if (!isNum || query == null) return (title, orig, year);
+        var m = Regex.Match(query, @"^([^a-z-A-Z]+) ([^а-я-А-я]+)(?: ([0-9]{4}))?$");
+        if (!m.Success) return (title, orig, year);
+        var g = m.Groups.Values.Skip(1).ToArray();
+        return g.Length < 2 ? (title, orig, year) : (g[0].Value, g[1].Value, g.Length > 2 ? int.Parse(g[2].Value) : year);
+    }
+
+    private int? DetermineContentType(int isSerial, Dictionary<string, string> category)
+    {
+        if (isSerial == 0 && category?.Count > 0)
+        {
+            var cat = category.First().Value;
+            if (cat.Contains("5020") || cat.Contains("2010")) return 3;
+            if (cat.Contains("5080")) return 4;
+            if (cat.Contains("5070")) return 5;
+            if (cat.StartsWith("20")) return 1;
+            if (cat.StartsWith("50")) return 2;
+        }
+        return isSerial switch { 1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, _ => null };
+    }
+
+    private async Task<List<Result>> BuildJackettResults(IEnumerable<TorrentDetails> torrents, bool isNumRequest)
+    {
+        var results = new List<Result>();
+        foreach (var t in torrents)
+        {
+            var ffprobe = isNumRequest ? null : t.Ffprobe;
+            var languages = t.Languages?.Count > 0 ? new HashSet<string>(t.Languages) : ExtractLanguagesFromFfprobe(ffprobe) ?? new HashSet<string>();
+            results.Add(new Result
+            {
+                Tracker = t.TrackerName,
+                Details = t.Url?.StartsWith("http") == true ? t.Url : null,
+                Title = t.Title,
+                Size = t.Size,
+                PublishDate = t.CreateTime,
+                Category = GetCategoryIds(t, out var categoryDesc),
+                CategoryDesc = categoryDesc,
+                Seeders = t.Sid,
+                Peers = t.Pir,
+                MagnetUri = t.Magnet ?? string.Empty,
+                Ffprobe = ffprobe,
+                Languages = languages,
+                Info = isNumRequest ? null : new TorrentInfo { name = t.Name, originalname = t.OriginalName, sizeName = t.SizeName, relased = t.Relased, videotype = t.VideoType, quality = t.Quality, voices = t.Voices, seasons = t.Seasons?.Count > 0 ? t.Seasons : null, types = t.Types }
+            });
+        }
+        return results;
+    }
+
+    private static HashSet<string>? ExtractLanguagesFromFfprobe(List<FfStream>? streams)
+    {
+        if (streams == null) return null;
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var s in streams.Where(s => string.Equals(s.CodecType, "audio", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (!string.IsNullOrWhiteSpace(s.Tags?.Language)) set.Add(s.Tags.Language);
+        }
+        return set.Count > 0 ? set : null;
+    }
+
+    private HashSet<int> GetCategoryIds(TorrentDetails t, out string? desc)
+    {
+        desc = null;
+        var set = new HashSet<int>();
+        if (t.Types == null) return set;
+        foreach (var type in t.Types)
+            switch (type)
+            {
+                case "movie": case "multfilm": desc ??= "Movies"; set.Add(2000); break;
+                case "serial": case "multserial": desc ??= "TV"; set.Add(5000); break;
+                case "documovie": case "docuserial": desc ??= "TV/Documentary"; set.Add(5080); break;
+                case "tvshow": desc ??= "TV/Foreign"; set.Add(5020); set.Add(2010); break;
+                case "anime": desc ??= "TV/Anime"; set.Add(5070); break;
+            }
+        return set;
+    }
+    #endregion
+}

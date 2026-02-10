@@ -11,7 +11,7 @@ public class TorrentDetails : ICloneable
 
     public string TrackerName { get; set; } = null!;
 
-    public string[] Types { get; set; } = null!;
+    public string[]? Types { get; set; } = null!;
 
     public string Url { get; set; } = null!;
 

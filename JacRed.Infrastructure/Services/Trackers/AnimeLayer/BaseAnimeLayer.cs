@@ -13,16 +13,9 @@ public abstract class BaseAnimeLayer : BaseTrackerSearch
 {
     private const string CookieKey = "animelayer:cookie";
     private static readonly Encoding Encoding = Encoding.UTF8;
-
-    private readonly ICacheService _cacheService;
-    private readonly Config _config;
-    protected readonly HttpService HttpService;
-
-    protected BaseAnimeLayer(ICacheService cacheService, HttpService httpService, IOptionsSnapshot<Config> config)
+    
+    protected BaseAnimeLayer(ICacheService cacheService, HttpService httpService, IOptionsSnapshot<Config> config) : base(config, httpService, cacheService)
     {
-        _cacheService = cacheService;
-        HttpService = httpService;
-        _config = config.Value;
     }
 
     public override TrackerType Tracker => TrackerType.AnimeLayer;
@@ -33,7 +26,7 @@ public abstract class BaseAnimeLayer : BaseTrackerSearch
 
     protected async Task<string> Get(string url, string? referer = null)
     {
-        if (!_cacheService.TryGetValue(CookieKey, out string? cookie))
+        if (!CacheService.TryGetValue(CookieKey, out string? cookie))
             cookie = await Authorize();
 
         var html = await HttpService.Get(url, Encoding, cookie, referer);
@@ -50,7 +43,7 @@ public abstract class BaseAnimeLayer : BaseTrackerSearch
 
     protected async Task<string?> GetMagnet(string url)
     {
-        if (!_cacheService.TryGetValue(CookieKey, out string? cookie))
+        if (!CacheService.TryGetValue(CookieKey, out string? cookie))
             cookie = await Authorize();
 
         var response = await HttpService.PostResponse(url, null, cookie, allowRedirect: false);
@@ -66,17 +59,17 @@ public abstract class BaseAnimeLayer : BaseTrackerSearch
 
     private async Task<string> Authorize(bool reAuth = false)
     {
-        if (!string.IsNullOrWhiteSpace(_config.AnimeLayer.Authorization.Cookie) && !reAuth)
-            return _config.AnimeLayer.Authorization.Cookie;
+        if (!string.IsNullOrWhiteSpace(Config.AnimeLayer.Authorization.Cookie) && !reAuth)
+            return Config.AnimeLayer.Authorization.Cookie;
 
-        if (string.IsNullOrWhiteSpace(_config.AnimeLayer.Authorization.Login) ||
-            string.IsNullOrWhiteSpace(_config.AnimeLayer.Authorization.Password))
+        if (string.IsNullOrWhiteSpace(Config.AnimeLayer.Authorization.Login) ||
+            string.IsNullOrWhiteSpace(Config.AnimeLayer.Authorization.Password))
             return string.Empty;
 
         var formData = new Dictionary<string, string>
         {
-            { "login", _config.AnimeLayer.Authorization.Login },
-            { "password", _config.AnimeLayer.Authorization.Password }
+            { "login", Config.AnimeLayer.Authorization.Login },
+            { "password", Config.AnimeLayer.Authorization.Password }
         };
 
         var response = await HttpService.PostResponse(
@@ -105,7 +98,7 @@ public abstract class BaseAnimeLayer : BaseTrackerSearch
                 !string.IsNullOrWhiteSpace(phpsessid))
             {
                 var cookie = $"layer_id={layerId}; layer_hash={layerHash}; PHPSESSID={phpsessid};";
-                await _cacheService.SetAsync(CookieKey, cookie, TimeSpan.FromDays(1));
+                await CacheService.SetAsync(CookieKey, cookie, TimeSpan.FromDays(1));
                 return cookie;
             }
         }

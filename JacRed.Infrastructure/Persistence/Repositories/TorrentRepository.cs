@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 
-namespace JacRed.Infrastructure.Services;
+namespace JacRed.Infrastructure.Persistence.Repositories;
 
 /// <summary>
 ///     Репозиторий торрентов на PostgreSQL/Dapper: upsert коллекций и чтение по ключам.
@@ -243,17 +243,6 @@ public class TorrentRepository : ITorrentRepository
                 hits = {Schema}.search_queries.hits + 1";
 
         await connection.ExecuteAsync(sql, new { Query = normalized });
-    }
-
-    public async Task<DateTime> GetLastUpdateTimeAsync()
-    {
-        await using var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync();
-
-        var sql = $"SELECT MAX(update_time) FROM {Schema}.torrents";
-        var result = await connection.QueryFirstOrDefaultAsync<DateTime?>(sql);
-
-        return result ?? new DateTime(2000, 1, 1);
     }
 
     public async Task<List<TorrentDetails>> GetForMediaProbeAsync(

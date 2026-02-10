@@ -22,15 +22,8 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
 
     protected static readonly IReadOnlyDictionary<string, CategoryInfo> CategoryMap = BuildCategoryMap();
 
-    private readonly ICacheService _cacheService;
-    private readonly Config _config;
-    private readonly HttpService _httpService;
-
-    protected BaseRuTracker(ICacheService cacheService, HttpService httpService, IOptionsSnapshot<Config> config)
+    protected BaseRuTracker(IOptions<Config> config, HttpService httpService, ICacheService cacheService) : base(config, httpService, cacheService)
     {
-        _cacheService = cacheService;
-        _httpService = httpService;
-        _config = config.Value;
     }
 
     public override TrackerType Tracker => TrackerType.Rutracker;
@@ -81,10 +74,10 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         List<(string name, string val)>? addHeaders = null,
         bool useProxy = false)
     {
-        if (!_cacheService.TryGetValue(CookieKey, out string? cookie))
+        if (!CacheService.TryGetValue(CookieKey, out string? cookie))
             cookie = await Authorize();
 
-        var html = await _httpService.Get(
+        var html = await HttpService.Get(
             url,
             encoding,
             cookie,
@@ -97,7 +90,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         if (string.IsNullOrWhiteSpace(html) || !html.Contains("id=\"logged-in-username\""))
         {
             cookie = await Authorize(true);
-            html = await _httpService.Get(
+            html = await HttpService.Get(
                 url,
                 encoding,
                 cookie,
@@ -124,8 +117,8 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
 
         var pairs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            { "login_username", _config.RuTracker.Authorization.Login },
-            { "login_password", _config.RuTracker.Authorization.Password },
+            { "login_username", Config.RuTracker.Authorization.Login },
+            { "login_password", Config.RuTracker.Authorization.Password },
             { "login", "Login" }
         };
 
@@ -148,7 +141,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         var cookies = response.Headers.TryGetValues("Set-Cookie", out var v) ? v : [];
         var cookie = string.Join("; ", cookies);
 
-        await _cacheService.SetAsync(CookieKey, cookie, TimeSpan.FromDays(3));
+        await CacheService.SetAsync(CookieKey, cookie, TimeSpan.FromDays(3));
 
         return cookie;
     }

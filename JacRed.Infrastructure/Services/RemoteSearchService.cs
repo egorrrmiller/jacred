@@ -9,17 +9,17 @@ using Microsoft.Extensions.Options;
 
 namespace JacRed.Infrastructure.Services;
 
-public class TrackerSearchService : ITrackerSearchService
+public class RemoteSearchService : IRemoteSearchService
 {
     private readonly ICacheService _cacheService;
     private readonly Config _config;
-    private readonly ILogger<TrackerSearchService> _logger;
+    private readonly ILogger<RemoteSearchService> _logger;
     private readonly IReadOnlyDictionary<TrackerType, ITrackerSearch> _providers;
 
-    public TrackerSearchService(
+    public RemoteSearchService(
         ICacheService cacheService,
         IEnumerable<ITrackerSearch> providers,
-        ILogger<TrackerSearchService> logger, IOptions<Config> config)
+        ILogger<RemoteSearchService> logger, IOptions<Config> config)
     {
         _cacheService = cacheService;
         _logger = logger;

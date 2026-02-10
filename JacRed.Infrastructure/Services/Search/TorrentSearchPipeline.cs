@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
@@ -9,76 +11,84 @@ using JacRed.Core.Utils;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 
-namespace JacRed.Infrastructure.Services;
+namespace JacRed.Infrastructure.Services.Search;
 
 public class TorrentSearchPipeline : ITorrentSearchPipeline
 {
     private readonly ICacheService _cacheService;
     private readonly Config _config;
     private readonly HttpService _httpService;
-    private readonly ITorrentMergerService _mergeService;
-    private readonly ITorrentSearchService _searchService;
+    private readonly ILocalSearchService _searchService;
     private readonly ITorrentRepository _torrentRepository;
-    private readonly ITrackerSearchService _trackerSearchService;
+    private readonly IRemoteSearchService _remoteSearchService;
+    private readonly ISearchHistoryRepository _searchHistoryRepository;
 
     public TorrentSearchPipeline(
-        ITorrentSearchService searchService,
+        ILocalSearchService searchService,
         ITorrentRepository torrentRepository,
-        ITrackerSearchService trackerSearchService,
-        ITorrentMergerService mergeService,
+        IRemoteSearchService remoteSearchService,
         ICacheService cacheService,
         HttpService httpService,
-        IOptions<Config> config)
+        IOptions<Config> config,
+        ISearchHistoryRepository searchHistoryRepository)
     {
         _searchService = searchService;
         _torrentRepository = torrentRepository;
-        _trackerSearchService = trackerSearchService;
-        _mergeService = mergeService;
+        _remoteSearchService = remoteSearchService;
         _cacheService = cacheService;
         _httpService = httpService;
         _config = config.Value;
+        _searchHistoryRepository = searchHistoryRepository;
     }
 
     /// <summary>Единый пайплайн поиска: локально → трекеры → фильтры → сортировка → merge.</summary>
     public async Task<TorrentSearchPipelineResult> SearchAsync(
         TorrentSearchRequest request)
     {
-        var (search, altname) = await ResolveKpImdb(request.Search, request.AltName);
+        var (search, altname) = await ResolveKpImdb(request.Title, request.TitleOriginal);
 
         var torrents = await SearchLocalAsync(search, altname, null, request.Exact);
 
-        torrents = FilterAllowedTrackers(torrents).ToList();
-        var usedFallback = false;
+        torrents = torrents.Where(IsAllowedTracker).ToList();
 
         if (request.Exact && torrents.Count == 0)
         {
             torrents = await SearchLocalAsync(search, altname, null, false);
-            torrents = FilterAllowedTrackers(torrents).ToList();
+            torrents = torrents.Where(IsAllowedTracker).ToList();
         }
 
-        if (torrents.Count == 0)
+        var trackerQuery = BuildTrackerQuery(search, altname);
+
+        if (!string.IsNullOrWhiteSpace(trackerQuery))
         {
-            var trackerQuery = BuildTrackerQuery(search, altname);
-            if (!string.IsNullOrWhiteSpace(trackerQuery))
+            var normalizedQuery = StringConvert.SearchName(trackerQuery) ?? trackerQuery.Trim();
+            var currentTrackersHash = GetTrackersHash();
+            var history = await _searchHistoryRepository.GetAsync(normalizedQuery);
+
+            if (torrents.Count == 0 || 
+                history == null || 
+                (DateTime.UtcNow - history.LastSearchTime) > TimeSpan.FromHours(12) ||
+                history.TrackersHash != currentTrackersHash)
             {
-                var fetched = await _trackerSearchService.SearchAsync(
+                var fetched = await _remoteSearchService.SearchAsync(
                     trackerQuery,
-                    _trackerSearchService.GetSupportedTrackers());
+                    _remoteSearchService.GetSupportedTrackers());
 
                 if (fetched.Count > 0)
                 {
                     await _torrentRepository.AddOrUpdateAsync(fetched);
-                    usedFallback = true;
 
                     torrents = await SearchLocalAsync(search, altname, null, request.Exact);
-                    torrents = FilterAllowedTrackers(torrents).ToList();
+                    torrents = torrents.Where(IsAllowedTracker).ToList();
 
                     if (request.Exact && torrents.Count == 0)
                     {
                         torrents = await SearchLocalAsync(search, altname, null, false);
-                        torrents = FilterAllowedTrackers(torrents).ToList();
+                        torrents = torrents.Where(IsAllowedTracker).ToList();
                     }
                 }
+                
+                await _searchHistoryRepository.AddOrUpdateAsync(normalizedQuery, DateTime.UtcNow, currentTrackersHash);
             }
         }
 
@@ -86,7 +96,7 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
             torrents,
             request.Type,
             request.Tracker,
-            request.Relased,
+            request.Year,
             request.Quality,
             request.VideoType,
             request.Voice,
@@ -96,9 +106,21 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
 
         return new TorrentSearchPipelineResult
         {
-            Items = sorted.ToList(),
-            UsedTrackerFallback = usedFallback
+            Items = sorted.ToList()
         };
+    }
+
+    private string GetTrackersHash()
+    {
+        var enabledTrackers = Enum.GetValues<TrackerType>()
+            .Where(IsTrackerSearchEnabled)
+            .OrderBy(t => t)
+            .Select(t => t.ToString());
+            
+        var key = string.Join(",", enabledTrackers);
+        using var md5 = MD5.Create();
+        var hashBytes = md5.ComputeHash(Encoding.UTF8.GetBytes(key));
+        return Convert.ToHexString(hashBytes);
     }
 
     private async Task<(string? search, string? altname)> ResolveKpImdb(string? search, string? altname)
@@ -197,15 +219,12 @@ public class TorrentSearchPipeline : ITorrentSearchPipeline
         return $"{search} {altname}".Trim();
     }
 
-    private IEnumerable<TorrentDetails> FilterAllowedTrackers(IEnumerable<TorrentDetails> source)
+    private bool IsAllowedTracker(TorrentDetails t)
     {
-        return source.Where(t =>
-        {
-            if (!Enum.TryParse<TrackerType>(t.TrackerName, true, out var trackerType))
-                return false;
+        if (!Enum.TryParse<TrackerType>(t.TrackerName, true, out var trackerType))
+            return false;
 
-            return IsTrackerSearchEnabled(trackerType);
-        });
+        return IsTrackerSearchEnabled(trackerType);
     }
 
     private bool IsTrackerSearchEnabled(TrackerType type)

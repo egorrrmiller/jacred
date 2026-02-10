@@ -6,7 +6,9 @@ using JacRed.Api.Services.RuTracker;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
+using JacRed.Infrastructure.Persistence.Repositories;
 using JacRed.Infrastructure.Services;
+using JacRed.Infrastructure.Services.Search;
 using JacRed.Infrastructure.Services.Trackers.Aniliberty;
 using JacRed.Infrastructure.Services.Trackers.AnimeLayer;
 using JacRed.Infrastructure.Services.Trackers.Kinozal;
@@ -24,14 +26,14 @@ public static class ServicesConfiguration
     {
         services
             .AddScoped<ITorrentRepository, TorrentRepository>()
+            .AddScoped<ISearchHistoryRepository, SearchHistoryRepository>()
             .AddScoped<IKeyGenerator, KeyGenerator>()
             .AddScoped<ITorrentEnricher, TorrentEnricher>()
-            .AddScoped<ITorrentSearchService, TorrentSearchService>()
+            .AddScoped<ILocalSearchService, LocalSearchService>()
             .AddScoped<ITorrentMergerService, TorrentMergerService>()
             .AddScoped<ITorrentMediaProbeService, TorrentMediaProbeService>()
-            .AddScoped<IJackettFacadeService, JackettFacadeService>()
-            .AddScoped<ITorrentSearchPipeline, TorrentSearchPipeline>()
-            .AddScoped<ITrackerSearchService, TrackerSearchService>()
+            .AddScoped<IRemoteSearchService, RemoteSearchService>()
+            .AddScoped<ISearchService, SearchService>()
             .AddScoped<ITrackerSearch, RuTrackerSearch>()
             .AddScoped<ITrackerSearch, AnilibertySearch>()
             .AddScoped<ITrackerSearch, RuTorSearch>()

@@ -3,7 +3,9 @@ using System.Text.RegularExpressions;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
+using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
+using Microsoft.Extensions.Options;
 
 namespace JacRed.Infrastructure.Services.Trackers.NNMClub;
 
@@ -28,11 +30,9 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
             ["26"] = new(["multfilm", "multserial"])
         };
 
-    protected readonly HttpService _httpService;
 
-    public BaseNNMClub(HttpService httpService)
+    protected BaseNNMClub(IOptions<Config> config, HttpService httpService, ICacheService cacheService) : base(config, httpService, cacheService)
     {
-        _httpService = httpService;
     }
 
     public override TrackerType Tracker => TrackerType.NNMClub;
@@ -73,7 +73,7 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
     {
         try
         {
-            var html = await _httpService.Get(url, RuEncoding);
+            var html = await HttpService.Get(url, RuEncoding);
             if (string.IsNullOrWhiteSpace(html))
                 return null;
 

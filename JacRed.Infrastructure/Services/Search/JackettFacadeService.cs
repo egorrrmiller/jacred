@@ -1,7 +1,10 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Api;
+using JacRed.Core.Models.Database;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Options;
 using JacRed.Core.Models.Tracks;
@@ -9,7 +12,7 @@ using JacRed.Core.Utils;
 using Microsoft.Extensions.Options;
 using TorrentInfo = JacRed.Core.Models.Api.TorrentInfo;
 
-namespace JacRed.Infrastructure.Services;
+namespace JacRed.Infrastructure.Services.Search;
 
 public class JackettFacadeService : IJackettFacadeService
 {
@@ -17,83 +20,51 @@ public class JackettFacadeService : IJackettFacadeService
     private readonly Config _config;
     private readonly ITorrentMergerService _mergeService;
     private readonly ITorrentSearchPipeline _searchPipeline;
-    private readonly ITorrentSearchService _searchService;
+    private readonly ILocalSearchService _searchService;
     private readonly ITorrentRepository _torrentRepository;
-    private readonly ITrackerSearchService _trackerSearchService;
+    private readonly IRemoteSearchService _remoteSearchService;
+    private readonly ISearchHistoryRepository _searchHistoryRepository;
 
     public JackettFacadeService(
         ICacheService cacheService,
         ITorrentMergerService mergeService,
-        ITorrentSearchService searchService,
+        ILocalSearchService searchService,
         ITorrentSearchPipeline searchPipeline,
-        ITrackerSearchService trackerSearchService,
+        IRemoteSearchService remoteSearchService,
         ITorrentRepository torrentRepository,
-        IOptionsSnapshot<Config> config)
+        IOptionsSnapshot<Config> config, ISearchHistoryRepository searchHistoryRepository)
     {
         _cacheService = cacheService;
         _mergeService = mergeService;
         _searchService = searchService;
         _searchPipeline = searchPipeline;
-        _trackerSearchService = trackerSearchService;
+        _remoteSearchService = remoteSearchService;
         _torrentRepository = torrentRepository;
+        _searchHistoryRepository = searchHistoryRepository;
         _config = config.Value;
     }
 
     /// <summary>Поиск для Jackett v2 с кэшированием результатов.</summary>
-    public async Task<RootObject> SearchJackettAsync(
-        string apikey,
-        string query,
-        string title,
-        string titleOriginal,
-        int year,
-        Dictionary<string, string> category,
-        int isSerial,
-        string? userAgent,
-        string queryString)
+    public async Task<RootObject> SearchJackettAsync(TorrentSearchRequest request)
     {
         if (!_config.Cache.Enable)
-            return await BuildJackettAsync(apikey, query, title, titleOriginal, year, category, isSerial, userAgent,
-                queryString);
+            return await BuildJackettAsync(request);
 
-        var cacheKey = GenerateCacheKey(query, title, titleOriginal, year, category, isSerial);
+        var cacheKey = GenerateCacheKey(request.Query, request.Title, request.TitleOriginal, request.Year, request.Categories, request.IsSerial);
         return await _cacheService.GetOrCreateAsync(
             cacheKey,
-            () => BuildJackettAsync(apikey, query, title, titleOriginal, year, category, isSerial, userAgent,
-                queryString),
+            () => BuildJackettAsync(request),
             TimeSpan.FromMinutes(5));
     }
 
     /// <summary>Поиск для API v1.0 с применением пайплайна и кэша.</summary>
-    public async Task<IReadOnlyCollection<V1TorrentResponse>> SearchTorrentsAsync(
-        string search,
-        string altname,
-        bool exact,
-        string? type,
-        string? sort,
-        string? tracker,
-        string? voice,
-        string? videotype,
-        long relased,
-        long quality,
-        long season)
+    public async Task<IReadOnlyCollection<V1TorrentResponse>> SearchTorrentsAsync(TorrentSearchRequest request)
     {
-        var cacheKey = BuildV1CacheKey(search, altname, exact, type, sort, tracker, voice, videotype, relased, quality,
-            season);
+        var cacheKey = BuildV1CacheKey(request.Title, request.TitleOriginal, request.Exact, request.Type, request.Sort,
+            request.Tracker, request.Voice, request.VideoType, request.Year, request.Quality,
+            request.Season);
 
-        var pipelineResult = await _searchPipeline.SearchAsync(new TorrentSearchRequest
-        {
-            Search = search,
-            AltName = altname,
-            Exact = exact,
-            Type = type,
-            Sort = sort,
-            Tracker = tracker,
-            Voice = voice,
-            VideoType = videotype,
-            Relased = relased,
-            Quality = quality,
-            Season = season
-        });
+        var pipelineResult = await _searchPipeline.SearchAsync(request);
 
         var response = pipelineResult.Items.Take(2000).Select(t => new V1TorrentResponse
         {
@@ -115,17 +86,10 @@ public class JackettFacadeService : IJackettFacadeService
             seasons = t.Seasons?.ToArray(),
             types = t.Types
         }).ToList();
-
-        if (pipelineResult.UsedTrackerFallback)
-            await _cacheService.SetAsync(cacheKey, response, TimeSpan.FromMinutes(5));
+        
+        await _cacheService.SetAsync(cacheKey, response, TimeSpan.FromMinutes(5));
 
         return response;
-    }
-
-    /// <summary>Возвращает время последнего обновления master_db.</summary>
-    public async Task<DateTime> GetLastUpdateDb()
-    {
-        return await _torrentRepository.GetLastUpdateTimeAsync();
     }
 
     private async Task<List<Result>> BuildJackettResults(IEnumerable<TorrentDetails> torrents, bool isNumRequest)
@@ -182,17 +146,6 @@ public class JackettFacadeService : IJackettFacadeService
             return true;
 
         return IsTrackerSearchEnabled(trackerType);
-    }
-
-    private bool IsTrackerSearchEnabled(TrackerType type)
-    {
-        return type switch
-        {
-            TrackerType.Rutracker => _config.RuTracker.EnableSearch,
-            TrackerType.AnimeLayer => _config.AnimeLayer.EnableSearch,
-            TrackerType.NNMClub => _config.NNMClub.EnableSearch,
-            _ => true
-        };
     }
 
     private static HashSet<string>? ExtractLanguagesFromFfprobe(List<FfStream>? streams)
@@ -259,7 +212,7 @@ public class JackettFacadeService : IJackettFacadeService
         return set;
     }
 
-    private string GenerateCacheKey(string query, string title, string orig, int year, Dictionary<string, string> cat,
+    private string GenerateCacheKey(string? query, string title, string orig, int year, Dictionary<string, string> cat,
         int serial)
     {
         var normalizedCat = CacheKeyBuilder.NormalizeCategory(cat);
@@ -302,15 +255,16 @@ public class JackettFacadeService : IJackettFacadeService
             season.ToString());
     }
 
-    private bool IsNumRequest(string query, string? userAgent, string queryString)
+    private bool IsNumRequest(string? query, string? userAgent, string? queryString)
     {
         return query != null &&
                userAgent ==
                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36" &&
+               !string.IsNullOrEmpty(queryString) &&
                !queryString.Contains("&is_serial=");
     }
 
-    private (string, string, int) ApplyNumQueryHeuristic(string query, string title, string orig, int year, bool isNum)
+    private (string, string, int) ApplyNumQueryHeuristic(string? query, string title, string orig, int year, bool isNum)
     {
         if (!isNum || query == null) return (title, orig, year);
 
@@ -351,17 +305,17 @@ public class JackettFacadeService : IJackettFacadeService
         };
     }
 
-    private async Task<RootObject> BuildJackettAsync(
-        string apikey,
-        string query,
-        string title,
-        string titleOriginal,
-        int year,
-        Dictionary<string, string> category,
-        int isSerial,
-        string? userAgent,
-        string queryString)
+    private async Task<RootObject> BuildJackettAsync(TorrentSearchRequest request)
     {
+        var query = request.Query;
+        var userAgent = request.UserAgent;
+        var queryString = request.QueryString;
+        var isSerial = request.IsSerial;
+        var category = request.Categories;
+        var title = request.Title;
+        var titleOriginal = request.TitleOriginal;
+        var year = request.Year;
+        
         var isNumRequest = IsNumRequest(query, userAgent, queryString);
         var contentType = DetermineContentType(isSerial, category);
         (title, titleOriginal, year) = ApplyNumQueryHeuristic(query, title, titleOriginal, year, isNumRequest);
@@ -393,14 +347,34 @@ public class JackettFacadeService : IJackettFacadeService
             .Where(t => t.Types != null && !(t.Title?.Contains(" КПК") ?? false))
             .ToList();
 
-        if (torrents.Count == 0)
+        torrents = await GetResult(query, title, titleOriginal, year, contentType, torrents);
+
+        var shouldMerge = (!isNumRequest && _config.MergeDuplicates) ||
+                          (isNumRequest && _config.MergeNumDuplicates);
+        var result = shouldMerge ? await _mergeService.MergeAsync(torrents) : torrents;
+
+        var jResult = await BuildJackettResults(result, isNumRequest);
+        return new RootObject { Results = jResult, Error = null };
+    }
+
+    private async Task<List<TorrentDetails>> GetResult(string? query, string title, string titleOriginal, int year, int? contentType, List<TorrentDetails> torrents)
+    {
+        var trackerQuery = BuildTrackerQuery(query, title, titleOriginal);
+
+        if (!string.IsNullOrWhiteSpace(trackerQuery))
         {
-            var trackerQuery = BuildTrackerQuery(query, title, titleOriginal);
-            if (!string.IsNullOrWhiteSpace(trackerQuery))
+            var normalizedQuery = StringConvert.SearchName(trackerQuery);
+            var currentTrackersHash = GetTrackersHash();
+            var history = await _searchHistoryRepository.GetAsync(normalizedQuery);
+
+            if (torrents.Count == 0 ||
+                history == null ||
+                (DateTime.UtcNow - history.LastSearchTime) > TimeSpan.FromHours(12) ||
+                history.TrackersHash != currentTrackersHash)
             {
-                var fetched = await _trackerSearchService.SearchAsync(
+                var fetched = await _remoteSearchService.SearchAsync(
                     trackerQuery,
-                    _trackerSearchService.GetSupportedTrackers());
+                    _remoteSearchService.GetSupportedTrackers());
 
                 if (fetched.Count > 0)
                 {
@@ -414,29 +388,46 @@ public class JackettFacadeService : IJackettFacadeService
                         .Where(t => t.Types != null && !(t.Title?.Contains(" КПК") ?? false))
                         .ToList();
                 }
+
+                await _searchHistoryRepository.AddOrUpdateAsync(normalizedQuery, DateTime.UtcNow, currentTrackersHash);
             }
         }
 
-        var shouldMerge = (!isNumRequest && _config.MergeDuplicates) ||
-                          (isNumRequest && _config.MergeNumDuplicates);
-        var result = shouldMerge ? await _mergeService.MergeAsync(torrents) : torrents;
-
-        if (apikey == "rus")
-            result = result.Where(t =>
-                    t.Languages?.Contains("rus") == true ||
-                    ExtractLanguagesFromFfprobe(t.Ffprobe)?.Contains("rus") == true ||
-                    t.Types?.Intersect(new[] { "sport", "tvshow", "docuserial" }).Any() == true)
-                .ToList();
-
-        var jResult = await BuildJackettResults(result, isNumRequest);
-        return new RootObject { Results = jResult, Error = null };
+        return torrents;
     }
 
-    private static string BuildTrackerQuery(string query, string title, string titleOriginal)
+    private string GetTrackersHash()
+    {
+        var enabledTrackers = Enum.GetValues<TrackerType>()
+            .Where(IsTrackerSearchEnabled)
+            .OrderBy(t => t)
+            .Select(t => t.ToString());
+
+        var key = string.Join(",", enabledTrackers);
+        using var md5 = MD5.Create();
+        var hashBytes = md5.ComputeHash(Encoding.UTF8.GetBytes(key));
+        return Convert.ToHexString(hashBytes);
+    }
+
+    private static string BuildTrackerQuery(string? query, string title, string titleOriginal)
     {
         if (!string.IsNullOrWhiteSpace(query))
             return query.Trim();
 
         return $"{title} {titleOriginal}".Trim();
+    }
+
+    private bool IsTrackerSearchEnabled(TrackerType type)
+    {
+        return type switch
+        {
+            TrackerType.Rutracker => _config.RuTracker.EnableSearch,
+            TrackerType.AnimeLayer => _config.AnimeLayer.EnableSearch,
+            TrackerType.NNMClub => _config.NNMClub.EnableSearch,
+            TrackerType.Rutor => _config.RuTor.EnableSearch,
+            TrackerType.Aniliberty => _config.Aniliberty.EnableSearch,
+            TrackerType.Kinozal => _config.Kinozal.EnableSearch,
+            _ => true // Если трекер не описан в конфиге явно, считаем его включенным
+        };
     }
 }

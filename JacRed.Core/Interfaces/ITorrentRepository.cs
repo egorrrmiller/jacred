@@ -22,11 +22,6 @@ public interface ITorrentRepository
     Task<IReadOnlyCollection<string>> GetSearchQueriesAsync(int limit);
     Task TrackSearchQueryAsync(string query);
 
-    /// <summary>
-    ///     Возвращает время последнего обновления любого торрента в БД.
-    /// </summary>
-    Task<DateTime> GetLastUpdateTimeAsync();
-
     Task<List<TorrentDetails>> GetForMediaProbeAsync(int limit, int maxAttempts,
         IReadOnlyCollection<string>? excludedTypes = null);
 

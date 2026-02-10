@@ -10,26 +10,20 @@ namespace JacRed.Infrastructure.Services.Trackers.RuTracker;
 /// </summary>
 public class RuTrackerRefreshService : BaseRuTracker
 {
-    private readonly Config _config;
     private readonly ITorrentRepository _torrentRepository;
 
-    public RuTrackerRefreshService(
-        ICacheService cacheService,
-        HttpService httpService,
-        IOptionsSnapshot<Config> config,
-        ITorrentRepository torrentRepository) : base(cacheService, httpService, config)
+    public RuTrackerRefreshService(IOptions<Config> config, HttpService httpService, ICacheService cacheService, ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
     {
         _torrentRepository = torrentRepository;
-        _config = config.Value;
     }
 
     public override async Task InvokeAsync()
     {
-        if (!_config.RuTracker.Refresh.Enable)
+        if (!Config.RuTracker.Refresh.Enable)
             return;
 
-        var olderThan = TimeSpan.FromMinutes(_config.RuTracker.Refresh.OlderThanMin);
-        var limit = _config.RuTracker.Refresh.Limit > 0 ? (int?)_config.RuTracker.Refresh.Limit : null;
+        var olderThan = TimeSpan.FromMinutes(Config.RuTracker.Refresh.OlderThanMin);
+        var limit = Config.RuTracker.Refresh.Limit > 0 ? (int?)Config.RuTracker.Refresh.Limit : null;
         var torrents = await _torrentRepository.GetByTrackerAsync(TrackerName, olderThan, limit);
         var now = DateTime.UtcNow;
 
