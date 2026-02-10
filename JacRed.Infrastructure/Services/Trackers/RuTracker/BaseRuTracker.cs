@@ -22,7 +22,8 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
 
     protected static readonly IReadOnlyDictionary<string, CategoryInfo> CategoryMap = BuildCategoryMap();
 
-    protected BaseRuTracker(IOptions<Config> config, HttpService httpService, ICacheService cacheService) : base(config, httpService, cacheService)
+    protected BaseRuTracker(IOptions<Config> config, HttpService httpService, ICacheService cacheService) : base(config,
+        httpService, cacheService)
     {
     }
 

@@ -9,8 +9,9 @@ namespace JacRed.Infrastructure.Services.Trackers.Kinozal;
 public class KinozalSearch : BaseKinozal
 {
     private readonly ITorrentRepository _torrentRepository;
-    
-    public KinozalSearch(IOptions<Config> config, HttpService httpService, ICacheService cacheService, ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
+
+    public KinozalSearch(IOptions<Config> config, HttpService httpService, ICacheService cacheService,
+        ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
     {
         _torrentRepository = torrentRepository;
     }

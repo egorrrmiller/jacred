@@ -31,7 +31,8 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
         };
 
 
-    protected BaseNNMClub(IOptions<Config> config, HttpService httpService, ICacheService cacheService) : base(config, httpService, cacheService)
+    protected BaseNNMClub(IOptions<Config> config, HttpService httpService, ICacheService cacheService) : base(config,
+        httpService, cacheService)
     {
     }
 

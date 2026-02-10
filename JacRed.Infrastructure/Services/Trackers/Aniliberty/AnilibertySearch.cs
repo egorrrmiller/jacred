@@ -11,7 +11,8 @@ namespace JacRed.Infrastructure.Services.Trackers.Aniliberty;
 
 public class AnilibertySearch : BaseTrackerSearch
 {
-    public AnilibertySearch(IOptions<Config> config, HttpService httpService, ICacheService cacheService) : base(config, httpService, cacheService)
+    public AnilibertySearch(IOptions<Config> config, HttpService httpService, ICacheService cacheService) : base(config,
+        httpService, cacheService)
     {
     }
 

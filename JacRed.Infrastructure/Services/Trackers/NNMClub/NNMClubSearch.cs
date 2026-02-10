@@ -10,8 +10,9 @@ namespace JacRed.Infrastructure.Services.Trackers.NNMClub;
 public class NNMClubSearch : BaseNNMClub
 {
     private readonly ITorrentRepository _torrentRepository;
-    
-    public NNMClubSearch(IOptions<Config> config, HttpService httpService, ICacheService cacheService, ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
+
+    public NNMClubSearch(IOptions<Config> config, HttpService httpService, ICacheService cacheService,
+        ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
     {
         _torrentRepository = torrentRepository;
     }

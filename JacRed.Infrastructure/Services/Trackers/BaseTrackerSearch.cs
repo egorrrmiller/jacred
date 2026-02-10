@@ -10,8 +10,9 @@ namespace JacRed.Infrastructure.Services.Trackers;
 
 public abstract class BaseTrackerSearch : ITrackerRefreshProvider
 {
-    protected readonly Config Config;
+    protected static readonly Encoding RuEncoding = Encoding.GetEncoding("windows-1251");
     protected readonly ICacheService CacheService;
+    protected readonly Config Config;
     protected readonly HttpService HttpService;
 
     protected BaseTrackerSearch(IOptions<Config> config, HttpService httpService, ICacheService cacheService)
@@ -20,8 +21,6 @@ public abstract class BaseTrackerSearch : ITrackerRefreshProvider
         CacheService = cacheService;
         Config = config.Value;
     }
-
-    protected static readonly Encoding RuEncoding = Encoding.GetEncoding("windows-1251");
 
     public abstract TrackerType Tracker { get; }
     public abstract string TrackerName { get; }

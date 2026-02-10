@@ -12,7 +12,8 @@ public class RuTrackerRefreshService : BaseRuTracker
 {
     private readonly ITorrentRepository _torrentRepository;
 
-    public RuTrackerRefreshService(IOptions<Config> config, HttpService httpService, ICacheService cacheService, ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
+    public RuTrackerRefreshService(IOptions<Config> config, HttpService httpService, ICacheService cacheService,
+        ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
     {
         _torrentRepository = torrentRepository;
     }

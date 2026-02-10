@@ -13,8 +13,9 @@ public abstract class BaseAnimeLayer : BaseTrackerSearch
 {
     private const string CookieKey = "animelayer:cookie";
     private static readonly Encoding Encoding = Encoding.UTF8;
-    
-    protected BaseAnimeLayer(ICacheService cacheService, HttpService httpService, IOptionsSnapshot<Config> config) : base(config, httpService, cacheService)
+
+    protected BaseAnimeLayer(ICacheService cacheService, HttpService httpService, IOptionsSnapshot<Config> config) :
+        base(config, httpService, cacheService)
     {
     }
 

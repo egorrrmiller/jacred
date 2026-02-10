@@ -10,7 +10,8 @@ public sealed class RuTrackerSearch : BaseRuTracker
 {
     private readonly ITorrentRepository _torrentRepository;
 
-    public RuTrackerSearch(IOptions<Config> config, HttpService httpService, ICacheService cacheService, ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
+    public RuTrackerSearch(IOptions<Config> config, HttpService httpService, ICacheService cacheService,
+        ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
     {
         _torrentRepository = torrentRepository;
     }

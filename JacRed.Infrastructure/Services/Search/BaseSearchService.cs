@@ -12,9 +12,9 @@ namespace JacRed.Infrastructure.Services.Search;
 
 public abstract class BaseSearchService
 {
-    protected readonly Config Config;
     private readonly HttpService _httpService;
     protected readonly ICacheService CacheService;
+    protected readonly Config Config;
 
     protected BaseSearchService(Config config, HttpService httpService, ICacheService cacheService)
     {
@@ -34,7 +34,9 @@ public abstract class BaseSearchService
             async () =>
             {
                 var uri = search.StartsWith("kp") ? $"&kp={search[2..]}" : $"&imdb={search}";
-                var response = await _httpService.Get<JObject>($"https://api.alloha.tv/?token=04941a9a3ca3ac16e2b4327347bbc1{uri}", timeoutSeconds: 8);
+                var response =
+                    await _httpService.Get<JObject>($"https://api.alloha.tv/?token=04941a9a3ca3ac16e2b4327347bbc1{uri}",
+                        timeoutSeconds: 8);
                 var data = response?.Value<JObject>("data");
                 return (data?.Value<string>("original_name"), data?.Value<string>("name"));
             },
@@ -51,7 +53,7 @@ public abstract class BaseSearchService
             .Where(IsTrackerSearchEnabled)
             .OrderBy(t => t)
             .Select(t => t.ToString());
-            
+
         var key = string.Join(",", enabledTrackers);
         using var md5 = MD5.Create();
         var hashBytes = md5.ComputeHash(Encoding.UTF8.GetBytes(key));
@@ -72,7 +74,8 @@ public abstract class BaseSearchService
         };
     }
 
-    protected IEnumerable<TorrentDetails> ApplyFilters(IEnumerable<TorrentDetails> source, string? type, string? tracker, long relased, long quality, string? videotype, string? voice, long season)
+    protected IEnumerable<TorrentDetails> ApplyFilters(IEnumerable<TorrentDetails> source, string? type,
+        string? tracker, long relased, long quality, string? videotype, string? voice, long season)
     {
         var query = source;
         if (!string.IsNullOrWhiteSpace(type)) query = query.Where(t => t.Types?.Contains(type) == true);
@@ -97,5 +100,8 @@ public abstract class BaseSearchService
         };
     }
 
-    protected string BuildTrackerQuery(string? search, string? altname) => $"{search} {altname}".Trim();
+    protected string BuildTrackerQuery(string? search, string? altname)
+    {
+        return $"{search} {altname}".Trim();
+    }
 }

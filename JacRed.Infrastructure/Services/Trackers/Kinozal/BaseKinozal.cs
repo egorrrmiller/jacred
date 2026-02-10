@@ -15,7 +15,8 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
 {
     private const string CookieKey = "kinozal:cookie";
 
-    protected BaseKinozal(IOptions<Config> config, HttpService httpService, ICacheService cacheService) : base(config, httpService, cacheService)
+    protected BaseKinozal(IOptions<Config> config, HttpService httpService, ICacheService cacheService) : base(config,
+        httpService, cacheService)
     {
     }
 

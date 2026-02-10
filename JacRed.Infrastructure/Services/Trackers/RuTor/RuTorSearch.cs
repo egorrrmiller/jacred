@@ -10,7 +10,8 @@ public class RuTorSearch : BaseRuTor
 {
     private readonly ITorrentRepository _torrentRepository;
 
-    public RuTorSearch(IOptions<Config> config, HttpService httpService, ICacheService cacheService, ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
+    public RuTorSearch(IOptions<Config> config, HttpService httpService, ICacheService cacheService,
+        ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
     {
         _torrentRepository = torrentRepository;
     }

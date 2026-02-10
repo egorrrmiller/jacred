@@ -15,7 +15,8 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
 {
     private readonly HtmlParser _parser = new();
 
-    protected BaseRuTor(IOptions<Config> config, HttpService httpService, ICacheService cacheService) : base(config, httpService, cacheService)
+    protected BaseRuTor(IOptions<Config> config, HttpService httpService, ICacheService cacheService) : base(config,
+        httpService, cacheService)
     {
     }
 
