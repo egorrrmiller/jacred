@@ -40,7 +40,7 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
     public override string TrackerName => "nnmclub";
     public override string Host => "https://nnmclub.to";
 
-    public async Task<bool> TryEnrichAsync(TorrentDetails torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
+    public async Task<bool> TryEnrichAsync(TorrentDetails? torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
     {
         if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
             return false;

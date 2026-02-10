@@ -33,7 +33,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
 
     private string LoginUrl => Host + "forum/login.php";
 
-    public async Task<bool> TryEnrichAsync(TorrentDetails torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
+    public async Task<bool> TryEnrichAsync(TorrentDetails? torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
     {
         if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
             return false;
@@ -392,7 +392,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         return (name.Trim(), null, relased);
     }
 
-    private static (string? name, string? originalName, int relased) NormalizeMovie(string name, string? original,
+    private static (string? name, string? originalName, int relased) NormalizeMovie(string? name, string? original,
         string year)
     {
         var relased = ParseYear(year);
@@ -404,7 +404,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         return (name, original, relased);
     }
 
-    private static (string? name, string? originalName, int relased) NormalizeSerial(string name, string? original,
+    private static (string? name, string? originalName, int relased) NormalizeSerial(string? name, string? original,
         string year)
     {
         var relased = ParseYear(year);

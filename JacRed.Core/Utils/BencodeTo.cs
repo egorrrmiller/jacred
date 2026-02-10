@@ -8,7 +8,7 @@ public static class BencodeTo
 {
     #region Magnet
 
-    public static string? Magnet(byte[] torrent)
+    public static string? Magnet(byte[]? torrent)
     {
         try
         {
@@ -35,7 +35,7 @@ public static class BencodeTo
 
     #region SizeName
 
-    public static string? SizeName(byte[] torrent)
+    public static string? SizeName(byte[]? torrent)
     {
         try
         {
@@ -55,7 +55,7 @@ public static class BencodeTo
 
     #endregion
 
-    public static long Size(byte[] torrent)
+    public static long Size(byte[]? torrent)
     {
         try
         {

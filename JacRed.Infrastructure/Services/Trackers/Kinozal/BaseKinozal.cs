@@ -24,7 +24,7 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
     public override string TrackerName => "kinozal";
     public override string Host => "https://kinozal.tv";
 
-    public async Task<bool> TryEnrichAsync(TorrentDetails torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
+    public async Task<bool> TryEnrichAsync(TorrentDetails? torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
     {
         if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
             return false;
@@ -204,11 +204,11 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
         return cat switch
         {
             "8" or "6" or "15" or "17" or "35" or "39" or "13" or "14" or "24" or "11" or "9" or "47" or "18" or "37"
-                or "12" or "10" or "7" or "16" => new[] { "movie" },
-            "45" or "46" => new[] { "serial" },
-            "49" or "50" => new[] { "tvshow" },
-            "21" or "22" => new[] { "multfilm", "multserial" },
-            "20" => new[] { "anime" },
+                or "12" or "10" or "7" or "16" => ["movie"],
+            "45" or "46" => ["serial"],
+            "49" or "50" => ["tvshow"],
+            "21" or "22" => ["multfilm", "multserial"],
+            "20" => ["anime"],
             _ => null
         };
     }

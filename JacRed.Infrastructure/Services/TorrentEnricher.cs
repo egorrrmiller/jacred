@@ -1752,7 +1752,7 @@ public class TorrentEnricher : ITorrentEnricher
         return (voices, languages);
     }
 
-    private HashSet<int> ExtractSeasons(string title, string[] types)
+    private HashSet<int> ExtractSeasons(string title, string[]? types)
     {
         var seasons = new HashSet<int>();
 

@@ -11,8 +11,8 @@ public interface ILocalSearchService
     ///     Поиск по локализованному и оригинальному названию с опциональными фильтрами года/типа.
     /// </summary>
     Task<List<TorrentDetails>> SearchByTitleAsync(
-        string title,
-        string originalTitle,
+        string? title,
+        string? originalTitle,
         int? year = null,
         int? mediaType = null,
         bool exact = false);

@@ -25,7 +25,7 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
     public override string Host => "http://rutor.info/";
     protected string SearchUrl => $"{Host}search/0/0/000/2/";
 
-    public async Task<bool> TryEnrichAsync(TorrentDetails torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
+    public async Task<bool> TryEnrichAsync(TorrentDetails? torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
     {
         if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
             return false;

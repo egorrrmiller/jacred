@@ -44,12 +44,12 @@ public class SearchService : BaseSearchService, ISearchService
 
         return await CacheService.GetOrCreateAsync(cacheKey, async () =>
         {
-            var torrents = await ExecuteUnifiedSearch(request);
+            var torrents = await ExecuteUnifiedSearch(request, null);
 
             return torrents.Take(2000).Select(t => new V1TorrentResponse
             {
                 tracker = t.TrackerName,
-                url = t.Url?.StartsWith("http") == true ? t.Url : null,
+                url = t.Url.StartsWith("http") ? t.Url : null,
                 title = t.Title,
                 size = t.Size,
                 sizeName = t.SizeName,
@@ -95,30 +95,30 @@ public class SearchService : BaseSearchService, ISearchService
                     : request.Query;
             }
 
-            var torrents = await ExecuteUnifiedSearch(request);
+            var torrents = await ExecuteUnifiedSearch(request, contentType);
 
             if (request.ApiKey == "rus")
                 torrents = torrents.Where(t =>
                     t.Languages?.Contains("rus") == true ||
-                    t.Types?.Intersect(new[] { "sport", "tvshow", "docuserial" }).Any() == true).ToList();
+                    t.Types?.Intersect(["sport", "tvshow", "docuserial"]).Any() == true).ToList();
 
             var shouldMerge = (!isNumRequest && Config.MergeDuplicates) || (isNumRequest && Config.MergeNumDuplicates);
             var result = shouldMerge ? await _merger.MergeAsync(torrents) : torrents;
 
-            return new RootObject { Results = await BuildJackettResults(result, isNumRequest), Error = null };
+            return new RootObject { Results = BuildJackettResults(result, isNumRequest), Error = null };
         }, TimeSpan.FromMinutes(5));
     }
 
-    private async Task<List<TorrentDetails>> ExecuteUnifiedSearch(TorrentSearchRequest request)
+    private async Task<List<TorrentDetails>> ExecuteUnifiedSearch(TorrentSearchRequest request, int? contentType)
     {
         var (search, altname) = await ResolveKpImdb(request.Title, request.TitleOriginal);
 
-        var torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, null, request.Exact);
+        var torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType, request.Exact);
         torrents = torrents.Where(t => IsTrackerSearchEnabled(Enum.Parse<TrackerType>(t.TrackerName, true))).ToList();
 
         if (request.Exact && torrents.Count == 0)
         {
-            torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year);
+            torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType);
             torrents = torrents.Where(t => IsTrackerSearchEnabled(Enum.Parse<TrackerType>(t.TrackerName, true)))
                 .ToList();
         }
@@ -126,7 +126,7 @@ public class SearchService : BaseSearchService, ISearchService
         var trackerQuery = BuildTrackerQuery(search, altname);
         if (!string.IsNullOrWhiteSpace(trackerQuery))
         {
-            var normalizedQuery = StringConvert.SearchName(trackerQuery) ?? trackerQuery.Trim();
+            var normalizedQuery = StringConvert.SearchName(trackerQuery);
             var currentTrackersHash = GetTrackersHash();
             var history = await _history.GetAsync(normalizedQuery);
 
@@ -138,10 +138,11 @@ public class SearchService : BaseSearchService, ISearchService
                 if (fetched.Count > 0)
                 {
                     await _repository.AddOrUpdateAsync(fetched);
-                    torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, null,
+                    torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType,
                         request.Exact);
+                    
                     if (request.Exact && torrents.Count == 0)
-                        torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year);
+                        torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType);
 
                     torrents = torrents.Where(t => IsTrackerSearchEnabled(Enum.Parse<TrackerType>(t.TrackerName, true)))
                         .ToList();
@@ -177,7 +178,7 @@ public class SearchService : BaseSearchService, ISearchService
             : (g[0].Value, g[1].Value, g.Length > 2 ? int.Parse(g[2].Value) : year);
     }
 
-    private int? DetermineContentType(int isSerial, Dictionary<string, string> category)
+    private int? DetermineContentType(int isSerial, Dictionary<string, string>? category)
     {
         if (isSerial == 0 && category?.Count > 0)
         {
@@ -192,19 +193,20 @@ public class SearchService : BaseSearchService, ISearchService
         return isSerial switch { 1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, _ => null };
     }
 
-    private async Task<List<Result>> BuildJackettResults(IEnumerable<TorrentDetails> torrents, bool isNumRequest)
+    private List<Result> BuildJackettResults(IEnumerable<TorrentDetails> torrents, bool isNumRequest)
     {
         var results = new List<Result>();
         foreach (var t in torrents)
         {
             var ffprobe = isNumRequest ? null : t.Ffprobe;
             var languages = t.Languages?.Count > 0
-                ? new HashSet<string>(t.Languages)
-                : ExtractLanguagesFromFfprobe(ffprobe) ?? new HashSet<string>();
+                ? [..t.Languages]
+                : ExtractLanguagesFromFfprobe(ffprobe) ?? [];
+            
             results.Add(new Result
             {
                 Tracker = t.TrackerName,
-                Details = t.Url?.StartsWith("http") == true ? t.Url : null,
+                Details = t.Url.StartsWith("http") ? t.Url : null,
                 Title = t.Title,
                 Size = t.Size,
                 PublishDate = t.CreateTime,
