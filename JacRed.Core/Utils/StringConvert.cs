@@ -130,4 +130,18 @@ public static class StringConvert
     }
 
     #endregion
+
+    #region ClearTitle
+
+    public static string ClearTitle(string title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return string.Empty;
+
+        var cleared = Regex.Replace(title, @"[^\w\s\.\,\-\/\(\)\[\]\|]", " ");
+        
+        return Regex.Replace(cleared, @"\s+", " ").Trim();
+    }
+
+    #endregion
 }

@@ -36,17 +36,4 @@ public static class TrackerTypeExtension
             _ => true
         };
     }
-    public static bool IsSyncEnabled(this TrackerType type, Config config)
-    {
-        return type switch
-        {
-            TrackerType.Rutracker => config.RuTracker.EnableSync,
-            TrackerType.AnimeLayer => config.AnimeLayer.EnableSync,
-            TrackerType.NNMClub => config.NNMClub.EnableSync,
-            TrackerType.Rutor => config.RuTor.EnableSync,
-            TrackerType.Aniliberty => config.Aniliberty.EnableSync,
-            TrackerType.Kinozal => config.Kinozal.EnableSync,
-            _ => true
-        };
-    }
 }

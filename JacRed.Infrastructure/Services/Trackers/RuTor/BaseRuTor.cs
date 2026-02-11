@@ -23,7 +23,7 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
     public override TrackerType Tracker => TrackerType.Rutor;
     public override string TrackerName => "rutor";
     public override string Host => "http://rutor.info/";
-    protected string SearchUrl => $"{Host}search/0/0/000/2/";
+    protected string SearchUrl => $"{Host}search/0/0/100/2/";
 
     public async Task<bool> TryEnrichAsync(TorrentDetails? torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
     {
@@ -85,7 +85,6 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
             }
         }
 
-        // Parse Quality, VideoType, Voices from details
         var qualityElement =
             detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Качество:"));
         if (qualityElement?.NextSibling != null)
@@ -145,13 +144,11 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
 
             var dateCell = cells[0];
             var titleCell = cells[1];
-            var sizeCell = cells.Length > 3 ? cells[^2] : null; // Size is usually second to last
-            var seedsPeersCell = cells.Length > 3 ? cells[^1] : null; // Seeds/Peers is last
+            var sizeCell = cells.Length > 3 ? cells[^2] : null;
+            var seedsPeersCell = cells.Length > 3 ? cells[^1] : null;
 
-            // Handle colspan=2 for title
             if (cells.Length == 4 && cells[1].GetAttribute("colspan") == "2")
             {
-                // Standard layout with colspan
             }
             else if (cells.Length == 5)
             {
@@ -194,7 +191,6 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
 
                 if (seedsElement != null)
                 {
-                    // Extract number from text like "S 20" or just "20"
                     var seedsText = seedsElement.TextContent.Trim();
                     var seedsMatch = Regex.Match(seedsText, @"\d+");
                     if (seedsMatch.Success)
@@ -203,7 +199,6 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
 
                 if (peersElement != null)
                 {
-                    // Extract number from text like "L 5" or just "5"
                     var peersText = peersElement.TextContent.Trim();
                     var peersMatch = Regex.Match(peersText, @"\d+");
                     if (peersMatch.Success)
@@ -214,7 +209,6 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
             var date = DateTime.UtcNow;
             if (dateCell != null)
             {
-                // Format: 09 Янв 26
                 var dateText = dateCell.TextContent.Trim();
                 var dateParts = dateText.Split([' ', '&', '\u00A0'], StringSplitOptions.RemoveEmptyEntries);
                 if (dateParts.Length >= 3) date = ParseDate(dateParts[0], dateParts[1], dateParts[2]);
@@ -262,7 +256,7 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
         if (!int.TryParse(d, out var day)) day = 1;
         if (!int.TryParse(y, out var year)) year = 0;
 
-        year += 2000; // Assuming 2 digits year
+        year += 2000;
 
         var month = m.ToLowerInvariant() switch
         {

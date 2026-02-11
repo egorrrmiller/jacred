@@ -9,10 +9,4 @@ public class BaseTrackerConfig
     /// </summary>
     [ConfigurationKeyName("enable-search")]
     public bool EnableSearch { get; set; } = true;
-
-    /// <summary>
-    ///     Включена ли фоновая синхронизация (новинки, популярное).
-    /// </summary>
-    [ConfigurationKeyName("enable-sync")]
-    public bool EnableSync { get; set; } = false;
 }

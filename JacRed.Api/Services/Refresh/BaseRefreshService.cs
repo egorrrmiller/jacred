@@ -5,37 +5,38 @@ using System.Threading;
 using System.Threading.Tasks;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Options;
-using JacRed.Infrastructure.Services.Trackers.RuTracker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
-namespace JacRed.Api.Services.RuTracker;
+namespace JacRed.Api.Services.Refresh;
 
-public class RuTrackerRefreshHostedService : BackgroundService
+public abstract class BaseRefreshService<T> : BackgroundService where T : class, ITrackerRefreshProvider
 {
-    private readonly Config _config;
+    protected readonly Config Config;
     private readonly IServiceScopeFactory _scopeFactory;
 
-    public RuTrackerRefreshHostedService(IServiceScopeFactory scopeFactory, IOptions<Config> config)
+    protected BaseRefreshService(IOptions<Config> config, IServiceScopeFactory scopeFactory)
     {
+        Config = config.Value;
         _scopeFactory = scopeFactory;
-        _config = config.Value;
     }
 
+    protected abstract int TimeOut { get; }
+    
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(_config.RuTracker.Refresh.TimeOut));
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(TimeOut));
         while (await timer.WaitForNextTickAsync(stoppingToken))
             try
             {
                 using var scope = _scopeFactory.CreateScope();
                 var providers = scope.ServiceProvider.GetRequiredService<IEnumerable<ITrackerRefreshProvider>>();
-                var ruTrackerRefreshService =
-                    providers.FirstOrDefault(x => x is RuTrackerRefreshService) as RuTrackerRefreshService ??
+                var refreshService =
+                    providers.FirstOrDefault(x => x is T) as T ??
                     throw new ArgumentException(nameof(providers));
 
-                await ruTrackerRefreshService.InvokeAsync();
+                await refreshService.InvokeAsync();
             }
             catch (OperationCanceledException)
             {

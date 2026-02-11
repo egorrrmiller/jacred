@@ -1,3 +1,4 @@
+using System.Text;
 using System.Web;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
@@ -25,14 +26,17 @@ public class NNMClubSearch : BaseNNMClub
         var results = new Dictionary<string, TorrentDetails>(StringComparer.OrdinalIgnoreCase);
         var parameters = GetSearchParameters(query);
         var url = $"{Host}/forum/tracker.php";
-
-        var pairs = parameters.Select(kv => $"{HttpUtility.UrlEncode(kv.Key)}={HttpUtility.UrlEncode(kv.Value)}");
+        
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        var encoding = Encoding.GetEncoding("windows-1251");
+        
+        var pairs = parameters.Select(kv => $"{HttpUtility.UrlEncode(kv.Key)}={HttpUtility.UrlEncode(kv.Value, encoding)}");
         var formEncoded = string.Join("&", pairs);
-
-        var content = new StringContent(formEncoded, RuEncoding, "application/x-www-form-urlencoded");
-
-        var html = await HttpService.Post(url, content);
-
+        
+        var content = new StringContent(formEncoded, Encoding.UTF8, "application/x-www-form-urlencoded");
+        
+        var html = await HttpService.Post(url, content, encoding: RuEncoding);
+        
         if (string.IsNullOrWhiteSpace(html))
             return [];
 

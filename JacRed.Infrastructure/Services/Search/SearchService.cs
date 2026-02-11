@@ -122,7 +122,7 @@ public class SearchService : BaseSearchService, ISearchService
                 .ToList();
         }
 
-        var trackerQuery = BuildTrackerQuery(search, altname);
+        var trackerQuery = StringConvert.ClearTitle(BuildTrackerQuery(search, altname));
         if (!string.IsNullOrWhiteSpace(trackerQuery))
         {
             var normalizedQuery = StringConvert.SearchName(trackerQuery);

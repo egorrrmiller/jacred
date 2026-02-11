@@ -1,3 +1,4 @@
+using System.Text;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Options;
@@ -22,12 +23,12 @@ public class RuTorSearch : BaseRuTor
             return [];
 
         var url = SearchUrl + query;
-        var html = await HttpService.Get(url, referer: url, encoding: RuEncoding);
+        var html = await HttpService.Get(url, referer: url, encoding: Encoding.UTF8);
 
         if (string.IsNullOrWhiteSpace(html))
             return [];
 
-        var torrents = Parse(html).Where(t => t.Types.Length > 0).ToList();
+        var torrents = Parse(html).ToList();
 
         var options = new ParallelOptions
         {
@@ -44,6 +45,6 @@ public class RuTorSearch : BaseRuTor
                     TryEnrichAsync);
             });
 
-        return torrents;
+        return torrents.Where(t => t.Types.Length > 0).ToList();
     }
 }
