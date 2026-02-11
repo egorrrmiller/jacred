@@ -1,3 +1,5 @@
+using JacRed.Core.Models.Options;
+
 namespace JacRed.Core.Enums;
 
 public enum TrackerType
@@ -17,4 +19,34 @@ public enum TrackerType
     Selezen = 12,
     Toloka = 13,
     TorrentBy = 14
+}
+
+public static class TrackerTypeExtension 
+{
+    public static bool IsSearchEnabled(this TrackerType type, Config config)
+    {
+        return type switch
+        {
+            TrackerType.Rutracker => config.RuTracker.EnableSearch,
+            TrackerType.AnimeLayer => config.AnimeLayer.EnableSearch,
+            TrackerType.NNMClub => config.NNMClub.EnableSearch,
+            TrackerType.Rutor => config.RuTor.EnableSearch,
+            TrackerType.Aniliberty => config.Aniliberty.EnableSearch,
+            TrackerType.Kinozal => config.Kinozal.EnableSearch,
+            _ => true
+        };
+    }
+    public static bool IsSyncEnabled(this TrackerType type, Config config)
+    {
+        return type switch
+        {
+            TrackerType.Rutracker => config.RuTracker.EnableSync,
+            TrackerType.AnimeLayer => config.AnimeLayer.EnableSync,
+            TrackerType.NNMClub => config.NNMClub.EnableSync,
+            TrackerType.Rutor => config.RuTor.EnableSync,
+            TrackerType.Aniliberty => config.Aniliberty.EnableSync,
+            TrackerType.Kinozal => config.Kinozal.EnableSync,
+            _ => true
+        };
+    }
 }

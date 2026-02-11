@@ -50,28 +50,18 @@ public abstract class BaseSearchService
     protected string GetTrackersHash()
     {
         var enabledTrackers = Enum.GetValues<TrackerType>()
-            .Where(IsTrackerSearchEnabled)
+            .Where(type => type.IsSearchEnabled(Config))
             .OrderBy(t => t)
             .Select(t => t.ToString());
 
         var key = string.Join(",", enabledTrackers);
-        using var md5 = MD5.Create();
-        var hashBytes = md5.ComputeHash(Encoding.UTF8.GetBytes(key));
+        var hashBytes = MD5.HashData(Encoding.UTF8.GetBytes(key));
         return Convert.ToHexString(hashBytes);
     }
 
-    protected bool IsTrackerSearchEnabled(TrackerType type)
+    protected bool IsTrackerSearchEnabled(TorrentDetails torrentDetails)
     {
-        return type switch
-        {
-            TrackerType.Rutracker => Config.RuTracker.EnableSearch,
-            TrackerType.AnimeLayer => Config.AnimeLayer.EnableSearch,
-            TrackerType.NNMClub => Config.NNMClub.EnableSearch,
-            TrackerType.Rutor => Config.RuTor.EnableSearch,
-            TrackerType.Aniliberty => Config.Aniliberty.EnableSearch,
-            TrackerType.Kinozal => Config.Kinozal.EnableSearch,
-            _ => true
-        };
+        return Enum.Parse<TrackerType>(torrentDetails.TrackerName, true).IsSearchEnabled(Config);
     }
 
     protected IEnumerable<TorrentDetails> ApplyFilters(IEnumerable<TorrentDetails> source, string? type,

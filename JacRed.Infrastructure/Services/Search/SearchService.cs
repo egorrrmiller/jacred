@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Api;
 using JacRed.Core.Models.Details;
@@ -114,12 +113,12 @@ public class SearchService : BaseSearchService, ISearchService
         var (search, altname) = await ResolveKpImdb(request.Title, request.TitleOriginal);
 
         var torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType, request.Exact);
-        torrents = torrents.Where(t => IsTrackerSearchEnabled(Enum.Parse<TrackerType>(t.TrackerName, true))).ToList();
+        torrents = torrents.Where(IsTrackerSearchEnabled).ToList();
 
         if (request.Exact && torrents.Count == 0)
         {
             torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType);
-            torrents = torrents.Where(t => IsTrackerSearchEnabled(Enum.Parse<TrackerType>(t.TrackerName, true)))
+            torrents = torrents.Where(IsTrackerSearchEnabled)
                 .ToList();
         }
 
@@ -140,11 +139,11 @@ public class SearchService : BaseSearchService, ISearchService
                     await _repository.AddOrUpdateAsync(fetched);
                     torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType,
                         request.Exact);
-                    
+
                     if (request.Exact && torrents.Count == 0)
                         torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType);
 
-                    torrents = torrents.Where(t => IsTrackerSearchEnabled(Enum.Parse<TrackerType>(t.TrackerName, true)))
+                    torrents = torrents.Where(IsTrackerSearchEnabled)
                         .ToList();
                 }
 
@@ -202,7 +201,7 @@ public class SearchService : BaseSearchService, ISearchService
             var languages = t.Languages?.Count > 0
                 ? [..t.Languages]
                 : ExtractLanguagesFromFfprobe(ffprobe) ?? [];
-            
+
             results.Add(new Result
             {
                 Tracker = t.TrackerName,
