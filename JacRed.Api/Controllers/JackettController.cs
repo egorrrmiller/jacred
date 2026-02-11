@@ -34,10 +34,13 @@ public class JackettController : ControllerBase
     [Route("api/v1.0/conf")]
     public IActionResult JacRedConf(string apikey)
     {
-        return Ok(new
-        {
-            apikey = string.IsNullOrWhiteSpace(_config.ApiKey) || apikey == _config.ApiKey
-        });
+        if(apikey == _config.ApiKey)
+            return Ok(new
+            {
+                apikey = true
+            });
+
+        return Unauthorized();
     }
 
     [Route("/api/v2.0/indexers/{status}/results")]
@@ -50,9 +53,11 @@ public class JackettController : ControllerBase
         Dictionary<string, string> category,
         int is_serial = -1)
     {
+        if (apikey != _config.ApiKey)
+            return Unauthorized();
+        
         var root = await _searchService.SearchJackettAsync(new TorrentSearchRequest
         {
-            ApiKey = apikey,
             Query = query,
             Title = title,
             TitleOriginal = title_original,
@@ -68,7 +73,7 @@ public class JackettController : ControllerBase
 
     [Route("/api/v1.0/torrents")]
     public async Task<IActionResult> Torrents(
-        string apiKey,
+        string apikey,
         string search,
         string altname,
         bool exact = false,
@@ -81,9 +86,11 @@ public class JackettController : ControllerBase
         int quality = 0,
         int season = 0)
     {
+        if (apikey != _config.ApiKey)
+            return Unauthorized();
+        
         var response = await _searchService.SearchTorrentsAsync(new TorrentSearchRequest
         {
-            ApiKey = apiKey,
             Title = search,
             TitleOriginal = altname,
             Year = relased,

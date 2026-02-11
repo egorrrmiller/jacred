@@ -2,7 +2,6 @@ namespace JacRed.Core.Models.Api;
 
 public class TorrentSearchRequest
 {
-    public string ApiKey { get; set; } = null!;
     public string? Query { get; set; }
 
     /// <summary>

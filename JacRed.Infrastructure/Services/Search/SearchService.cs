@@ -96,11 +96,6 @@ public class SearchService : BaseSearchService, ISearchService
 
             var torrents = await ExecuteUnifiedSearch(request, contentType);
 
-            if (request.ApiKey == "rus")
-                torrents = torrents.Where(t =>
-                    t.Languages?.Contains("rus") == true ||
-                    t.Types?.Intersect(["sport", "tvshow", "docuserial"]).Any() == true).ToList();
-
             var shouldMerge = (!isNumRequest && Config.MergeDuplicates) || (isNumRequest && Config.MergeNumDuplicates);
             var result = shouldMerge ? await _merger.MergeAsync(torrents) : torrents;
 

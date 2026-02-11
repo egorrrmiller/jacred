@@ -20,7 +20,7 @@ public class RuTorRefreshService : BaseRuTor
         if(!config.Refresh.Enable)
             return;
         
-        var olderThan = TimeSpan.FromMinutes(1);
+        var olderThan = TimeSpan.FromMinutes(config.Refresh.OlderThanMin);
         var limit = Config.RuTracker.Refresh.Limit > 0 ? (int?)config.Refresh.Limit : null;
         var torrents = await _torrentRepository.GetByTrackerAsync(TrackerName, olderThan, limit);
 
