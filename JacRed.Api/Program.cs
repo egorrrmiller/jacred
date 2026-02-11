@@ -28,6 +28,7 @@ Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .WriteTo.Console(
         theme: AnsiConsoleTheme.Literate,
+        applyThemeToRedirectedOutput: true,
         outputTemplate:
         "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
     .CreateLogger();
