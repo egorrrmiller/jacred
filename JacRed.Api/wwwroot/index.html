@@ -391,112 +391,59 @@
             })
         }
 
-        function checkKey(key, call, cancel) {
+        function performSearch(query, key) {
             $.ajax({
                 dataType: 'json',
-                url: '/api/v1.0/conf?apikey=' + encodeURIComponent(key),
+                url: '/api/v1.0/torrents?search=' + encodeURIComponent(query) + '&apikey=' + encodeURIComponent(key) + (window.localStorage.getItem('exact') == '1' ? '&exact=true' : ''),
                 crossDomain: true,
                 success: (json) => {
-                    if (json.apikey) {
-                        window.localStorage.setItem('api_key', key)
-
-                        call()
+                    loading.hide()
+                    if (json.length) {
+                        results = json
+                        results.forEach(function (elem) {
+                            let date = new Date(elem.createTime)
+                            elem.date = date.getTime()
+                            elem.dateHuman = date.getFullYear() + '-' + ('0' + (date.getMonth() + 1)).slice(-2) + '-' + ('0' + date.getDate()).slice(-2)
+                        })
+                        initFilter()
+                        filter()
+                        sort()
+                        filrt.show()
                     } else {
-                        let enter_key = prompt('Ключ не вернный, введите ключ')
-
-                        if (enter_key) checkKey(enter_key, call, cancel)
-                        else cancel()
+                        noresults.show()
+                    }
+                },
+                error: (jqXHR) => {
+                    loading.hide()
+                    if (jqXHR.status === 401 || jqXHR.status === 403) {
+                        let enter_key = prompt('Ключ не верный или отсутствует. Введите ключ:')
+                        if (enter_key) {
+                            window.localStorage.setItem('api_key', enter_key)
+                            performSearch(query, enter_key)
+                        } else {
+                            noresults.show()
+                        }
+                    } else {
+                        noresults.show()
                     }
                 }
             })
         }
 
-        function getKey(call, cancel) {
-            let key = window.localStorage.getItem('api_key')
-
-            if (key) {
-                checkKey(key, call, cancel)
-            } else {
-                $.ajax({
-                    dataType: 'json',
-                    url: '/api/v1.0/conf',
-                    crossDomain: true,
-                    success: (json) => {
-                        if (json.apikey) {
-                            call()
-                        } else {
-                            let enter_key = prompt('Введите ключ')
-
-                            if (enter_key) checkKey(enter_key, call, cancel)
-                            else cancel()
-                        }
-                    }
-                })
-            }
-        }
-
         function search() {
             let query = window.localStorage.getItem('search')
-
             content.empty()
-
             empty.hide()
-
             noresults.hide()
-
             filrt.hide()
-
             results = []
-
             resetFilter()
-
             $('[name="year"],[name="tracker"],[name="voice"],[name="season"],[name="category"],[name="quality"]', filrt).empty()
 
             if (query) {
                 loading.show()
-
-                getKey(function () {
-                    $.ajax({
-                        dataType: 'json',
-                        url: '/api/v1.0/torrents?search=' + encodeURIComponent(query) + '&apikey=' + encodeURIComponent(window.localStorage.getItem('api_key')) + (window.localStorage.getItem('exact') == '1' ? '&exact=true' : ''),
-                        crossDomain: true,
-                        success: (json) => {
-                            loading.hide()
-
-                            if (json.length) {
-                                results = json
-
-                                results.forEach(function (elem) {
-                                    let date = new Date(elem.createTime)
-
-                                    elem.date = date.getTime()
-
-                                    elem.dateHuman = date.getFullYear() + '-' + ('0' + (date.getMonth() + 1)).slice(-2) + '-' + ('0' + date.getDate()).slice(-2)
-
-                                })
-
-                                initFilter()
-
-                                filter()
-
-                                sort()
-
-                                filrt.show()
-                            } else {
-                                noresults.show()
-                            }
-                        },
-                        error: (jqXHR, exception) => {
-                            loading.hide()
-
-                            noresults.show()
-                        }
-                    })
-                }, function () {
-                    loading.hide()
-
-                    noresults.show()
-                })
+                let key = window.localStorage.getItem('api_key') || ''
+                performSearch(query, key)
             } else {
                 empty.show()
             }
