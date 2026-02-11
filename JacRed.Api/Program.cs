@@ -18,10 +18,9 @@ using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Sinks.SystemConsole.Themes;
-
-var builder = WebApplication.CreateBuilder(args);
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -29,11 +28,13 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(
         theme: AnsiConsoleTheme.Literate,
         applyThemeToRedirectedOutput: true,
-        outputTemplate:
-        "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
     .CreateLogger();
 
-builder.Host.UseSerilog();
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.ClearProviders();
+builder.Host.UseSerilog(Log.Logger, dispose: true);
 
 // Dapper: сопоставление snake_case колонок с PascalCase свойствами
 DefaultTypeMap.MatchNamesWithUnderscores = true;
