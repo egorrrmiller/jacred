@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net;
@@ -22,11 +23,31 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Sinks.SystemConsole.Themes;
 
+var safeLiterateTheme = new AnsiConsoleTheme(new Dictionary<ConsoleThemeStyle, string>
+{
+    [ConsoleThemeStyle.Text] = "\x1b[37m",           // Белый (обычный текст)
+    [ConsoleThemeStyle.SecondaryText] = "\x1b[90m",  // Серый (скобки, детали)
+    [ConsoleThemeStyle.TertiaryText] = "\x1b[90m",   // Серый
+    [ConsoleThemeStyle.Invalid] = "\x1b[33m",        // Желтый
+    [ConsoleThemeStyle.Null] = "\x1b[34m",           // Синий
+    [ConsoleThemeStyle.Name] = "\x1b[37m",           // Белый (имена свойств)
+    [ConsoleThemeStyle.String] = "\x1b[36m",         // Голубой (как в Literate!)
+    [ConsoleThemeStyle.Number] = "\x1b[35m",         // Фиолетовый (цифры)
+    [ConsoleThemeStyle.Boolean] = "\x1b[34m",        // Синий (true/false)
+    [ConsoleThemeStyle.Scalar] = "\x1b[32m",         // Зеленый
+    [ConsoleThemeStyle.LevelVerbose] = "\x1b[90m",   // Серый
+    [ConsoleThemeStyle.LevelDebug] = "\x1b[90m",     // Серый
+    [ConsoleThemeStyle.LevelInformation] = "\x1b[34;1m", // Ярко-синий (Инфо)
+    [ConsoleThemeStyle.LevelWarning] = "\x1b[33;1m", // Ярко-желтый
+    [ConsoleThemeStyle.LevelError] = "\x1b[31;1m",   // Ярко-красный
+    [ConsoleThemeStyle.LevelFatal] = "\x1b[31;1m",   // Ярко-красный
+});
+
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .Enrich.FromLogContext()
     .WriteTo.Console(
-        theme: AnsiConsoleTheme.Code,
+        theme: safeLiterateTheme,
         applyThemeToRedirectedOutput: true,
         outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
     .CreateLogger();
