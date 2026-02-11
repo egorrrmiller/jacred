@@ -22,6 +22,10 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Sinks.SystemConsole.Themes;
 
+Console.WriteLine("\u001b[31mRED_TEST\u001b[0m");
+Console.WriteLine("\u001b[32mGREEN_TEST\u001b[0m");
+
+
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .Enrich.FromLogContext()
