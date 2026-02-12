@@ -172,6 +172,10 @@ animelayer:
 
   refresh:
     enable: false       # Обновление данных выключено
+    
+  authorization:
+    login: 'login'      # Логин на трекере
+    password: 'pass'    # Пароль на трекере
 
 rutor:
   enable-search: true   # Включить поиск
