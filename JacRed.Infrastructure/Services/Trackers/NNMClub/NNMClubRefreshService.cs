@@ -3,16 +3,13 @@ using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
 using Microsoft.Extensions.Options;
 
-namespace JacRed.Infrastructure.Services.Trackers.RuTracker;
+namespace JacRed.Infrastructure.Services.Trackers.NNMClub;
 
-/// <summary>
-///     Сервис для обновления данных по торрентам, обновление которых было > n часов назад
-/// </summary>
-public class RuTrackerRefreshService : BaseRuTracker
+public class NNMClubRefreshService : BaseNNMClub
 {
     private readonly ITorrentRepository _torrentRepository;
 
-    public RuTrackerRefreshService(IOptions<Config> config, HttpService httpService, ICacheService cacheService,
+    protected NNMClubRefreshService(IOptions<Config> config, HttpService httpService, ICacheService cacheService,
         ITorrentRepository torrentRepository) : base(config, httpService, cacheService)
     {
         _torrentRepository = torrentRepository;
@@ -20,8 +17,7 @@ public class RuTrackerRefreshService : BaseRuTracker
 
     public override async Task InvokeAsync()
     {
-        var config = Config.RuTracker;
-        
+        var config = Config.NNMClub;
         if (!config.Refresh.Enable)
             return;
 

@@ -41,14 +41,16 @@ public static class ServicesConfiguration
             .AddScoped<ITrackerSearch, AnimeLayerSearch>()
             .AddScoped<ITrackerSearch, NNMClubSearch>()
             .AddScoped<ITrackerSearch, KinozalSearch>()
-            // крон сервисы
             .AddScoped<ITrackerRefreshProvider, RuTrackerPopularService>()
             .AddScoped<ITrackerRefreshProvider, RuTrackerRefreshService>()
             .AddScoped<ITrackerRefreshProvider, RuTorRefreshService>()
+            // крон сервисы
             .AddHostedService<TorrentMediaProbeHostedService>()
             .AddHostedService<RuTrackerPopularHostedService>()
+            // Refresh сервисы
             .AddHostedService<RuTrackerRefreshHostedService>()
-            .AddHostedService<RuTorRefreshHostedService>();
+            .AddHostedService<RuTorRefreshHostedService>()
+            .AddHostedService<NNMClubRefreshHostedService>();
 
         services.AddSingleton<ICacheService, CacheService>();
         services.AddMemoryCache();

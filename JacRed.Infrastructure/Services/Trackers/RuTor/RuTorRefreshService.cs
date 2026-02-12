@@ -25,9 +25,11 @@ public class RuTorRefreshService : BaseRuTor
         var limit = Config.RuTracker.Refresh.Limit > 0 ? (int?)config.Refresh.Limit : null;
         var torrents = await _torrentRepository.GetByTrackerAsync(TrackerName, olderThan, limit);
 
-        foreach (var torrent in torrents)
+        await Parallel.ForEachAsync(torrents, async (torrent, _) =>
+        {
             await _torrentRepository.AddOrUpdateAsync(
                 [torrent],
                 x => FetchDetailsAsync(x, true));
+        });
     }
 }

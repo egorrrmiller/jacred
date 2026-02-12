@@ -9,4 +9,10 @@ public class BaseTrackerConfig
     /// </summary>
     [ConfigurationKeyName("enable-search")]
     public bool EnableSearch { get; set; } = true;
+    
+    /// <summary>
+    ///     Точечный рефреш всех торрентов
+    /// </summary>
+    [ConfigurationKeyName("refresh")]
+    public RefreshSettings Refresh { get; set; } = new();
 }

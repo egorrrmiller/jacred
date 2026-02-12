@@ -45,31 +45,40 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
         if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
             return false;
 
-        // todo при force тянуть всю инфу, которую возможно вытянуть из ссылки
         if (!force && !string.IsNullOrEmpty(torrent.Magnet))
             return true;
 
-        var magnet = await FetchMagnetAsync(torrent.Url);
-        if (!string.IsNullOrWhiteSpace(magnet))
-            torrent.Magnet = magnet;
+        var details = await FetchTopicDetailsAsync(torrent.Url);
+        if (string.IsNullOrWhiteSpace(details.Magnet))
+            return false;
+
+        torrent.Magnet = details.Magnet;
+        
+        if (!string.IsNullOrWhiteSpace(details.Title))
+            torrent.Title = details.Title;
 
         return !string.IsNullOrWhiteSpace(torrent.Magnet);
     }
 
-    private async Task<string?> FetchMagnetAsync(string url)
+    private async Task<(string? Magnet, string? Title)> FetchTopicDetailsAsync(string url)
     {
         try
         {
             var html = await HttpService.Get(url, RuEncoding);
             if (string.IsNullOrWhiteSpace(html))
-                return null;
+                return (null, null);
 
-            var match = Regex.Match(html, @"href=""(magnet:\?xt=urn:btih:[^""]+)""");
-            return match.Success ? match.Groups[1].Value : null;
+            var magnetMatch = Regex.Match(html, @"href=""(magnet:\?xt=urn:btih:[^""]+)""");
+            var magnet = magnetMatch.Success ? magnetMatch.Groups[1].Value : null;
+
+            var titleMatch = Regex.Match(html, @"<a class=""maintitle""[^>]*>(.*?)</a>", RegexOptions.Singleline);
+            var title = titleMatch.Success ? WebUtility.HtmlDecode(titleMatch.Groups[1].Value).Trim() : null;
+
+            return (magnet, title);
         }
         catch
         {
-            return null;
+            return (null, null);
         }
     }
 
