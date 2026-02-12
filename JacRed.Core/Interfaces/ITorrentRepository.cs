@@ -7,9 +7,8 @@ public interface ITorrentRepository
 {
     Task AddOrUpdateAsync(IReadOnlyCollection<TorrentDetails> torrents);
 
-    Task AddOrUpdateAsync<T>(
-        IReadOnlyCollection<T> torrents,
-        Func<T, IReadOnlyDictionary<string, TorrentDetails>, Task<bool>> predicate)
+    Task AddOrUpdateAsync<T>(IReadOnlyCollection<T> torrents,
+        Func<T, Task<bool>> predicate)
         where T : TorrentDetails;
 
     Task<List<TorrentDetails>> GetStaleAsync(TimeSpan olderThan, int limit);

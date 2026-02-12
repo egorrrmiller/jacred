@@ -35,7 +35,7 @@ public class AnilibertySearch : BaseTrackerSearch
         await Parallel.ForEachAsync(releases, async (release, _) =>
         {
             var releaseTorrents = await FetchReleaseTorrentsAsync(release.Id);
-            if (releaseTorrents == null || releaseTorrents.Count == 0)
+            if (releaseTorrents.Count == 0)
                 return;
 
             foreach (var t in releaseTorrents)

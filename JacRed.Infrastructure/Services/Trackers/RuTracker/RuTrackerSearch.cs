@@ -45,7 +45,7 @@ public sealed class RuTrackerSearch : BaseRuTracker
             {
                 await _torrentRepository.AddOrUpdateAsync(
                     [torrent],
-                    TryEnrichAsync);
+                    x => FetchDetailsAsync(x));
             });
 
         return results.Values.ToList();

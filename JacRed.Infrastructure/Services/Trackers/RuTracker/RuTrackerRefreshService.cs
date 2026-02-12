@@ -34,7 +34,7 @@ public class RuTrackerRefreshService : BaseRuTracker
             foreach (var parse in parsed)
                 await _torrentRepository.AddOrUpdateAsync(
                     [parse],
-                    TryEnrichAsync);
+                    x => FetchDetailsAsync(x, true));
         }
     }
 }

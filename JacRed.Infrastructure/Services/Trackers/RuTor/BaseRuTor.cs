@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
+using AngleSharp.Dom;
 using AngleSharp.Html.Parser;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
@@ -25,38 +26,44 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
     public override string Host => "http://rutor.info/";
     protected string SearchUrl => $"{Host}search/0/0/100/2/";
 
-    public async Task<bool> TryEnrichAsync(TorrentDetails? torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
+    public async Task<bool> FetchDetailsAsync(TorrentDetails? torrent, bool force = false)
     {
         if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
             return false;
 
-        if (existing.TryGetValue(torrent.Url, out var cached))
-        {
-            if (!string.IsNullOrWhiteSpace(cached.Name))
-                torrent.Name = cached.Name;
-
-            if (!string.IsNullOrWhiteSpace(cached.OriginalName))
-                torrent.OriginalName = cached.OriginalName;
-
-            if (cached.Relased > 0)
-                torrent.Relased = cached.Relased;
-
-            if (cached.Types != null && cached.Types.Length > 0)
-                torrent.Types = cached.Types;
-
-            if (!string.IsNullOrWhiteSpace(torrent.Name))
-                return true;
-        }
+        if (!force && torrent.Types?.Length > 0)
+            return true;
 
         var html = await HttpService.Get(torrent.Url, referer: torrent.Url);
         if (string.IsNullOrWhiteSpace(html))
             return false;
 
         var document = await _parser.ParseDocumentAsync(html);
-        var detailsTable = document.QuerySelector("table#details");
-        if (detailsTable == null)
-            return false;
 
+        var h1Element = document.QuerySelector("div#all h1");
+        if (h1Element != null)
+        {
+            var webTitle = h1Element.TextContent.Trim();
+            if (!string.IsNullOrWhiteSpace(webTitle))
+                torrent.Title = webTitle;
+        }
+
+        var magnetElement = document.QuerySelector("div#download a[href^='magnet:']");
+        if (magnetElement != null)
+        {
+            var webMagnet = WebUtility.HtmlDecode(magnetElement.GetAttribute("href"));
+            if (!string.IsNullOrWhiteSpace(webMagnet))
+                torrent.Magnet = webMagnet;
+        }
+
+        var detailsTable = document.QuerySelector("table#details");
+        if (detailsTable != null) ParseDetailsTable(detailsTable, torrent);
+
+        return !string.IsNullOrWhiteSpace(torrent.Name) || !string.IsNullOrWhiteSpace(torrent.Magnet);
+    }
+
+    private void ParseDetailsTable(IElement detailsTable, TorrentDetails torrent)
+    {
         var nameElement = detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Название:"));
         if (nameElement?.NextSibling != null)
             torrent.Name = nameElement.NextSibling.TextContent.Trim();
@@ -88,13 +95,11 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
         var qualityElement =
             detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Качество:"));
         if (qualityElement?.NextSibling != null)
-        {
-            var qualityText = qualityElement.NextSibling.TextContent.Trim();
-            torrent.Quality = StringConvert.ParseQuality(qualityText);
-        }
+            torrent.Quality = StringConvert.ParseQuality(qualityElement.NextSibling.TextContent.Trim());
 
         var formatElement = detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Формат:"));
-        if (formatElement?.NextSibling != null) torrent.VideoType = formatElement.NextSibling.TextContent.Trim();
+        if (formatElement?.NextSibling != null)
+            torrent.VideoType = formatElement.NextSibling.TextContent.Trim();
 
         var translationElement =
             detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Перевод:"));
@@ -105,10 +110,22 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
                 torrent.Voices = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { translationText };
         }
 
-        return !string.IsNullOrWhiteSpace(torrent.Name);
+        // При форс-обновлении также тянем сидов/пиров из таблицы деталей, если они там есть
+        var peersRow = detailsTable.QuerySelectorAll("tr")
+            .FirstOrDefault(tr => tr.QuerySelector("td.header")?.TextContent.Contains("Раздают") == true);
+        if (peersRow != null)
+        {
+            var seedsElement = peersRow.QuerySelector("span.green");
+            if (seedsElement != null && int.TryParse(Regex.Match(seedsElement.TextContent, @"\d+").Value, out var s))
+                torrent.Sid = s;
+
+            var leechElement = peersRow.QuerySelector("span.red");
+            if (leechElement != null && int.TryParse(Regex.Match(leechElement.TextContent, @"\d+").Value, out var l))
+                torrent.Pir = l;
+        }
     }
 
-    protected static string[] MapCategory(string category)
+    private static string[] MapCategory(string category)
     {
         if (string.IsNullOrWhiteSpace(category))
             return [];

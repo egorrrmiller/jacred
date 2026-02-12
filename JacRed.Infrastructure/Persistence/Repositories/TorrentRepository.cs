@@ -62,17 +62,17 @@ public class TorrentRepository : ITorrentRepository
     /// </summary>
     public async Task AddOrUpdateAsync<T>(
         IReadOnlyCollection<T> torrents,
-        Func<T, IReadOnlyDictionary<string, TorrentDetails>, Task<bool>> predicate)
+        Func<T, Task<bool>> predicate)
         where T : TorrentDetails
     {
         foreach (var group in torrents.GroupBy(t => _keyGenerator.Build(t.Name, t.OriginalName)))
         {
             var key = group.Key;
-            var currentData = await GetCollectionAsync(key);
+            //var currentData = await GetCollectionAsync(key);
 
             foreach (var torrent in group)
             {
-                if (predicate != null && !await predicate(torrent, currentData))
+                if (predicate != null && !await predicate(torrent))
                     continue;
 
                 var enriched = await _torrentEnricher.EnrichAndConvertAsync(torrent);

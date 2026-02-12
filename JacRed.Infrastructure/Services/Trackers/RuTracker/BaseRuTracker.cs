@@ -33,28 +33,14 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
 
     private string LoginUrl => Host + "forum/login.php";
 
-    public async Task<bool> TryEnrichAsync(TorrentDetails? torrent, IReadOnlyDictionary<string, TorrentDetails> existing)
+    public async Task<bool> FetchDetailsAsync(TorrentDetails? torrent, bool force = false)
     {
         if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
             return false;
 
-        if (existing.TryGetValue(torrent.Url, out var cached))
-        {
-            if (!string.IsNullOrWhiteSpace(cached.Magnet))
-                torrent.Magnet = cached.Magnet;
-
-            if (torrent.CreateTime == default && cached.CreateTime != default)
-                torrent.CreateTime = cached.CreateTime;
-
-            if (string.IsNullOrWhiteSpace(torrent.OriginalName) && !string.IsNullOrWhiteSpace(cached.OriginalName))
-                torrent.OriginalName = cached.OriginalName;
-
-            if (string.IsNullOrWhiteSpace(torrent.Name) && !string.IsNullOrWhiteSpace(cached.Name))
-                torrent.Name = cached.Name;
-
-            if (!string.IsNullOrWhiteSpace(torrent.Magnet))
-                return true;
-        }
+        // todo при force тянуть всю инфу, которую возможно вытянуть из ссылки
+        if (!force && !string.IsNullOrEmpty(torrent.Magnet))
+            return true;
 
         var (magnet, createTime) = await FetchTopicDetailsAsync(torrent.Url);
         if (!string.IsNullOrWhiteSpace(magnet))

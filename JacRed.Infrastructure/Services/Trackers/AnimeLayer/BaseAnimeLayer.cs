@@ -3,13 +3,14 @@ using System.Text;
 using System.Text.RegularExpressions;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
+using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
 using Microsoft.Extensions.Options;
 
 namespace JacRed.Infrastructure.Services.Trackers.AnimeLayer;
 
-public abstract class BaseAnimeLayer : BaseTrackerSearch
+public abstract class BaseAnimeLayer : BaseTrackerSearch, ITrackerCatalogEnricher
 {
     private const string CookieKey = "animelayer:cookie";
     private static readonly Encoding Encoding = Encoding.UTF8;
@@ -24,6 +25,22 @@ public abstract class BaseAnimeLayer : BaseTrackerSearch
     public override string Host => "https://animelayer.ru";
 
     private string LoginUrl => $"{Host}/auth/login/";
+
+    public async Task<bool> FetchDetailsAsync(TorrentDetails torrent, bool force = false)
+    {
+        if (string.IsNullOrWhiteSpace(torrent.Url))
+            return false;
+
+        // todo при force тянуть всю инфу, которую возможно вытянуть из ссылки
+        if (!force && !string.IsNullOrEmpty(torrent.Magnet))
+            return true;
+
+        var magnet = await GetMagnet($"{torrent.Url}download/?type=magnet");
+        if (!string.IsNullOrWhiteSpace(magnet))
+            torrent.Magnet = magnet;
+
+        return !string.IsNullOrWhiteSpace(torrent.Magnet);
+    }
 
     protected async Task<string> Get(string url, string? referer = null)
     {

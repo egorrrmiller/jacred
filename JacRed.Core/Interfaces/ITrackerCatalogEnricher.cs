@@ -3,14 +3,13 @@ using JacRed.Core.Models.Details;
 namespace JacRed.Core.Interfaces;
 
 /// <summary>
-///     Досбавает недостающие данные в раздачи, полученные из каталогов трекеров.
+///     Добавляет недостающие данные, которые невозможно вытащить со страницы поиска
 /// </summary>
 public interface ITrackerCatalogEnricher
 {
     /// <summary>
     ///     Пытается обогатить раздачу, используя уже известные записи каталога.
     /// </summary>
-    Task<bool> TryEnrichAsync(
-        TorrentDetails torrent,
-        IReadOnlyDictionary<string, TorrentDetails> existing);
+    Task<bool> FetchDetailsAsync(
+        TorrentDetails torrent, bool force = false);
 }

@@ -48,38 +48,10 @@ public class AnimeLayerSearch : BaseAnimeLayer
             {
                 await _torrentRepository.AddOrUpdateAsync(
                     [torrent],
-                    TryEnrichAsync);
+                    x => FetchDetailsAsync(x));
             });
 
         return torrents;
-    }
-
-    private async Task<bool> TryEnrichAsync(TorrentDetails torrent,
-        IReadOnlyDictionary<string, TorrentDetails> existing)
-    {
-        if (string.IsNullOrWhiteSpace(torrent.Url))
-            return false;
-
-        if (existing.TryGetValue(torrent.Url, out var cached))
-        {
-            if (!string.IsNullOrWhiteSpace(cached.Magnet))
-                torrent.Magnet = cached.Magnet;
-
-            if (torrent.Size == 0 && cached.Size > 0)
-            {
-                torrent.Size = cached.Size;
-                torrent.SizeName = cached.SizeName;
-            }
-
-            if (!string.IsNullOrWhiteSpace(torrent.Magnet))
-                return true;
-        }
-
-        var magnet = await GetMagnet($"{torrent.Url}download/?type=magnet");
-        if (!string.IsNullOrWhiteSpace(magnet))
-            torrent.Magnet = magnet;
-
-        return !string.IsNullOrWhiteSpace(torrent.Magnet);
     }
 
     private IReadOnlyCollection<TorrentDetails> Parse(string html)
