@@ -38,18 +38,37 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
             return false;
 
-        // todo при force тянуть всю инфу, которую возможно вытянуть из ссылки
         if (!force && !string.IsNullOrEmpty(torrent.Magnet))
             return true;
 
-        var (magnet, createTime) = await FetchTopicDetailsAsync(torrent.Url);
-        if (!string.IsNullOrWhiteSpace(magnet))
-            torrent.Magnet = magnet;
+        var details = await FetchTopicDetailsAsync(torrent.Url, force);
+        if (string.IsNullOrWhiteSpace(details.Magnet))
+            return false;
 
-        if (createTime != default)
-            torrent.CreateTime = createTime;
+        torrent.Magnet = details.Magnet;
 
-        return !string.IsNullOrWhiteSpace(torrent.Magnet);
+        if (details.CreateTime != default)
+            torrent.CreateTime = details.CreateTime;
+        
+        if (force)
+        {
+            if (!string.IsNullOrWhiteSpace(details.Title))
+                torrent.Title = details.Title;
+
+            if (details.Sid > 0)
+                torrent.Sid = details.Sid;
+
+            if (details.Pir > 0)
+                torrent.Pir = details.Pir;
+
+            if (details.Size > 0)
+            {
+                torrent.Size = details.Size;
+                torrent.SizeName = details.SizeName;
+            }
+        }
+
+        return true;
     }
 
     protected async Task<string> Get(
@@ -443,8 +462,9 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         return TagRegex.Replace(text, string.Empty);
     }
 
-    private async Task<(string? magnet, DateTime createTime)> FetchTopicDetailsAsync(
-        string url)
+    private async
+        Task<(string? Magnet, DateTime CreateTime, string? Title, int Sid, int Pir, long Size, string? SizeName)> FetchTopicDetailsAsync(
+            string url, bool force = false)
     {
         try
         {
@@ -452,11 +472,10 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
                 url,
                 RuEncoding,
                 url,
-                7 /*,
-                useProxy: AppInit.conf.Rutracker.useproxy*/);
+                7);
 
             if (string.IsNullOrWhiteSpace(html))
-                return (null, default);
+                return (null, default, null, 0, 0, 0, null);
 
             var magnetMatch = MagnetRegex.Match(html);
             var magnet = magnetMatch.Success
@@ -466,12 +485,57 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
             var dateRaw = TopicDateRegex.Match(html).Groups["date"].Value;
             var createTime = ParseTopicDate(dateRaw);
 
-            return (string.IsNullOrWhiteSpace(magnet) ? null : magnet, createTime);
+            string? title = null;
+            int sid = 0;
+            int pir = 0;
+            long size = 0;
+            string? sizeName = null;
+
+            if (force)
+            {
+                var titleMatch = Regex.Match(html, @"<a id=""topic-title""[^>]*>(.*?)</a>", RegexOptions.Singleline);
+                if (titleMatch.Success)
+                    title = NormalizeText(WebUtility.HtmlDecode(StripTags(titleMatch.Groups[1].Value)));
+
+                var sidMatch = Regex.Match(html, @"<span class=""seed"">Сиды:&nbsp; <b>(\d+)</b></span>");
+                if (sidMatch.Success) sid = ParseInt(sidMatch.Groups[1].Value);
+
+                var pirMatch = Regex.Match(html, @"<span class=""leech"">Личи:&nbsp; <b>(\d+)</b></span>");
+                if (pirMatch.Success) pir = ParseInt(pirMatch.Groups[1].Value);
+
+                var sizeMatch = Regex.Match(html, @"Размер:&nbsp; <b>([\d\.]+)&nbsp;(GB|MB|KB|TB|ГБ|МБ|КБ|ТБ)</b>");
+                if (sizeMatch.Success)
+                {
+                    var val = sizeMatch.Groups[1].Value;
+                    var unit = sizeMatch.Groups[2].Value;
+                    sizeName = $"{val} {unit}";
+                    size = ParseSize(val, unit);
+                }
+            }
+
+            return (magnet, createTime, title, sid, pir, size, sizeName);
         }
         catch (Exception)
         {
-            return (null, default);
+            return (null, default, null, 0, 0, 0, null);
         }
+    }
+
+    private static long ParseSize(string value, string unit)
+    {
+        if (!double.TryParse(value.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture,
+                out var num)) return 0;
+
+        var multiplier = unit.ToUpperInvariant() switch
+        {
+            "TB" or "ТБ" => 1024d * 1024d * 1024d * 1024d,
+            "GB" or "ГБ" => 1024d * 1024d * 1024d,
+            "MB" or "МБ" => 1024d * 1024d,
+            "KB" or "КБ" => 1024d,
+            _ => 1d
+        };
+
+        return (long)Math.Round(num * multiplier);
     }
 
     /// <summary>

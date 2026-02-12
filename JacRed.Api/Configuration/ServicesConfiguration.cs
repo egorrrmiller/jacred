@@ -47,7 +47,7 @@ public static class ServicesConfiguration
             .AddScoped<ITrackerRefreshProvider, RuTorRefreshService>()
             .AddHostedService<TorrentMediaProbeHostedService>()
             .AddHostedService<RuTrackerPopularHostedService>()
-            //.AddHostedService<RuTrackerRefreshHostedService>()
+            .AddHostedService<RuTrackerRefreshHostedService>()
             .AddHostedService<RuTorRefreshHostedService>();
 
         services.AddSingleton<ICacheService, CacheService>();
