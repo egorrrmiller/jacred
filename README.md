@@ -106,23 +106,23 @@ volumes:
 
 ```yaml
 ##### Настройка сервера
-listen-ip: any          # IP-адрес для прослушивания (any = 0.0.0.0)
-listen-port: 9117       # Внутренний порт веб-сервера
-api-key: 'key'          # API-ключ для доступа к методам
+listen-ip: any          # IP для прослушивания (any = 0.0.0.0)
+listen-port: 9117       # Порт веб-сервера
+api-key: 'key'          # Ключ доступа к API
 web: true               # Включить веб-интерфейс
 
 ##### Настройка выдачи
-max-result-count: 250   # Максимальное количество результатов в ответе
-merge-duplicates: true  # Объединять дубликаты по InfoHash
-merge-num-duplicates: true # Объединять дубликаты с разными суффиксами в названии
+max-result-count: 250   # Лимит результатов в ответе
+merge-duplicates: true  # Схлопывать дубликаты по InfoHash
+merge-num-duplicates: true # Схлопывать дубликаты серий/сезонов
 
 # Интеграция с TorrServer (ffprobe/языки)
 ffprobe:
   enable: true          # Включить получение метаданных
-  timeout: 10           # Таймаут запроса в минутах
+  timeout: 10           # Таймаут запроса (сек)
   tsuri: 'http://localhost:5665' # Адрес TorrServer
-  batch-size: 5         # Размер пакета обработки
-  attempts: 3           # Количество попыток
+  batch-size: 5         # Торрентов за один проход
+  attempts: 3           # Попыток на один торрент
   authorization:
     login: 'login'      # Логин TorrServer
     password: 'password' # Пароль TorrServer
@@ -130,50 +130,57 @@ ffprobe:
 ##### Настройка трекеров
 
 rutracker:
-  enable-search: true   # Включить поиск по трекеру
-  enable-sync: true     # Включить фоновую синхронизацию (новинки, популярное)
+  enable-search: true   # Включить поиск
 
-  # Точечный рефреш торрентов в базе
   refresh:
-    enable: true        # Включить обновление
-    timeout: 60         # Интервал обновления в минутах
-    older-than-min: 120 # Обновлять записи старше N минут
-    limit: 100          # Лимит записей за один проход
-  
-  # Обновление популярных раздач
+    enable: true        # Включить обновление данных торрентов
+    timeout: 60         # Интервал запуска джобы (мин)
+    older-than-min: 120 # Обновлять торренты старше 120 минут
+    limit: 100          # Лимит торрентов за один проход
+
   popular:
     enable: true        # Включить парсинг популярных
-    timeout: 30         # Интервал обновления в минутах
+    timeout: 30         # Интервал запуска джобы (мин)
     max-pages: 5        # Глубина парсинга страниц
-    categories:         # ID категорий для парсинга
-      [ 111, 222, 333 ]
+    categories: [ 111, 222 ] # ID категорий для парсинга
 
   authorization:
-    login: ''           # Логин на трекере
-    password: ''        # Пароль на трекере
-
-animelayer:
-  enable-search: false  # Включить поиск по трекеру
-  authorization:
-    login: ''
-    password: ''
+    login: 'login'      # Логин на трекере
+    password: 'pass'    # Пароль на трекере
 
 nnmclub:
-  enable-search: true   # Включить поиск по трекеру
+  enable-search: true   # Включить поиск
 
-aniliberty:
-  enable-search: true   # Включить поиск по трекеру
-
-rutor:
-  enable-search: true   # Включить поиск по трекеру
+  refresh:
+    enable: true        # Включить обновление данных торрентов
+    timeout: 120        # Интервал запуска джобы (мин)
+    older-than-min: 240 # Обновлять торренты старше 240 минут
+    limit: 50           # Лимит торрентов за проход
 
 kinozal:
-  enable-search: true
+  enable-search: true   # Включить поиск
+
+  refresh:
+    enable: false       # Обновление данных выключено
 
   authorization:
-    login: ''
-    password: ''
+    login: 'login'      # Логин на трекере
+    password: 'pass'    # Пароль на трекере
 
+animelayer:
+  enable-search: false  # Поиск выключен
+
+  refresh:
+    enable: false       # Обновление данных выключено
+
+rutor:
+  enable-search: true   # Включить поиск
+
+  refresh:
+    enable: true        # Включить обновление данных торрентов
+    timeout: 180        # Интервал запуска джобы (мин)
+    older-than-min: 360 # Обновлять торренты старше 360 минут
+    limit: 200          # Лимит торрентов за проход
 ```
 
 ---

@@ -3,18 +3,17 @@ name: Publish Docker Image
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "Версия (semver, например 1.2.3). Если пусто — соберётся диагностический образ без релиза."
-        required: false
-        type: string
-      extra_tag:
-        description: "Доп. тег для диагностики, если версия не указана (например diag)"
-        required: false
-        default: "diag"
-        type: string
+      mode:
+        description: "Режим сборки"
+        required: true
+        default: "debug"
+        type: choice
+        options:
+          - debug
+          - release
 
 permissions:
-  contents: read
+  contents: write
   packages: write
   id-token: write
 
@@ -33,10 +32,18 @@ jobs:
       - name: Set version
         id: vars
         run: |
-          ver="${{ inputs.version }}"
-          extra="${{ inputs.extra_tag }}"
-          echo "version=${ver#v}" >> "$GITHUB_OUTPUT"
-          echo "extra=${extra}" >> "$GITHUB_OUTPUT"
+          if [ "${{ inputs.mode }}" == "release" ]; then
+            ver=$(date +'%d-%m-%Y')
+            echo "version=${ver}" >> "$GITHUB_OUTPUT"
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=diag-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Lowercase image name
+        run: |
+          echo "IMAGE_LOWER=${GITHUB_REPOSITORY_OWNER,,}/${IMAGE_NAME}" >> $GITHUB_ENV
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -51,22 +58,12 @@ jobs:
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
-        env:
-          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_LOWER }}
           tags: |
-            type=semver,pattern={{version}},value=${{ steps.vars.outputs.version }},enable=${{ steps.vars.outputs.version != '' }}
-            type=raw,value=v${{ steps.vars.outputs.version }},enable=${{ steps.vars.outputs.version != '' }}
-            type=raw,value=latest,enable=${{ steps.vars.outputs.version != '' }}
-            type=sha,enable=${{ steps.vars.outputs.version == '' }}
-            type=raw,value=${{ steps.vars.outputs.extra }}-${{ github.sha }},enable=${{ steps.vars.outputs.version == '' && steps.vars.outputs.extra != '' }}
+            type=raw,value=${{ steps.vars.outputs.version }}
+            type=raw,value=latest,enable=${{ steps.vars.outputs.is_release == 'true' }}
           labels: |
-            org.opencontainers.image.title=jacred
-            org.opencontainers.image.description=JacRed torrent tracker aggregator
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-          annotations: |
             org.opencontainers.image.title=jacred
             org.opencontainers.image.description=JacRed torrent tracker aggregator
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
@@ -85,18 +82,18 @@ jobs:
           provenance: mode=max
 
       - name: Create Git tag
-        if: ${{ steps.vars.outputs.version != '' }}
+        if: ${{ steps.vars.outputs.is_release == 'true' }}
         run: |
           ver="v${{ steps.vars.outputs.version }}"
           git tag "$ver"
           git push origin "$ver"
 
       - name: Create GitHub Release
-        if: ${{ steps.vars.outputs.version != '' }}
+        if: ${{ steps.vars.outputs.is_release == 'true' }}
         uses: actions/create-release@v1
         with:
-          tag_name: v${{ steps.vars.outputs.version }}
-          release_name: v${{ steps.vars.outputs.version }}
+          tag_name: v${{ steps.vars.outputs.is_release == 'true' && steps.vars.outputs.version || '' }}
+          release_name: v${{ steps.vars.outputs.is_release == 'true' && steps.vars.outputs.version || '' }}
           draft: false
           prerelease: false
         env:
