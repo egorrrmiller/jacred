@@ -84,7 +84,7 @@ jobs:
       - name: Create Git tag
         if: ${{ steps.vars.outputs.is_release == 'true' }}
         run: |
-          ver="v${{ steps.vars.outputs.version }}"
+          ver="${{ steps.vars.outputs.version }}"
           git tag "$ver"
           git push origin "$ver"
 
@@ -92,8 +92,8 @@ jobs:
         if: ${{ steps.vars.outputs.is_release == 'true' }}
         uses: actions/create-release@v1
         with:
-          tag_name: v${{ steps.vars.outputs.is_release == 'true' && steps.vars.outputs.version || '' }}
-          release_name: v${{ steps.vars.outputs.is_release == 'true' && steps.vars.outputs.version || '' }}
+          tag_name: ${{ steps.vars.outputs.is_release == 'true' && steps.vars.outputs.version || '' }}
+          release_name: ${{ steps.vars.outputs.is_release == 'true' && steps.vars.outputs.version || '' }}
           draft: false
           prerelease: false
         env:
