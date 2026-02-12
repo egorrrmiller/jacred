@@ -1,4 +1,5 @@
 using JacRed.Core.Models.Options;
+using JacRed.Core.Models.Options.TrackerConfigs;
 using JacRed.Infrastructure.Services.Trackers.RuTracker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -11,5 +12,5 @@ public class RuTrackerRefreshHostedService : BaseRefreshService<RuTrackerRefresh
     {
     }
 
-    protected override int TimeOut => Config.RuTracker.Refresh.TimeOut;
+    protected override RefreshSettings RefreshSettings => Config.RuTracker.Refresh;
 }

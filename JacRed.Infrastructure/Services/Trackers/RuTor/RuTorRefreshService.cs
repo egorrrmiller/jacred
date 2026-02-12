@@ -18,8 +18,6 @@ public class RuTorRefreshService : BaseRuTor
     public override async Task InvokeAsync()
     {
         var config = Config.RuTor;
-        if (!config.Refresh.Enable)
-            return;
 
         var olderThan = TimeSpan.FromMinutes(config.Refresh.OlderThanMin);
         var limit = Config.RuTracker.Refresh.Limit > 0 ? (int?)config.Refresh.Limit : null;

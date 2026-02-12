@@ -1,4 +1,5 @@
 using JacRed.Core.Models.Options;
+using JacRed.Core.Models.Options.TrackerConfigs;
 using JacRed.Infrastructure.Services.Trackers.RuTor;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -11,5 +12,5 @@ public class RuTorRefreshHostedService : BaseRefreshService<RuTorRefreshService>
     {
     }
 
-    protected override int TimeOut => Config.RuTor.Refresh.TimeOut;
+    protected override RefreshSettings RefreshSettings => Config.RuTor.Refresh;
 }

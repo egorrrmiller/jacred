@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Options;
+using JacRed.Core.Models.Options.TrackerConfigs;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -21,12 +22,14 @@ public abstract class BaseRefreshService<T> : BackgroundService where T : class,
         Config = config.Value;
         _scopeFactory = scopeFactory;
     }
-
-    protected abstract int TimeOut { get; }
+    protected abstract RefreshSettings RefreshSettings { get; }
     
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(TimeOut));
+        if(!RefreshSettings.Enable)
+            return;
+        
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(RefreshSettings.TimeOut));
         while (await timer.WaitForNextTickAsync(stoppingToken))
             try
             {

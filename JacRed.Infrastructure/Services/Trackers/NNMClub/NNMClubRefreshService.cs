@@ -18,8 +18,6 @@ public class NNMClubRefreshService : BaseNNMClub
     public override async Task InvokeAsync()
     {
         var config = Config.NNMClub;
-        if (!config.Refresh.Enable)
-            return;
 
         var olderThan = TimeSpan.FromMinutes(config.Refresh.OlderThanMin);
         var limit = config.Refresh.Limit > 0 ? (int?)config.Refresh.Limit : null;

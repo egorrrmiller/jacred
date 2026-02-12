@@ -21,9 +21,6 @@ public class RuTrackerRefreshService : BaseRuTracker
     public override async Task InvokeAsync()
     {
         var config = Config.RuTracker;
-        
-        if (!config.Refresh.Enable)
-            return;
 
         var olderThan = TimeSpan.FromMinutes(config.Refresh.OlderThanMin);
         var limit = config.Refresh.Limit > 0 ? (int?)config.Refresh.Limit : null;
