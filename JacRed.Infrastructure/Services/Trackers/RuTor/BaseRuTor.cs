@@ -182,8 +182,18 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
 
             var title = titleLink.TextContent.Trim();
             var url = titleLink.GetAttribute("href");
-            if (!string.IsNullOrWhiteSpace(url) && !url.StartsWith("http"))
-                url = Host.TrimEnd('/') + url;
+            if (!string.IsNullOrWhiteSpace(url))
+            {
+                var match = Regex.Match(url, @"^/torrent/\d+");
+                if (match.Success)
+                {
+                    url = Host.TrimEnd('/') + match.Value;
+                }
+                else if (!url.StartsWith("http"))
+                {
+                    url = Host.TrimEnd('/') + url;
+                }
+            }
 
             long size = 0;
             string? sizeName = null;
