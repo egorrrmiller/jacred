@@ -34,7 +34,7 @@ public class RefreshHostedService : BackgroundService
                 var repository = scope.ServiceProvider.GetRequiredService<ISearchQueryRepository>();
                 var remoteSearch = scope.ServiceProvider.GetRequiredService<IRemoteSearchService>();
 
-                var queries = await repository.GetStaleSearchQueriesAsync(TimeSpan.FromMinutes(_config.Refresh.OlderThanMin), 100);
+                var queries = await repository.GetStaleSearchQueriesAsync(TimeSpan.FromMinutes(_config.Refresh.OlderThanMin), _config.Refresh.Limit);
                 if (queries.Count == 0) continue;
 
                 foreach (var query in queries)
