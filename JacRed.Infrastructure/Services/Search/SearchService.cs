@@ -12,7 +12,6 @@ namespace JacRed.Infrastructure.Services.Search;
 
 public class SearchService : BaseSearchService, ISearchService
 {
-    private readonly ISearchHistoryRepository _history;
     private readonly ILocalSearchService _localSearch;
     private readonly ITorrentMergerService _merger;
     private readonly IRemoteSearchService _remoteSearch;
@@ -25,13 +24,11 @@ public class SearchService : BaseSearchService, ISearchService
         ILocalSearchService localSearch,
         IRemoteSearchService remoteSearch,
         ITorrentRepository repository,
-        ISearchHistoryRepository history,
         ITorrentMergerService merger) : base(config.Value, httpService, cacheService)
     {
         _localSearch = localSearch;
         _remoteSearch = remoteSearch;
         _repository = repository;
-        _history = history;
         _merger = merger;
     }
 
@@ -117,32 +114,22 @@ public class SearchService : BaseSearchService, ISearchService
                 .ToList();
         }
 
-        var trackerQuery = StringConvert.ClearTitle(BuildTrackerQuery(search, altname));
-        if (!string.IsNullOrWhiteSpace(trackerQuery))
+        if (torrents.Count == 0)
         {
-            var normalizedQuery = StringConvert.SearchName(trackerQuery);
-            var currentTrackersHash = GetTrackersHash();
-            var history = await _history.GetAsync(normalizedQuery);
-
-            if (torrents.Count == 0 || history == null ||
-                DateTime.UtcNow - history.LastSearchTime > TimeSpan.FromHours(12) ||
-                history.TrackersHash != currentTrackersHash)
+            var trackerQuery = StringConvert.ClearTitle(BuildTrackerQuery(search, altname));
+            if (!string.IsNullOrWhiteSpace(trackerQuery))
             {
                 var fetched = await _remoteSearch.SearchAsync(trackerQuery, _remoteSearch.GetSupportedTrackers());
-                if (fetched.Count > 0)
-                {
-                    await _repository.AddOrUpdateAsync(fetched);
-                    torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType,
-                        request.Exact);
 
-                    if (request.Exact && torrents.Count == 0)
-                        torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType);
+                await _repository.AddOrUpdateAsync(fetched);
+                torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType,
+                    request.Exact);
 
-                    torrents = torrents.Where(IsTrackerSearchEnabled)
-                        .ToList();
-                }
+                if (request.Exact && torrents.Count == 0)
+                    torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType);
 
-                await _history.AddOrUpdateAsync(normalizedQuery, DateTime.UtcNow, currentTrackersHash);
+                torrents = torrents.Where(IsTrackerSearchEnabled)
+                    .ToList();
             }
         }
 

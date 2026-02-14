@@ -20,7 +20,6 @@ public class TorrentRepository : ITorrentRepository
 {
     private const string Schema = DbSchema.Name;
     private readonly ICacheService _cache;
-    private readonly Config _config;
     private readonly string _connectionString;
     private readonly IKeyGenerator _keyGenerator;
     private readonly ILogger<TorrentRepository> _logger;
@@ -31,15 +30,13 @@ public class TorrentRepository : ITorrentRepository
         IKeyGenerator keyGenerator,
         ITorrentEnricher torrentEnricher,
         ILogger<TorrentRepository> logger,
-        string connectionString,
-        IOptions<Config> config)
+        string connectionString)
     {
         _cache = cache;
         _keyGenerator = keyGenerator;
         _torrentEnricher = torrentEnricher;
         _logger = logger;
         _connectionString = connectionString;
-        _config = config.Value;
     }
 
     /// <summary>
@@ -68,7 +65,6 @@ public class TorrentRepository : ITorrentRepository
         foreach (var group in torrents.GroupBy(t => _keyGenerator.Build(t.Name, t.OriginalName)))
         {
             var key = group.Key;
-            //var currentData = await GetCollectionAsync(key);
 
             foreach (var torrent in group)
             {
@@ -359,32 +355,13 @@ public class TorrentRepository : ITorrentRepository
     #region Private Methods
 
     /// <summary>
-    ///     Возвращает коллекцию торрентов по ключу, при необходимости обновляя кэш.
-    /// </summary>
-    private async Task<IReadOnlyDictionary<string, TorrentDetails>> GetCollectionAsync(string key,
-        bool updateCache = false)
-    {
-        var cacheKey = $"collection:{key}";
-
-        if (updateCache)
-            await _cache.InvalidateAsync(cacheKey);
-
-        return await _cache.GetOrCreateAsync(
-            cacheKey,
-            async () => await LoadCollectionFromDbAsync(key),
-            TimeSpan.FromMinutes(30)
-        );
-    }
-
-    /// <summary>
     ///     Добавляет или обновляет одну запись в таблице torrents.
     /// </summary>
     private async Task UpsertTorrent(TorrentDetails src)
     {
-        using var connection = new NpgsqlConnection(_connectionString);
+        await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
 
-        var details = src;
         var now = DateTime.UtcNow;
 
         var fetchSql = $@"SELECT types, name, original_name, languages FROM {Schema}.torrents WHERE url = @Url";
@@ -458,64 +435,6 @@ public class TorrentRepository : ITorrentRepository
 
             await connection.ExecuteAsync(insertSql, MapToDbModel(src, now, true));
         }
-    }
-
-    /// <summary>
-    ///     Загружает коллекцию торрентов из БД по ключу.
-    /// </summary>
-    private async Task<Dictionary<string, TorrentDetails>> LoadCollectionFromDbAsync(string key)
-    {
-        var terms = ExtractKeyTerms(key);
-        if (terms.Length == 0)
-            return new Dictionary<string, TorrentDetails>();
-
-        var patterns = terms.Select(term => $"%{term}%").ToArray();
-
-        using var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync();
-
-        var sql = $@"
-            SELECT *
-            FROM {Schema}.torrents
-            WHERE (
-                search_name LIKE ANY(@Patterns)
-                OR original_search_name LIKE ANY(@Patterns)
-            )
-            ORDER BY sid DESC, update_time DESC
-            LIMIT @MaxRead";
-
-        var torrents = await connection.QueryAsync<Torrent>(sql, new
-        {
-            Patterns = patterns,
-            MaxRead = _config.MaxResultCount
-        });
-
-        var dict = new Dictionary<string, TorrentDetails>();
-
-        foreach (var db in torrents)
-        {
-            var model = MapToDomainModel(db);
-            if (model != null)
-                dict[db.Url] = model;
-        }
-
-        return dict;
-    }
-
-    /// <summary>
-    ///     Разбивает ключ name:originalname на части для LIKE-поиска.
-    /// </summary>
-    private static string[] ExtractKeyTerms(string key)
-    {
-        if (string.IsNullOrWhiteSpace(key))
-            return [];
-
-        return key
-            .Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(term => term.ToLowerInvariant())
-            .Where(term => !string.IsNullOrWhiteSpace(term))
-            .Distinct()
-            .ToArray();
     }
 
     /// <summary>

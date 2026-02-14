@@ -47,18 +47,6 @@ public abstract class BaseSearchService
             : (cache.Item1 ?? cache.Item2, altname);
     }
 
-    protected string GetTrackersHash()
-    {
-        var enabledTrackers = Enum.GetValues<TrackerType>()
-            .Where(type => type.IsSearchEnabled(Config))
-            .OrderBy(t => t)
-            .Select(t => t.ToString());
-
-        var key = string.Join(",", enabledTrackers);
-        var hashBytes = MD5.HashData(Encoding.UTF8.GetBytes(key));
-        return Convert.ToHexString(hashBytes);
-    }
-
     protected bool IsTrackerSearchEnabled(TorrentDetails torrentDetails)
     {
         return Enum.Parse<TrackerType>(torrentDetails.TrackerName, true).IsSearchEnabled(Config);

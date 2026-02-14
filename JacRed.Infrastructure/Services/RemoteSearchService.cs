@@ -12,18 +12,16 @@ namespace JacRed.Infrastructure.Services;
 public class RemoteSearchService : IRemoteSearchService
 {
     private readonly ICacheService _cacheService;
-    private readonly Config _config;
     private readonly ILogger<RemoteSearchService> _logger;
     private readonly IReadOnlyDictionary<TrackerType, ITrackerSearch> _providers;
 
     public RemoteSearchService(
         ICacheService cacheService,
         IEnumerable<ITrackerSearch> providers,
-        ILogger<RemoteSearchService> logger, IOptions<Config> config)
+        ILogger<RemoteSearchService> logger)
     {
         _cacheService = cacheService;
         _logger = logger;
-        _config = config.Value;
         _providers = providers.ToDictionary(p => p.Tracker, p => p);
     }
 
