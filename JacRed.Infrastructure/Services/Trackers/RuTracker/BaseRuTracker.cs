@@ -3,6 +3,8 @@ using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
+using AngleSharp.Dom;
+using AngleSharp.Html.Parser;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
@@ -17,8 +19,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
 {
     private const string CookieKey = "rutracker:cookie";
 
-    private static readonly Regex MaxPageRegex =
-        new("Страница <b>1</b> из <b>(?<pages>\\d+)</b>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private readonly HtmlParser _parser = new();
 
     protected static readonly IReadOnlyDictionary<string, CategoryInfo> CategoryMap = BuildCategoryMap();
 
@@ -128,7 +129,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         return cookie;
     }
 
-    protected static IReadOnlyCollection<TorrentDetails> ParseForumPage(
+    protected IReadOnlyCollection<TorrentDetails> ParseForumPage(
         string html,
         string categoryId,
         string host,
@@ -141,22 +142,21 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         var results = new List<TorrentDetails>();
         var baseForumUri = new Uri(new Uri(host), "forum/");
 
-        var rows = SplitRows(cleaned, 800);
-        if (!rows.Any())
-            rows = RowRegex.Matches(cleaned).Select(m => m.Value);
+        var document = _parser.ParseDocument(cleaned);
+        var rows = document.QuerySelectorAll("tr.hl-tr");
 
         foreach (var row in rows)
         {
-            var linkMatch = LinkRegex.Match(row);
-            if (!linkMatch.Success)
+            var linkElement = row.QuerySelector("a.tLink");
+            if (linkElement == null)
                 continue;
 
-            var href = NormalizeHref(linkMatch.Groups["url"].Value);
+            var href = NormalizeHref(linkElement.GetAttribute("href"));
             if (string.IsNullOrWhiteSpace(href))
                 continue;
 
-            var titleRaw = linkMatch.Groups["title"].Value;
-            var title = NormalizeText(WebUtility.HtmlDecode(StripTags(titleRaw)));
+            var titleRaw = linkElement.TextContent;
+            var title = NormalizeText(titleRaw);
             if (string.IsNullOrWhiteSpace(title))
                 continue;
 
@@ -164,10 +164,29 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
 
             var sizeName = string.Empty;
             var sizeBytes = 0L;
-            if (TryParseSize(row, out var parsedSizeName, out var parsedSizeBytes))
+            
+            var sizeElement = row.QuerySelector("a.small.tr-dl");
+            if (sizeElement != null)
             {
-                sizeName = parsedSizeName;
-                sizeBytes = parsedSizeBytes;
+                 var sizeText = sizeElement.TextContent.Trim();
+                 if (TryParseSize(sizeText, out var parsedSizeName, out var parsedSizeBytes))
+                 {
+                     sizeName = parsedSizeName;
+                     sizeBytes = parsedSizeBytes;
+                 }
+            }
+            else
+            {
+                var sizeTd = row.QuerySelector("td.tor-size");
+                if (sizeTd != null)
+                {
+                    var tsText = sizeTd.GetAttribute("data-ts_text");
+                    if (long.TryParse(tsText, out var bytes))
+                    {
+                        sizeBytes = bytes;
+                        sizeName = FormatSize(bytes);
+                    }
+                }
             }
 
             var publishDate = TryParsePublishDate(row) ?? now;
@@ -191,14 +210,30 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
                     continue;
             }
 
+            var seedElement = row.QuerySelector("b.seedmed");
+            var leechElement = row.QuerySelector("td.leechmed");
+
+            int sid = 0;
+            if (seedElement != null)
+                sid = ParseInt(seedElement.TextContent);
+            else
+            {
+                 var seedTd = row.QuerySelector("td.seedmed");
+                 if (seedTd != null) sid = ParseInt(seedTd.TextContent);
+            }
+
+            int pir = 0;
+            if (leechElement != null)
+                pir = ParseInt(leechElement.TextContent);
+
             results.Add(new TorrentDetails
             {
                 TrackerName = "rutracker",
                 Types = category.Types,
                 Url = url,
                 Title = title,
-                Sid = ParseInt(SeedRegex.Match(row).Groups["value"].Value),
-                Pir = ParseInt(LeechRegex.Match(row).Groups["value"].Value),
+                Sid = sid,
+                Pir = pir,
                 SizeName = string.IsNullOrWhiteSpace(sizeName) ? null : sizeName,
                 CreateTime = publishDate,
                 UpdateTime = now,
@@ -213,25 +248,6 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         return results;
     }
 
-    private static IEnumerable<string> SplitRows(string html, int maxRows)
-    {
-        var rows = html.Split("<tr", StringSplitOptions.RemoveEmptyEntries);
-        var collected = new List<string>(Math.Min(rows.Length, maxRows));
-
-        foreach (var raw in rows)
-        {
-            if (collected.Count >= maxRows)
-                break;
-
-            if (!raw.Contains("tLink", StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            collected.Add("<tr" + raw);
-        }
-
-        return collected;
-    }
-
     private static IReadOnlyDictionary<string, CategoryInfo> BuildCategoryMap()
     {
         var map = new Dictionary<string, CategoryInfo>(StringComparer.OrdinalIgnoreCase);
@@ -239,7 +255,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         Add(map, CategoryParser.Movie, ["movie"],
             "549", "22", "1666", "941", "1950", "2090", "2221", "2091", "2092", "2093", "2200",
             "2540", "934", "505", "124", "1457", "2199", "313", "312", "1247", "2201", "2339", "140",
-            "252");
+            "252", "718", "2198");
 
         Add(map, CategoryParser.Movie, ["multfilm"], "2343", "930", "2365", "208", "539", "209", "1213");
         Add(map, CategoryParser.Serial, ["multserial"], "921", "815", "1460");
@@ -430,14 +446,6 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         return WhitespaceRegex.Replace(text, " ").Trim();
     }
 
-    private static string StripTags(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return string.Empty;
-
-        return TagRegex.Replace(text, string.Empty);
-    }
-
     private async
         Task<(string? Magnet, DateTime CreateTime, string? Title, int Sid, int Pir, long Size, string? SizeName)>
         FetchTopicDetailsAsync(
@@ -454,12 +462,31 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
             if (string.IsNullOrWhiteSpace(html))
                 return (null, default, null, 0, 0, 0, null);
 
-            var magnetMatch = MagnetRegex.Match(html);
-            var magnet = magnetMatch.Success
-                ? WebUtility.HtmlDecode(magnetMatch.Groups["magnet"].Value)
-                : null;
+            var document = await _parser.ParseDocumentAsync(html);
 
-            var dateRaw = TopicDateRegex.Match(html).Groups["date"].Value;
+            var magnetElement = document.QuerySelector("a.magnet-link");
+            var magnet = magnetElement?.GetAttribute("href");
+
+            var dateElement = document.QuerySelector("a.p-link.small");
+            
+            var dateRaw = string.Empty;
+            if (dateElement != null && dateElement.GetAttribute("href")?.Contains("viewtopic.php") == true)
+            {
+                dateRaw = dateElement.TextContent;
+            }
+            else
+            {
+                var links = document.QuerySelectorAll("a.p-link.small");
+                foreach (var link in links)
+                {
+                    if (link.GetAttribute("href")?.Contains("viewtopic.php") == true)
+                    {
+                        dateRaw = link.TextContent;
+                        break;
+                    }
+                }
+            }
+            
             var createTime = ParseTopicDate(dateRaw);
 
             string? title = null;
@@ -470,23 +497,33 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
 
             if (force)
             {
-                var titleMatch = Regex.Match(html, @"<a id=""topic-title""[^>]*>(.*?)</a>", RegexOptions.Singleline);
-                if (titleMatch.Success)
-                    title = NormalizeText(WebUtility.HtmlDecode(StripTags(titleMatch.Groups[1].Value)));
+                var titleElement = document.QuerySelector("a#topic-title");
+                if (titleElement != null)
+                    title = NormalizeText(titleElement.TextContent);
 
-                var sidMatch = Regex.Match(html, @"<span class=""seed"">Сиды:&nbsp; <b>(\d+)</b></span>");
-                if (sidMatch.Success) sid = ParseInt(sidMatch.Groups[1].Value);
+                var sidElement = document.QuerySelector("span.seed b");
+                if (sidElement != null) sid = ParseInt(sidElement.TextContent);
 
-                var pirMatch = Regex.Match(html, @"<span class=""leech"">Личи:&nbsp; <b>(\d+)</b></span>");
-                if (pirMatch.Success) pir = ParseInt(pirMatch.Groups[1].Value);
+                var pirElement = document.QuerySelector("span.leech b");
+                if (pirElement != null) pir = ParseInt(pirElement.TextContent);
 
-                var sizeMatch = Regex.Match(html, @"Размер:&nbsp; <b>([\d\.]+)&nbsp;(GB|MB|KB|TB|ГБ|МБ|КБ|ТБ)</b>");
-                if (sizeMatch.Success)
+                var bTags = document.QuerySelectorAll("b");
+                foreach (var b in bTags)
                 {
-                    var val = sizeMatch.Groups[1].Value;
-                    var unit = sizeMatch.Groups[2].Value;
-                    sizeName = $"{val} {unit}";
-                    size = ParseSize(val, unit);
+                    var text = b.TextContent.Trim();
+                    var match = Regex.Match(text, @"^([\d\.]+)\s+(GB|MB|KB|TB|ГБ|МБ|КБ|ТБ)$", RegexOptions.IgnoreCase);
+                    if (match.Success)
+                    {
+                        var prev = b.PreviousSibling;
+                        if (prev != null && prev.TextContent.Contains("Размер"))
+                        {
+                             var val = match.Groups[1].Value;
+                             var unit = match.Groups[2].Value;
+                             sizeName = $"{val} {unit}";
+                             size = ParseSize(val, unit);
+                             break;
+                        }
+                    }
                 }
             }
 
@@ -558,27 +595,31 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         if (string.IsNullOrWhiteSpace(html))
             return 0;
 
-        var match = MaxPageRegex.Match(html);
-        if (!match.Success)
-            return 0;
+        var parser = new HtmlParser();
+        var document = parser.ParseDocument(html);
+        
+        var bTags = document.QuerySelectorAll("b");
+        foreach (var b in bTags)
+        {
+            if (int.TryParse(b.TextContent, out var pages))
+            {
+                var prev = b.PreviousSibling;
+                if (prev != null && prev.TextContent.Contains("из"))
+                {
+                    return pages;
+                }
+            }
+        }
 
-        return int.TryParse(match.Groups["pages"].Value, out var pages) ? pages : 0;
+        return 0;
     }
 
-    private static bool TryParseSize(string row, out string sizeName, out long sizeBytes)
+    private static bool TryParseSize(string sizeText, out string sizeName, out long sizeBytes)
     {
         sizeName = string.Empty;
         sizeBytes = 0L;
 
-        var bytesMatch = SizeBytesRegex.Match(row);
-        if (bytesMatch.Success && long.TryParse(bytesMatch.Groups["bytes"].Value, out var bytes))
-        {
-            sizeBytes = bytes;
-            sizeName = FormatSize(bytes);
-            return true;
-        }
-
-        var match = SizeTextRegex.Match(row);
+        var match = Regex.Match(sizeText, @"(?<value>\d+(?:[\.,]\d+)?)\s*(?<unit>TB|GB|MB|KB|ТБ|ГБ|МБ|КБ)", RegexOptions.IgnoreCase);
         if (!match.Success)
             return false;
 
@@ -625,36 +666,28 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         return $"{value.ToString("0.##", CultureInfo.InvariantCulture)} {units[unitIndex]}";
     }
 
-    private static DateTime? TryParsePublishDate(string row)
+    private static DateTime? TryParsePublishDate(IElement row)
     {
-        var match = DateRegex.Match(row);
-        if (!match.Success)
-            return null;
-
-        if (!long.TryParse(match.Groups["ts"].Value, out var ts))
-            return null;
-
-        // На rutracker data-ts_text иногда прилетает в миллисекундах; фильтруем будущее и корректируем.
-        if (ts > 4_102_444_800L) // секунд > 2100 года
+        var elements = row.QuerySelectorAll("[data-ts_text]");
+        foreach (var element in elements)
         {
-            // если похоже на миллисекунды — переводим
-            if (ts > 4_102_444_800_000L && ts < 20_000_000_000_000L)
-                ts /= 1000;
-            else
-                return null;
+            if (element.ClassList.Contains("tor-size")) continue;
+
+            var tsRaw = element.GetAttribute("data-ts_text");
+            if (!long.TryParse(tsRaw, out var ts)) continue;
+
+            // 2000 year = 946684800
+            // 2100 year = 4102444800
+            if (ts > 946684800L && ts < 4102444800L)
+            {
+                return DateTimeOffset.FromUnixTimeSeconds(ts).UtcDateTime;
+            }
         }
 
-        try
-        {
-            return DateTimeOffset.FromUnixTimeSeconds(ts).UtcDateTime;
-        }
-        catch
-        {
-            return null;
-        }
+        return null;
     }
 
-    private static string NormalizeHref(string href)
+    private static string NormalizeHref(string? href)
     {
         if (string.IsNullOrWhiteSpace(href))
             return string.Empty;
@@ -675,17 +708,22 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         return href;
     }
 
-    private static string ExtractCategoryId(string row)
+    private static string ExtractCategoryId(IElement row)
     {
-        var match = ForumIdRegex.Match(row);
-        if (match.Success && !string.IsNullOrWhiteSpace(match.Groups["id"].Value))
-            return match.Groups["id"].Value;
-
-        match = ForumHrefRegex.Match(row);
-        if (match.Success)
-            return !string.IsNullOrWhiteSpace(match.Groups["id"].Value)
-                ? match.Groups["id"].Value
-                : match.Groups["id2"].Value;
+        var links = row.QuerySelectorAll("a");
+        foreach (var link in links)
+        {
+            var href = link.GetAttribute("href");
+            if (string.IsNullOrWhiteSpace(href)) continue;
+            
+            var match = Regex.Match(href, @"tracker\.php\?f(?:%5B%5D|\[\])?=(?<id>\d+)", RegexOptions.IgnoreCase);
+            if (match.Success)
+                return match.Groups["id"].Value;
+                
+            match = Regex.Match(href, @"viewforum\.php\?f=(?<id>\d+)", RegexOptions.IgnoreCase);
+            if (match.Success)
+                return match.Groups["id"].Value;
+        }
 
         return string.Empty;
     }
@@ -782,57 +820,11 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
 
     #region Regex helpers
 
-    private static readonly Regex RowRegex =
-        new("<tr[^>]*>.*?\\btLink\\b.*?</tr>",
-            RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
-
-    private static readonly Regex LinkRegex =
-        new(
-            "<a(?=[^>]*\\bclass=[\"'][^\"']*\\btLink\\b[^\"']*[\"'])(?=[^>]*\\bhref=[\"'](?<url>[^\"']+)[\"'])[^>]*>(?<title>.*?)</a>",
-            RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
-
-    private static readonly Regex SeedRegex =
-        new("class=\"[^\"]*seed[^\"]*\"[^>]*>\\s*(?:<b>)?(?<value>\\d+)",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex LeechRegex =
-        new("class=\"[^\"]*leech[^\"]*\"[^>]*>\\s*(?:<b>)?(?<value>\\d+)",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex SizeBytesRegex =
-        new("tor-size[^>]*data-ts_text=\"(?<bytes>\\d+)\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex SizeTextRegex =
-        new("(?<value>\\d+(?:[\\.,]\\d+)?)\\s*(?<unit>TB|GB|MB|KB|ТБ|ГБ|МБ|КБ)",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex DateRegex =
-        new("row4[^>]*nowrap[^>]*data-ts_text=\"(?<ts>\\d+)\"",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex TagRegex =
-        new("<[^>]+>", RegexOptions.Singleline | RegexOptions.Compiled);
-
     private static readonly Regex WhitespaceRegex =
         new(@"[\n\r\t ]+", RegexOptions.Compiled);
 
     private static readonly Regex SeasonMarkerRegex =
         new("(Сезон|Серии)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex TopicDateRegex =
-        new("<a class=\"p-link small\" href=\"viewtopic\\.php\\?t=[^\"]+\">(?<date>[^<]+)</a>",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex MagnetRegex =
-        new("href=\"(?<magnet>magnet:[^\"]+)\" class=\"(med )?magnet-link\"",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex ForumIdRegex =
-        new("tracker.php?f==\"(?<id>\\d+)\"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex ForumHrefRegex =
-        new("(viewforum\\.php\\?f=(?<id>\\d+)|(?:https?://[^\"']+)?tracker\\.php\\?f(?:%5B%5D|\\[\\])?=(?<id2>\\d+))",
-            RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex YearRegex =
         new("(?<!\\d)(19\\d{2}|20\\d{2})(?!\\d)", RegexOptions.Compiled);
