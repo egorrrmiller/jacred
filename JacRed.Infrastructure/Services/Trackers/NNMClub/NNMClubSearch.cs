@@ -23,7 +23,6 @@ public class NNMClubSearch : BaseNNMClub
         if (!Config.NNMClub.EnableSearch)
             return [];
 
-        var results = new Dictionary<string, TorrentDetails>(StringComparer.OrdinalIgnoreCase);
         var parameters = GetSearchParameters(query);
         var url = $"{Host}/forum/tracker.php";
 
@@ -41,10 +40,7 @@ public class NNMClubSearch : BaseNNMClub
         if (string.IsNullOrWhiteSpace(html))
             return [];
 
-        var parsed = ParseTrackerPage(html, Host);
-
-        foreach (var item in parsed)
-            results[item.Url] = item;
+        var torrents = ParseTrackerPage(html, Host);
 
         var options = new ParallelOptions
         {
@@ -52,15 +48,15 @@ public class NNMClubSearch : BaseNNMClub
         };
 
         await Parallel.ForEachAsync(
-            results.Values,
+            torrents,
             options,
             async (torrent, _) =>
             {
                 await _torrentRepository.AddOrUpdateAsync(
                     [torrent],
-                    x => FetchDetailsAsync(x));
+                    FetchDetailsAsync);
             });
 
-        return results.Values.ToList();
+        return torrents;
     }
 }

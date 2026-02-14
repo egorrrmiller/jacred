@@ -24,14 +24,10 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
     public override string TrackerName => "kinozal";
     public override string Host => "https://kinozal.tv";
 
-    public async Task<bool> FetchDetailsAsync(TorrentDetails? torrent, bool force = false)
+    public async Task<bool> FetchDetailsAsync(TorrentDetails torrent)
     {
         if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
             return false;
-
-        // todo при force тянуть всю инфу, которую возможно вытянуть из ссылки
-        if (!force && !string.IsNullOrEmpty(torrent.Magnet))
-            return true;
 
         var magnet = await FetchMagnetAsync(torrent.Url);
         if (!string.IsNullOrWhiteSpace(magnet))

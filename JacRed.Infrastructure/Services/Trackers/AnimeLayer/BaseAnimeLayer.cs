@@ -26,14 +26,10 @@ public abstract class BaseAnimeLayer : BaseTrackerSearch, ITrackerCatalogEnriche
 
     private string LoginUrl => $"{Host}/auth/login/";
 
-    public async Task<bool> FetchDetailsAsync(TorrentDetails torrent, bool force = false)
+    public async Task<bool> FetchDetailsAsync(TorrentDetails torrent)
     {
         if (string.IsNullOrWhiteSpace(torrent.Url))
             return false;
-
-        // todo при force тянуть всю инфу, которую возможно вытянуть из ссылки
-        if (!force && !string.IsNullOrEmpty(torrent.Magnet))
-            return true;
 
         var magnet = await GetMagnet($"{torrent.Url}download/?type=magnet");
         if (!string.IsNullOrWhiteSpace(magnet))
@@ -59,7 +55,7 @@ public abstract class BaseAnimeLayer : BaseTrackerSearch, ITrackerCatalogEnriche
         return html;
     }
 
-    protected async Task<string?> GetMagnet(string url)
+    private async Task<string?> GetMagnet(string url)
     {
         if (!CacheService.TryGetValue(CookieKey, out string? cookie))
             cookie = await Authorize();

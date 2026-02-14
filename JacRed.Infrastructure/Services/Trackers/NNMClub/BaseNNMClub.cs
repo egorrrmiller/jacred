@@ -40,22 +40,16 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
     public override string TrackerName => "nnmclub";
     public override string Host => "https://nnmclub.to";
 
-    public async Task<bool> FetchDetailsAsync(TorrentDetails? torrent, bool force = false)
+    public async Task<bool> FetchDetailsAsync(TorrentDetails torrent)
     {
         if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
             return false;
-
-        if (!force && !string.IsNullOrEmpty(torrent.Magnet))
-            return true;
 
         var details = await FetchTopicDetailsAsync(torrent.Url);
         if (string.IsNullOrWhiteSpace(details.Magnet))
             return false;
 
         torrent.Magnet = details.Magnet;
-        
-        if (!string.IsNullOrWhiteSpace(details.Title))
-            torrent.Title = details.Title;
 
         return !string.IsNullOrWhiteSpace(torrent.Magnet);
     }

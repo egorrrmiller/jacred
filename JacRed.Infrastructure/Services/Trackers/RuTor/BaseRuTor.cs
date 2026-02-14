@@ -26,35 +26,16 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
     public override string Host => "http://rutor.info/";
     protected string SearchUrl => $"{Host}search/0/0/100/2/";
 
-    public async Task<bool> FetchDetailsAsync(TorrentDetails? torrent, bool force = false)
+    public async Task<bool> FetchDetailsAsync(TorrentDetails torrent)
     {
         if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
             return false;
-
-        if (!force && torrent.Types?.Length > 0)
-            return true;
 
         var html = await HttpService.Get(torrent.Url, referer: torrent.Url);
         if (string.IsNullOrWhiteSpace(html))
             return false;
 
         var document = await _parser.ParseDocumentAsync(html);
-
-        var h1Element = document.QuerySelector("div#all h1");
-        if (h1Element != null)
-        {
-            var webTitle = h1Element.TextContent.Trim();
-            if (!string.IsNullOrWhiteSpace(webTitle))
-                torrent.Title = webTitle;
-        }
-
-        var magnetElement = document.QuerySelector("div#download a[href^='magnet:']");
-        if (magnetElement != null)
-        {
-            var webMagnet = WebUtility.HtmlDecode(magnetElement.GetAttribute("href"));
-            if (!string.IsNullOrWhiteSpace(webMagnet))
-                torrent.Magnet = webMagnet;
-        }
 
         var detailsTable = document.QuerySelector("table#details");
         if (detailsTable != null) ParseDetailsTable(detailsTable, torrent);
@@ -108,20 +89,6 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
             var translationText = translationElement.NextSibling.TextContent.Trim();
             if (!string.IsNullOrWhiteSpace(translationText))
                 torrent.Voices = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { translationText };
-        }
-
-        // При форс-обновлении также тянем сидов/пиров из таблицы деталей, если они там есть
-        var peersRow = detailsTable.QuerySelectorAll("tr")
-            .FirstOrDefault(tr => tr.QuerySelector("td.header")?.TextContent.Contains("Раздают") == true);
-        if (peersRow != null)
-        {
-            var seedsElement = peersRow.QuerySelector("span.green");
-            if (seedsElement != null && int.TryParse(Regex.Match(seedsElement.TextContent, @"\d+").Value, out var s))
-                torrent.Sid = s;
-
-            var leechElement = peersRow.QuerySelector("span.red");
-            if (leechElement != null && int.TryParse(Regex.Match(leechElement.TextContent, @"\d+").Value, out var l))
-                torrent.Pir = l;
         }
     }
 

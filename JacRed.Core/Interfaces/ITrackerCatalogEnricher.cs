@@ -10,6 +10,5 @@ public interface ITrackerCatalogEnricher
     /// <summary>
     ///     Пытается обогатить раздачу, используя уже известные записи каталога.
     /// </summary>
-    Task<bool> FetchDetailsAsync(
-        TorrentDetails torrent, bool force = false);
+    Task<bool> FetchDetailsAsync(TorrentDetails torrent);
 }

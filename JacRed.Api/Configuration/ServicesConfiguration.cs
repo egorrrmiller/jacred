@@ -2,7 +2,6 @@ using System;
 using System.Net;
 using System.Net.Http;
 using JacRed.Api.Services.Media;
-using JacRed.Api.Services.Refresh;
 using JacRed.Api.Services.RuTracker;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Options;
@@ -41,15 +40,9 @@ public static class ServicesConfiguration
             .AddScoped<ITrackerSearch, NNMClubSearch>()
             .AddScoped<ITrackerSearch, KinozalSearch>()
             .AddScoped<ITrackerRefreshProvider, RuTrackerPopularService>()
-            .AddScoped<ITrackerRefreshProvider, RuTrackerRefreshService>()
-            .AddScoped<ITrackerRefreshProvider, RuTorRefreshService>()
             // крон сервисы
             .AddHostedService<TorrentMediaProbeHostedService>()
-            .AddHostedService<RuTrackerPopularHostedService>()
-            // Refresh сервисы
-            .AddHostedService<RuTrackerRefreshHostedService>()
-            .AddHostedService<RuTorRefreshHostedService>()
-            .AddHostedService<NNMClubRefreshHostedService>();
+            .AddHostedService<RuTrackerPopularHostedService>();
 
         services.AddSingleton<ICacheService, CacheService>();
         services.AddMemoryCache();

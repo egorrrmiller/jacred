@@ -33,40 +33,16 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
 
     private string LoginUrl => Host + "forum/login.php";
 
-    public async Task<bool> FetchDetailsAsync(TorrentDetails? torrent, bool force = false)
+    public async Task<bool> FetchDetailsAsync(TorrentDetails torrent)
     {
         if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
             return false;
 
-        if (!force && !string.IsNullOrEmpty(torrent.Magnet))
-            return true;
-
-        var details = await FetchTopicDetailsAsync(torrent.Url, force);
+        var details = await FetchTopicDetailsAsync(torrent.Url);
         if (string.IsNullOrWhiteSpace(details.Magnet))
             return false;
 
         torrent.Magnet = details.Magnet;
-
-        if (details.CreateTime != default)
-            torrent.CreateTime = details.CreateTime;
-        
-        if (force)
-        {
-            if (!string.IsNullOrWhiteSpace(details.Title))
-                torrent.Title = details.Title;
-
-            if (details.Sid > 0)
-                torrent.Sid = details.Sid;
-
-            if (details.Pir > 0)
-                torrent.Pir = details.Pir;
-
-            if (details.Size > 0)
-            {
-                torrent.Size = details.Size;
-                torrent.SizeName = details.SizeName;
-            }
-        }
 
         return true;
     }
@@ -463,7 +439,8 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
     }
 
     private async
-        Task<(string? Magnet, DateTime CreateTime, string? Title, int Sid, int Pir, long Size, string? SizeName)> FetchTopicDetailsAsync(
+        Task<(string? Magnet, DateTime CreateTime, string? Title, int Sid, int Pir, long Size, string? SizeName)>
+        FetchTopicDetailsAsync(
             string url, bool force = false)
     {
         try
