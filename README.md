@@ -132,12 +132,6 @@ ffprobe:
 rutracker:
   enable-search: true   # Включить поиск
 
-  refresh:
-    enable: true        # Включить обновление данных торрентов
-    timeout: 60         # Интервал запуска джобы (мин)
-    older-than-min: 120 # Обновлять торренты старше 120 минут
-    limit: 100          # Лимит торрентов за один проход
-
   popular:
     enable: true        # Включить парсинг популярных
     timeout: 30         # Интервал запуска джобы (мин)
@@ -151,17 +145,8 @@ rutracker:
 nnmclub:
   enable-search: true   # Включить поиск
 
-  refresh:
-    enable: true        # Включить обновление данных торрентов
-    timeout: 120        # Интервал запуска джобы (мин)
-    older-than-min: 240 # Обновлять торренты старше 240 минут
-    limit: 50           # Лимит торрентов за проход
-
 kinozal:
   enable-search: true   # Включить поиск
-
-  refresh:
-    enable: false       # Обновление данных выключено
 
   authorization:
     login: 'login'      # Логин на трекере
@@ -169,9 +154,6 @@ kinozal:
 
 animelayer:
   enable-search: false  # Поиск выключен
-
-  refresh:
-    enable: false       # Обновление данных выключено
     
   authorization:
     login: 'login'      # Логин на трекере
@@ -179,12 +161,6 @@ animelayer:
 
 rutor:
   enable-search: true   # Включить поиск
-
-  refresh:
-    enable: true        # Включить обновление данных торрентов
-    timeout: 180        # Интервал запуска джобы (мин)
-    older-than-min: 360 # Обновлять торренты старше 360 минут
-    limit: 200          # Лимит торрентов за проход
 ```
 
 ---

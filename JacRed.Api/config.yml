@@ -1,74 +1,56 @@
-##### настройка сервера
-listen-ip: any
-listen-port: 9117
-api-key: ''
-web: true
+##### Настройка сервера
+listen-ip: any          # IP для прослушивания (any = 0.0.0.0)
+listen-port: 9117       # Порт веб-сервера
+api-key: 'key'          # Ключ доступа к API
+web: true               # Включить веб-интерфейс
 
-##### настройка выдачи
+##### Настройка выдачи
+max-result-count: 250   # Лимит результатов в ответе
+merge-duplicates: true  # Схлопывать дубликаты по InfoHash
+merge-num-duplicates: true # Схлопывать дубликаты серий/сезонов
 
-# если у раздач одинаковый infohash, считаем это один торрент; объединяем их метаданные (сид/личи, размеры, названия, ссылки) в одну итоговую запись.
-merge-duplicates: true
-
-# дополнительно схлопывает те же дубликаты, когда отличаются лишь номер/суффикс в названии (Release, Release (1), Release-2), если infohash совпадает; метаданные так же объединяются.
-# работает для сериалов/аниме и похожего контента
-merge-num-duplicates: true
-
-# ffprobe/языки через TorrServer
+# Интеграция с TorrServer (ffprobe/языки)
 ffprobe:
-  enable: true
-  timeout: 10
-  tsuri: ''
-  batch-size: 5 # кол-во торрентов для обработки за раз
-  attempts: 3 # максимальное кол-во попыток получения ffprobe для одного торрента
+  enable: true          # Включить получение метаданных
+  timeout: 10           # Таймаут запроса (сек)
+  tsuri: 'http://localhost:5665' # Адрес TorrServer
+  batch-size: 5         # Торрентов за один проход
+  attempts: 3           # Попыток на один торрент
   authorization:
-    login: ''
-    password: ''
+    login: 'login'      # Логин TorrServer
+    password: 'password' # Пароль TorrServer
 
-##### настройка трекеров
+##### Настройка трекеров
 
 rutracker:
-  enable-search: true
-  enable-sync: true
-  
-  # точечный рефреш всех торрентов рутрекера в базе
-  refresh:
-    enable: true # включить/выключить
-    timeout: 60 # задержка в минутах 
-    older-than-min: 120 # старше чем n минут
-    limit: 30 # количество торрентов для обновления за раз
-  
-  # Обновление популярных раздач по категориям 
+  enable-search: true   # Включить поиск
+
   popular:
-    enable: true # включить/выключить
-    timeout: 30 # задержка в минутах
-    max-pages: 3 # глубина обхода в каждой категории
-    categories: # список категорий для парсинга (например: [549, 22, 1666]) 
-      [ 1106, 1105, 2491, 1389 ]
+    enable: true        # Включить парсинг популярных
+    timeout: 30         # Интервал запуска джобы (мин)
+    max-pages: 5        # Глубина парсинга страниц
+    categories: [ 111, 222 ] # ID категорий для парсинга
 
   authorization:
-    login: ''
-    password: ''
-
-animelayer:
-  enable-search: false
-  enable-sync: false
-  authorization:
-    login: ''
-    password: ''
+    login: 'login'      # Логин на трекере
+    password: 'pass'    # Пароль на трекере
 
 nnmclub:
-  enable-search: true
-  enable-sync: false
-
-rutor:
-  enable-search: true
-
-aniliberty:
-  enable-search: true
+  enable-search: true   # Включить поиск
 
 kinozal:
-  enable-search: true
+  enable-search: true   # Включить поиск
 
   authorization:
-    login: ''
-    password: ''
+    login: 'login'      # Логин на трекере
+    password: 'pass'    # Пароль на трекере
+
+animelayer:
+  enable-search: false  # Поиск выключен
+  
+  authorization:
+    login: 'login'      # Логин на трекере
+    password: 'pass'    # Пароль на трекере
+
+rutor:
+  enable-search: true   # Включить поиск

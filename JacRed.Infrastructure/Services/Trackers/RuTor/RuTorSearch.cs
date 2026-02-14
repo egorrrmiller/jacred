@@ -42,7 +42,7 @@ public class RuTorSearch : BaseRuTor
             {
                 await _torrentRepository.AddOrUpdateAsync(
                     [torrent],
-                    x => FetchDetailsAsync(x));
+                    FetchDetailsAsync);
             });
 
         return torrents.Where(t => t.Types?.Length > 0).ToList();

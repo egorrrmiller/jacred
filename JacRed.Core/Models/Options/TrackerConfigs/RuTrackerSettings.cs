@@ -5,12 +5,6 @@ namespace JacRed.Core.Models.Options.TrackerConfigs;
 public class RuTrackerSettings : BaseTrackerConfig
 {
     /// <summary>
-    ///     Точечный рефреш всех торрентов
-    /// </summary>
-    [ConfigurationKeyName("refresh")]
-    public RefreshSettings Refresh { get; set; } = new();
-
-    /// <summary>
     ///     Обновление популярных раздач по категориям
     /// </summary>
     [ConfigurationKeyName("popular")]

@@ -48,7 +48,7 @@ public class AnimeLayerSearch : BaseAnimeLayer
             {
                 await _torrentRepository.AddOrUpdateAsync(
                     [torrent],
-                    x => FetchDetailsAsync(x));
+                    FetchDetailsAsync);
             });
 
         return torrents;

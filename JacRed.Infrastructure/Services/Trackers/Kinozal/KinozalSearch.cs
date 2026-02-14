@@ -44,7 +44,7 @@ public class KinozalSearch : BaseKinozal
             {
                 await _torrentRepository.AddOrUpdateAsync(
                     [torrent],
-                    x => FetchDetailsAsync(x));
+                    FetchDetailsAsync);
             });
 
         return results;

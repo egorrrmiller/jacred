@@ -47,7 +47,7 @@ public class RuTrackerPopularService : BaseRuTracker
                 {
                     await _torrentRepository.AddOrUpdateAsync(
                         [torrent],
-                        x => FetchDetailsAsync(x));
+                        FetchDetailsAsync);
                 });
 
             var maxPage = GetMaxPages(html);
@@ -69,7 +69,7 @@ public class RuTrackerPopularService : BaseRuTracker
                     {
                         await _torrentRepository.AddOrUpdateAsync(
                             [torrent],
-                            x => FetchDetailsAsync(x));
+                            FetchDetailsAsync);
                     });
             }
         }
