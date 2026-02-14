@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Configuration;
 
-namespace JacRed.Core.Models.Options.TrackerConfigs;
+namespace JacRed.Core.Models.Options;
 
 public class RefreshSettings
 {

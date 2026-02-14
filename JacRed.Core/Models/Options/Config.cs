@@ -36,6 +36,12 @@ public class Config
     public bool Web { get; set; } = true;
 
     /// <summary>
+    ///     Настройки обновления торрентов
+    /// </summary>
+    [ConfigurationKeyName("refresh")]
+    public RefreshSettings Refresh { get; set; } = new();
+
+    /// <summary>
     ///     Максимальное количество результатов в выдаче
     /// </summary>
     [ConfigurationKeyName("max-result-count")]

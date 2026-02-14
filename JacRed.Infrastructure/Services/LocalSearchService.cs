@@ -24,16 +24,18 @@ public class LocalSearchService : ILocalSearchService
     private readonly string _connectionString;
     private readonly ILogger<LocalSearchService> _logger;
     private readonly ITorrentRepository _torrentRepository;
+    private readonly ISearchQueryRepository _searchQueryRepository;
 
     public LocalSearchService(
         ITorrentRepository torrentRepository,
         string connectionString,
         ILogger<LocalSearchService> logger,
-        IOptions<Config> config)
+        IOptions<Config> config, ISearchQueryRepository searchQueryRepository)
     {
         _torrentRepository = torrentRepository;
         _connectionString = connectionString;
         _logger = logger;
+        _searchQueryRepository = searchQueryRepository;
         _config = config.Value;
     }
 
@@ -54,7 +56,10 @@ public class LocalSearchService : ILocalSearchService
             ? title
             : originalTitle;
         if (!string.IsNullOrWhiteSpace(queryForTracking))
-            await _torrentRepository.TrackSearchQueryAsync(queryForTracking);
+        {
+            await _searchQueryRepository.TrackSearchQueryAsync(queryForTracking);
+            await _searchQueryRepository.UpdateLastRefreshTimeAsync(queryForTracking);
+        }
 
         var searchName = StringConvert.SearchName(title);
         var searchOriginal = StringConvert.SearchName(originalTitle);
@@ -81,7 +86,8 @@ public class LocalSearchService : ILocalSearchService
         if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
             return [];
 
-        await _torrentRepository.TrackSearchQueryAsync(query);
+        await _searchQueryRepository.TrackSearchQueryAsync(query);
+        await _searchQueryRepository.UpdateLastRefreshTimeAsync(query);
 
         var searchQuery = StringConvert.SearchName(query);
 

@@ -26,6 +26,7 @@ public static class ServicesConfiguration
     {
         services
             .AddScoped<ITorrentRepository, TorrentRepository>()
+            .AddScoped<ISearchQueryRepository, SearchQueryRepository>()
             .AddScoped<IKeyGenerator, KeyGenerator>()
             .AddScoped<ITorrentEnricher, TorrentEnricher>()
             .AddScoped<ILocalSearchService, LocalSearchService>()
