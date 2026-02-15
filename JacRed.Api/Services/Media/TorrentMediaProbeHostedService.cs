@@ -6,6 +6,7 @@ using JacRed.Core.Models.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Serilog;
 
 namespace JacRed.Api.Services.Media;
 
@@ -13,10 +14,12 @@ public class TorrentMediaProbeHostedService : BackgroundService
 {
     private readonly Config _config;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger _logger;
 
-    public TorrentMediaProbeHostedService(IServiceScopeFactory scopeFactory, IOptions<Config> config)
+    public TorrentMediaProbeHostedService(IServiceScopeFactory scopeFactory, IOptions<Config> config, ILogger logger)
     {
         _scopeFactory = scopeFactory;
+        _logger = logger;
         _config = config.Value;
     }
 
@@ -31,13 +34,9 @@ public class TorrentMediaProbeHostedService : BackgroundService
 
                 await torrentMediaProbeService.ExecuteAsync(stoppingToken);
             }
-            catch (OperationCanceledException)
+            catch (Exception ex)
             {
-                return;
-            }
-            catch
-            {
-                // ignored
+                _logger.Error(ex, "TorrentMediaProbeHostedService failed");
             }
     }
 }

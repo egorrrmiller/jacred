@@ -4,21 +4,19 @@ using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
 using JacRed.Core.Models.Options;
 using JacRed.Core.Utils;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Serilog;
 
-namespace JacRed.Infrastructure.Services;
+namespace JacRed.Infrastructure.Services.Search;
 
-public class RemoteSearchService : IRemoteSearchService
+public class RemoteSearchService : BaseSearchService, IRemoteSearchService
 {
     private readonly ICacheService _cacheService;
-    private readonly ILogger<RemoteSearchService> _logger;
+    private readonly ILogger _logger;
     private readonly IReadOnlyDictionary<TrackerType, ITrackerSearch> _providers;
-
-    public RemoteSearchService(
-        ICacheService cacheService,
-        IEnumerable<ITrackerSearch> providers,
-        ILogger<RemoteSearchService> logger)
+    
+    public RemoteSearchService(IOptions<Config> config, HttpService httpService, ICacheService cacheService, ILogger logger,
+        IEnumerable<ITrackerSearch> providers) : base(config.Value, httpService, cacheService)
     {
         _cacheService = cacheService;
         _logger = logger;
@@ -71,6 +69,8 @@ public class RemoteSearchService : IRemoteSearchService
             MaxDegreeOfParallelism = Environment.ProcessorCount
         };
 
+        _logger.Information("Search '{@Query}' on {@Trackers} trackers", query, trackers);
+
         await Parallel.ForEachAsync(trackers, options, async (tracker, _) =>
         {
             var res = await SearchTrackerSafeAsync(tracker, query);
@@ -99,11 +99,11 @@ public class RemoteSearchService : IRemoteSearchService
         }
         catch (OperationCanceledException)
         {
-            _logger.LogDebug("Tracker search timeout for {Tracker}", tracker);
+            _logger.Debug("Tracker search timeout for {Tracker}", tracker);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Tracker search failed for {Tracker}", tracker);
+            _logger.Warning(ex, "Tracker search failed for {Tracker}", tracker);
         }
 
         return [];

@@ -6,6 +6,7 @@ using JacRed.Core.Models.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
+using Serilog;
 
 namespace JacRed.Api.Services.Refresh;
 
@@ -13,10 +14,12 @@ public class RefreshHostedService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly Config _config;
+    private readonly ILogger _logger;
 
-    public RefreshHostedService(IServiceScopeFactory scopeFactory, IOptions<Config> config)
+    public RefreshHostedService(IServiceScopeFactory scopeFactory, IOptions<Config> config, ILogger logger)
     {
         _scopeFactory = scopeFactory;
+        _logger = logger;
         _config = config.Value;
     }
 
@@ -37,6 +40,7 @@ public class RefreshHostedService : BackgroundService
                 var queries = await repository.GetStaleSearchQueriesAsync(TimeSpan.FromMinutes(_config.Refresh.OlderThanMin), _config.Refresh.Limit);
                 if (queries.Count == 0) continue;
 
+                _logger.Information("Update queries {@Queries}", (object)queries);
                 foreach (var query in queries)
                 {
                     await remoteSearch.SearchAsync(query);
@@ -45,7 +49,7 @@ public class RefreshHostedService : BackgroundService
             }
             catch (Exception ex)
             {
-                // ignored
+                _logger.Error(ex, "RefreshHostedFailed failed");
             }
         }
     }

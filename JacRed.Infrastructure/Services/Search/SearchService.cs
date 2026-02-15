@@ -16,6 +16,7 @@ public class SearchService : BaseSearchService, ISearchService
     private readonly ITorrentMergerService _merger;
     private readonly IRemoteSearchService _remoteSearch;
     private readonly ITorrentRepository _repository;
+    private readonly ISearchQueryRepository _searchQueryRepository;
 
     public SearchService(
         IOptions<Config> config,
@@ -24,12 +25,13 @@ public class SearchService : BaseSearchService, ISearchService
         ILocalSearchService localSearch,
         IRemoteSearchService remoteSearch,
         ITorrentRepository repository,
-        ITorrentMergerService merger) : base(config.Value, httpService, cacheService)
+        ITorrentMergerService merger, ISearchQueryRepository searchQueryRepository) : base(config.Value, httpService, cacheService)
     {
         _localSearch = localSearch;
         _remoteSearch = remoteSearch;
         _repository = repository;
         _merger = merger;
+        _searchQueryRepository = searchQueryRepository;
     }
 
     public async Task<IReadOnlyCollection<V1TorrentResponse>> SearchTorrentsAsync(TorrentSearchRequest request)
@@ -103,7 +105,10 @@ public class SearchService : BaseSearchService, ISearchService
     private async Task<List<TorrentDetails>> ExecuteUnifiedSearch(TorrentSearchRequest request, int? contentType)
     {
         var (search, altname) = await ResolveKpImdb(request.Title, request.TitleOriginal);
-
+        var trackerQuery = StringConvert.ClearTitle(BuildTrackerQuery(search, altname));
+        
+        await _searchQueryRepository.TrackSearchQueryAsync(trackerQuery);
+        
         var torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType, request.Exact);
         torrents = torrents.Where(IsTrackerSearchEnabled).ToList();
 
@@ -116,7 +121,6 @@ public class SearchService : BaseSearchService, ISearchService
 
         if (torrents.Count == 0)
         {
-            var trackerQuery = StringConvert.ClearTitle(BuildTrackerQuery(search, altname));
             if (!string.IsNullOrWhiteSpace(trackerQuery))
             {
                 var fetched = await _remoteSearch.SearchAsync(trackerQuery, _remoteSearch.GetSupportedTrackers());

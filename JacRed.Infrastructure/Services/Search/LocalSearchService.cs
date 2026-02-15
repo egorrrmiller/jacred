@@ -12,31 +12,25 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 
-namespace JacRed.Infrastructure.Services;
+namespace JacRed.Infrastructure.Services.Search;
 
 /// <summary>
 ///     Сервис полнотекстового и быстрого поиска по торрентам с использованием кэшей индексов.
 /// </summary>
-public class LocalSearchService : ILocalSearchService
+public class LocalSearchService : BaseSearchService, ILocalSearchService
 {
     private const string Schema = DbSchema.Name;
     private readonly Config _config;
     private readonly string _connectionString;
     private readonly ILogger<LocalSearchService> _logger;
-    private readonly ITorrentRepository _torrentRepository;
-    private readonly ISearchQueryRepository _searchQueryRepository;
 
-    public LocalSearchService(
-        ITorrentRepository torrentRepository,
-        string connectionString,
-        ILogger<LocalSearchService> logger,
-        IOptions<Config> config, ISearchQueryRepository searchQueryRepository)
+
+    public LocalSearchService(IOptions<Config> config, HttpService httpService, ICacheService cacheService,
+        string connectionString, ILogger<LocalSearchService> logger) : base(config.Value, httpService, cacheService)
     {
-        _torrentRepository = torrentRepository;
+        _config = config.Value;
         _connectionString = connectionString;
         _logger = logger;
-        _searchQueryRepository = searchQueryRepository;
-        _config = config.Value;
     }
 
     /// <summary>
@@ -51,15 +45,6 @@ public class LocalSearchService : ILocalSearchService
     {
         if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(originalTitle))
             return [];
-
-        var queryForTracking = !string.IsNullOrWhiteSpace(title)
-            ? title
-            : originalTitle;
-        if (!string.IsNullOrWhiteSpace(queryForTracking))
-        {
-            await _searchQueryRepository.TrackSearchQueryAsync(queryForTracking);
-            await _searchQueryRepository.UpdateLastRefreshTimeAsync(queryForTracking);
-        }
 
         var searchName = StringConvert.SearchName(title);
         var searchOriginal = StringConvert.SearchName(originalTitle);
@@ -85,9 +70,6 @@ public class LocalSearchService : ILocalSearchService
     {
         if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
             return [];
-
-        await _searchQueryRepository.TrackSearchQueryAsync(query);
-        await _searchQueryRepository.UpdateLastRefreshTimeAsync(query);
 
         var searchQuery = StringConvert.SearchName(query);
 

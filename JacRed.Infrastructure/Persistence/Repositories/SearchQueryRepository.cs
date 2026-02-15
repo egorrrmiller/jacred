@@ -65,10 +65,6 @@ public class SearchQueryRepository : ISearchQueryRepository
 
     public async Task TrackSearchQueryAsync(string query)
     {
-        var normalized = StringConvert.SearchName(query);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return;
-
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
 
@@ -80,7 +76,7 @@ public class SearchQueryRepository : ISearchQueryRepository
                 last_seen = now(),
                 hits = {Schema}.search_queries.hits + 1";
 
-        await connection.ExecuteAsync(sql, new { Query = normalized });
+        await connection.ExecuteAsync(sql, new { Query = query });
     }
 
     public async Task UpdateLastRefreshTimeAsync(string query)

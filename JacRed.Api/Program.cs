@@ -13,6 +13,7 @@ using JacRed.Infrastructure.Migrations.Configurations;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
@@ -21,6 +22,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog;
+using Serilog.Events;
 using Serilog.Sinks.SystemConsole.Themes;
 
 var cleanTheme = new AnsiConsoleTheme(new Dictionary<ConsoleThemeStyle, string>
@@ -55,6 +57,8 @@ var cleanTheme = new AnsiConsoleTheme(new Dictionary<ConsoleThemeStyle, string>
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("System", LogEventLevel.Warning)
     .Enrich.FromLogContext()
     .WriteTo.Console(
         theme: cleanTheme,
@@ -168,6 +172,19 @@ var options = app.Configuration.Get<Config>();
 if (options.Web) app.UseStaticFiles();
 
 app.UseModHeaders();
+
+app.UseSerilogRequestLogging(loggingOptions =>
+{
+    loggingOptions.MessageTemplate = "Incoming Request: {RequestMethod} {Url} | Status: {StatusCode} | Time: {Elapsed:0}ms";
+
+    loggingOptions.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        var fullUrl = httpContext.Request.GetDisplayUrl();
+        
+        diagnosticContext.Set("Url", fullUrl);
+    };
+});
+
 app.MapControllers();
 
 // --- Миграция БД ---
