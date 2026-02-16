@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
@@ -34,5 +35,56 @@ public abstract class BaseTrackerSearch : ITrackerRefreshProvider
     public virtual Task InvokeAsync()
     {
         return Task.CompletedTask;
+    }
+
+    protected static long ParseSize(string val, string unit)
+    {
+        if (!double.TryParse(val.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var value))
+            return 0;
+
+        var multiplier = unit.ToUpperInvariant() switch
+        {
+            "TB" => 1024d * 1024d * 1024d * 1024d,
+            "GB" => 1024d * 1024d * 1024d,
+            "MB" => 1024d * 1024d,
+            "KB" => 1024d,
+            _ => 1d
+        };
+
+        return (long)(value * multiplier);
+    }
+
+    protected static DateTime ParseDate(string d, string m, string y)
+    {
+        if (!int.TryParse(d, out var day)) day = 1;
+        if (!int.TryParse(y, out var year)) year = 0;
+
+        year += 2000;
+
+        var month = m.ToLowerInvariant() switch
+        {
+            "янв" => 1,
+            "фев" => 2,
+            "мар" => 3,
+            "апр" => 4,
+            "май" => 5,
+            "июн" => 6,
+            "июл" => 7,
+            "авг" => 8,
+            "сен" => 9,
+            "окт" => 10,
+            "ноя" => 11,
+            "дек" => 12,
+            _ => 1
+        };
+
+        try
+        {
+            return new DateTime(year, month, day);
+        }
+        catch
+        {
+            return DateTime.UtcNow;
+        }
     }
 }

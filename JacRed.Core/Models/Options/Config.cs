@@ -1,4 +1,3 @@
-using JacRed.Core.Models.AppConf;
 using JacRed.Core.Models.Options.TrackerConfigs;
 using Microsoft.Extensions.Configuration;
 

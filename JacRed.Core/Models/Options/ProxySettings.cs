@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 
-namespace JacRed.Core.Models.AppConf;
+namespace JacRed.Core.Models.Options;
 
 /// <summary>
 ///     Настройки прокси-серверов.
