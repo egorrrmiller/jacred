@@ -70,6 +70,7 @@ public class BaseMegaPeer : BaseTrackerSearch, ITrackerCatalogEnricher
             "5" => ["serial"],
             "6" => ["serial"],
             "55" => ["documovie", "docuserial"],
+            "76" => ["multfilm", "multserial", "anime"],
             _ => []
         };
     }

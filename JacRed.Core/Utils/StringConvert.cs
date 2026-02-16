@@ -138,7 +138,7 @@ public static class StringConvert
         if (string.IsNullOrWhiteSpace(title))
             return string.Empty;
 
-        var cleared = Regex.Replace(title, @"[^\w\s\.\,\-\/\(\)\[\]\|]", " ");
+        var cleared = Regex.Replace(title, @"[^a-zA-Zа-яА-ЯёЁ0-9\s]", " ");
         
         return Regex.Replace(cleared, @"\s+", " ").Trim();
     }
