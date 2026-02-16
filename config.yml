@@ -69,3 +69,5 @@ kinozal:
     login: ''
     password: ''
     
+megapeer:
+  enable-search: true

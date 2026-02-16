@@ -13,6 +13,7 @@ using JacRed.Infrastructure.Services.Search;
 using JacRed.Infrastructure.Services.Trackers.Aniliberty;
 using JacRed.Infrastructure.Services.Trackers.AnimeLayer;
 using JacRed.Infrastructure.Services.Trackers.Kinozal;
+using JacRed.Infrastructure.Services.Trackers.MegaPeer;
 using JacRed.Infrastructure.Services.Trackers.NNMClub;
 using JacRed.Infrastructure.Services.Trackers.RuTor;
 using JacRed.Infrastructure.Services.Trackers.RuTracker;
@@ -41,6 +42,7 @@ public static class ServicesConfiguration
             .AddScoped<ITrackerSearch, AnimeLayerSearch>()
             .AddScoped<ITrackerSearch, NNMClubSearch>()
             .AddScoped<ITrackerSearch, KinozalSearch>()
+            .AddScoped<ITrackerSearch, MegaPeerSearch>()
             .AddScoped<ITrackerRefreshProvider, RuTrackerPopularService>()
             // крон сервисы
             .AddHostedService<TorrentMediaProbeHostedService>()

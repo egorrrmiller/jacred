@@ -171,6 +171,9 @@ rutor:
 
 aniliberty:
   enable-search: true   # Включить поиск
+
+megapeer:
+  enable-search: true   # Включить поиск
 ```
 
 ---

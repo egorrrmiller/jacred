@@ -40,6 +40,9 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
         var detailsTable = document.QuerySelector("table#details");
         if (detailsTable != null) ParseDetailsTable(detailsTable, torrent);
 
+        if (torrent.Types?.Length == 0)
+            return false;
+
         return !string.IsNullOrWhiteSpace(torrent.Name) || !string.IsNullOrWhiteSpace(torrent.Magnet);
     }
 

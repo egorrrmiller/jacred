@@ -106,4 +106,10 @@ public class Config
     /// </summary>
     [ConfigurationKeyName("kinozal")]
     public KinozalSettings Kinozal { get; set; } = new();
+
+    /// <summary>
+    ///     Настройки для MegaPeer.
+    /// </summary>
+    [ConfigurationKeyName("megapeer")]
+    public MegaPeerSettings MegaPeer { get; set; } = new();
 }
