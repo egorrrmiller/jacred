@@ -32,6 +32,7 @@ public class TorrentMediaProbeHostedService : BackgroundService
                 using var scope = _scopeFactory.CreateScope();
                 var torrentMediaProbeService = scope.ServiceProvider.GetRequiredService<ITorrentMediaProbeService>();
 
+                _logger.Information("Starting torrent media probe service");
                 await torrentMediaProbeService.ExecuteAsync(stoppingToken);
             }
             catch (Exception ex)
