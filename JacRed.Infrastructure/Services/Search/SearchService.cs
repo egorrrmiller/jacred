@@ -109,12 +109,14 @@ public class SearchService : BaseSearchService, ISearchService
         
         await _searchQueryRepository.TrackSearchQueryAsync(trackerQuery);
         
-        var torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType, request.Exact);
+        var year = request.Year > 0 ? request.Year : (int?)null;
+        
+        var torrents = await _localSearch.SearchByTitleAsync(search, altname, year, contentType, request.Exact);
         torrents = torrents.Where(IsTrackerSearchEnabled).ToList();
 
         if (request.Exact && torrents.Count == 0)
         {
-            torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType);
+            torrents = await _localSearch.SearchByTitleAsync(search, altname, year, contentType);
             torrents = torrents.Where(IsTrackerSearchEnabled)
                 .ToList();
         }
@@ -126,11 +128,11 @@ public class SearchService : BaseSearchService, ISearchService
                 var fetched = await _remoteSearch.SearchAsync(trackerQuery, _remoteSearch.GetSupportedTrackers());
 
                 await _repository.AddOrUpdateAsync(fetched);
-                torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType,
+                torrents = await _localSearch.SearchByTitleAsync(search, altname, year, contentType,
                     request.Exact);
 
                 if (request.Exact && torrents.Count == 0)
-                    torrents = await _localSearch.SearchByTitleAsync(search, altname, request.Year, contentType);
+                    torrents = await _localSearch.SearchByTitleAsync(search, altname, year, contentType);
 
                 torrents = torrents.Where(IsTrackerSearchEnabled)
                     .ToList();
