@@ -116,6 +116,13 @@ max-result-count: 250   # Лимит результатов в ответе
 merge-duplicates: true  # Схлопывать дубликаты по InfoHash
 merge-num-duplicates: true # Схлопывать дубликаты серий/сезонов
 
+##### Настройка обновления торрентов
+refresh:
+  enable: false         # Включить фоновое обновление по query
+  timeout: 60           # Интервал проверки (мин)
+  older-than-min: 120   # Обновлять торренты старше N минут
+  limit: 100            # Количество торрентов за один проход
+
 # Интеграция с TorrServer (ffprobe/языки)
 ffprobe:
   enable: true          # Включить получение метаданных
@@ -160,6 +167,9 @@ animelayer:
     password: 'pass'    # Пароль на трекере
 
 rutor:
+  enable-search: true   # Включить поиск
+
+aniliberty:
   enable-search: true   # Включить поиск
 ```
 
