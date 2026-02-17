@@ -40,7 +40,7 @@ public abstract class BaseSearchService
                 var data = response?.Value<JObject>("data");
                 return (data?.Value<string>("original_name"), data?.Value<string>("name"));
             },
-            TimeSpan.FromDays(1));
+            TimeSpan.FromMinutes(Config.Cache.Expiry));
 
         return !string.IsNullOrWhiteSpace(cache.Item1) && !string.IsNullOrWhiteSpace(cache.Item2)
             ? (cache.Item1, cache.Item2)

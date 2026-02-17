@@ -17,6 +17,7 @@ public class SearchService : BaseSearchService, ISearchService
     private readonly IRemoteSearchService _remoteSearch;
     private readonly ITorrentRepository _repository;
     private readonly ISearchQueryRepository _searchQueryRepository;
+    private readonly Config _config;
 
     public SearchService(
         IOptions<Config> config,
@@ -33,6 +34,7 @@ public class SearchService : BaseSearchService, ISearchService
         _repository = repository;
         _merger = merger;
         _searchQueryRepository = searchQueryRepository;
+        _config = config.Value;
     }
 
     public async Task<IReadOnlyCollection<V1TorrentResponse>> SearchTorrentsAsync(TorrentSearchRequest request)
@@ -65,7 +67,7 @@ public class SearchService : BaseSearchService, ISearchService
                 seasons = t.Seasons?.ToArray(),
                 types = t.Types
             }).ToList();
-        }, TimeSpan.FromMinutes(5));
+        }, TimeSpan.FromMinutes(_config.Cache.Expiry));
     }
 
     public async Task<RootObject> SearchJackettAsync(TorrentSearchRequest request)
@@ -100,11 +102,11 @@ public class SearchService : BaseSearchService, ISearchService
         
         if (request.ForceSearch)
         {
-            await CacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(5));
+            await CacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(_config.Cache.Expiry));
             return result;
         }
         
-        return await CacheService.GetOrCreateAsync(cacheKey, () => Task.FromResult(result), TimeSpan.FromMinutes(5));
+        return await CacheService.GetOrCreateAsync(cacheKey, () => Task.FromResult(result), TimeSpan.FromMinutes(_config.Cache.Expiry));
     }
 
     private async Task<List<TorrentDetails>> ExecuteUnifiedSearch(TorrentSearchRequest request, int? contentType)

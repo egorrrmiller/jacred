@@ -1,5 +1,7 @@
 using JacRed.Core.Interfaces;
+using JacRed.Core.Models.Options;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 
 namespace JacRed.Infrastructure.Services;
 
@@ -9,10 +11,12 @@ namespace JacRed.Infrastructure.Services;
 public class CacheService : ICacheService
 {
     private readonly IMemoryCache _cache;
+    private readonly Config _config;
 
-    public CacheService(IMemoryCache cache)
+    public CacheService(IMemoryCache cache, IOptions<Config> config)
     {
         _cache = cache;
+        _config = config.Value;
     }
 
     /// <summary>
@@ -20,6 +24,9 @@ public class CacheService : ICacheService
     /// </summary>
     public async Task<T> GetOrCreateAsync<T>(string key, Func<Task<T>> factory, TimeSpan? expiry = null)
     {
+        if (!_config.Cache.Enable)
+            return await factory();
+        
         if (_cache.TryGetValue(key, out T cached)) return cached;
 
         var result = await factory();
@@ -53,6 +60,9 @@ public class CacheService : ICacheService
     /// </summary>
     public async Task SetAsync<T>(string key, T value, TimeSpan? expiry = null)
     {
+        if (!_config.Cache.Enable)
+            return;
+        
         var options = new MemoryCacheEntryOptions
         {
             Size = 1024 * 1024 * 150
