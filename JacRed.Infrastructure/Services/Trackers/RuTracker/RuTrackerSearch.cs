@@ -35,7 +35,7 @@ public sealed class RuTrackerSearch : BaseRuTracker
 
         var options = new ParallelOptions
         {
-            MaxDegreeOfParallelism = Environment.ProcessorCount
+            MaxDegreeOfParallelism = 5
         };
 
         await Parallel.ForEachAsync(

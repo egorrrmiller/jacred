@@ -38,7 +38,7 @@ public class AnimeLayerSearch : BaseAnimeLayer
 
         var options = new ParallelOptions
         {
-            MaxDegreeOfParallelism = Math.Max(4, Environment.ProcessorCount)
+            MaxDegreeOfParallelism = 5
         };
 
         await Parallel.ForEachAsync(
