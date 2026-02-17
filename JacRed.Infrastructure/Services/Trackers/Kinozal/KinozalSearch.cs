@@ -34,7 +34,7 @@ public class KinozalSearch : BaseKinozal
 
         var options = new ParallelOptions
         {
-            MaxDegreeOfParallelism = 5
+            MaxDegreeOfParallelism = Environment.ProcessorCount
         };
 
         await Parallel.ForEachAsync(

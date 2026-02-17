@@ -43,7 +43,7 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
 
         var options = new ParallelOptions
         {
-            MaxDegreeOfParallelism = 5,
+            MaxDegreeOfParallelism = 1,
             CancellationToken = cancellationToken
         };
 

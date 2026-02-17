@@ -32,7 +32,7 @@ public class MegaPeerSearch : BaseMegaPeer
 
         var options = new ParallelOptions
         {
-            MaxDegreeOfParallelism = 5
+            MaxDegreeOfParallelism = Math.Max(4, Environment.ProcessorCount)
         };
 
         await Parallel.ForEachAsync(

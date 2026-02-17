@@ -66,7 +66,7 @@ public class RemoteSearchService : BaseSearchService, IRemoteSearchService
 
         var options = new ParallelOptions
         {
-            MaxDegreeOfParallelism = 5
+            MaxDegreeOfParallelism = Environment.ProcessorCount
         };
 
         _logger.Information("Search '{@Query}' on {@Trackers} trackers", query, trackers);

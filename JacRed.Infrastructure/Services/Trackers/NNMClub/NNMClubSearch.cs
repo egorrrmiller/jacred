@@ -44,7 +44,7 @@ public class NNMClubSearch : BaseNNMClub
 
         var options = new ParallelOptions
         {
-            MaxDegreeOfParallelism = 5
+            MaxDegreeOfParallelism = Environment.ProcessorCount
         };
 
         await Parallel.ForEachAsync(

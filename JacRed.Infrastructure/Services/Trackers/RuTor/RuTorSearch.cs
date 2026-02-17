@@ -32,7 +32,7 @@ public class RuTorSearch : BaseRuTor
 
         var options = new ParallelOptions
         {
-            MaxDegreeOfParallelism = 5
+            MaxDegreeOfParallelism = Math.Max(4, Environment.ProcessorCount)
         };
 
         await Parallel.ForEachAsync(

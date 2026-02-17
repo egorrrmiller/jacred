@@ -38,7 +38,7 @@ public class RuTrackerPopularService : BaseRuTracker
 
             var options = new ParallelOptions
             {
-                MaxDegreeOfParallelism = 5
+                MaxDegreeOfParallelism = Environment.ProcessorCount
             };
             await Parallel.ForEachAsync(
                 torrents,
