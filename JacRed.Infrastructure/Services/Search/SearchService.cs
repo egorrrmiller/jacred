@@ -25,7 +25,8 @@ public class SearchService : BaseSearchService, ISearchService
         ILocalSearchService localSearch,
         IRemoteSearchService remoteSearch,
         ITorrentRepository repository,
-        ITorrentMergerService merger, ISearchQueryRepository searchQueryRepository) : base(config.Value, httpService, cacheService)
+        ITorrentMergerService merger, ISearchQueryRepository searchQueryRepository) : base(config.Value, httpService,
+        cacheService)
     {
         _localSearch = localSearch;
         _remoteSearch = remoteSearch;
@@ -69,79 +70,94 @@ public class SearchService : BaseSearchService, ISearchService
 
     public async Task<RootObject> SearchJackettAsync(TorrentSearchRequest request)
     {
+        var isNumRequest = IsNumRequest(request);
+        var contentType = DetermineContentType(request.IsSerial, request.Categories);
+        var (title, titleOriginal, year) = ApplyNumQueryHeuristic(request.Query, request.Title,
+            request.TitleOriginal, request.Year, isNumRequest);
+
+        request.Title = title;
+        request.TitleOriginal = titleOriginal;
+        request.Year = year;
+
+        if (string.IsNullOrWhiteSpace(request.Title) && string.IsNullOrWhiteSpace(request.TitleOriginal) &&
+            !string.IsNullOrWhiteSpace(request.Query))
+        {
+            var parts = request.Query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            request.Title = parts.Length > 0 && !parts[0].Any(c => (c >= 'а' && c <= 'я') || (c >= 'А' && c <= 'Я'))
+                ? parts[0]
+                : request.Query;
+        }
+
+        var torrents = await ExecuteUnifiedSearch(request, contentType);
+
+        var shouldMerge = (!isNumRequest && Config.MergeDuplicates) || (isNumRequest && Config.MergeNumDuplicates);
+        var mergedTorrents = shouldMerge ? await _merger.MergeAsync(torrents) : torrents;
+        var result = new RootObject { Results = BuildJackettResults(mergedTorrents, isNumRequest), Error = null };
+
         var cacheKey = CacheKeyBuilder.Build("jackett", request.Query, request.Title, request.TitleOriginal,
             request.Year.ToString(), CacheKeyBuilder.NormalizeCategory(request.Categories),
             request.IsSerial.ToString());
-
-        return await CacheService.GetOrCreateAsync(cacheKey, async () =>
+        
+        if (request.ForceSearch)
         {
-            var isNumRequest = IsNumRequest(request);
-            var contentType = DetermineContentType(request.IsSerial, request.Categories);
-            var (title, titleOriginal, year) = ApplyNumQueryHeuristic(request.Query, request.Title,
-                request.TitleOriginal, request.Year, isNumRequest);
-
-            request.Title = title;
-            request.TitleOriginal = titleOriginal;
-            request.Year = year;
-
-            if (string.IsNullOrWhiteSpace(request.Title) && string.IsNullOrWhiteSpace(request.TitleOriginal) &&
-                !string.IsNullOrWhiteSpace(request.Query))
-            {
-                var parts = request.Query.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                request.Title = parts.Length > 0 && !parts[0].Any(c => (c >= 'а' && c <= 'я') || (c >= 'А' && c <= 'Я'))
-                    ? parts[0]
-                    : request.Query;
-            }
-
-            var torrents = await ExecuteUnifiedSearch(request, contentType);
-
-            var shouldMerge = (!isNumRequest && Config.MergeDuplicates) || (isNumRequest && Config.MergeNumDuplicates);
-            var result = shouldMerge ? await _merger.MergeAsync(torrents) : torrents;
-
-            return new RootObject { Results = BuildJackettResults(result, isNumRequest), Error = null };
-        }, TimeSpan.FromMinutes(5));
+            await CacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(5));
+            return result;
+        }
+        
+        return await CacheService.GetOrCreateAsync(cacheKey, () => Task.FromResult(result), TimeSpan.FromMinutes(5));
     }
 
     private async Task<List<TorrentDetails>> ExecuteUnifiedSearch(TorrentSearchRequest request, int? contentType)
     {
         var (search, altname) = await ResolveKpImdb(request.Title, request.TitleOriginal);
         var trackerQuery = StringConvert.ClearTitle(BuildTrackerQuery(search, altname));
-        
+
         await _searchQueryRepository.TrackSearchQueryAsync(trackerQuery);
-        
+
         var year = request.Year > 0 ? request.Year : (int?)null;
         
-        var torrents = await _localSearch.SearchByTitleAsync(search, altname, year, contentType, request.Exact);
-        torrents = torrents.Where(IsTrackerSearchEnabled).ToList();
+        List<TorrentDetails> torrents;
 
-        if (request.Exact && torrents.Count == 0)
+        if (request.ForceSearch)
         {
-            torrents = await _localSearch.SearchByTitleAsync(search, altname, year, contentType);
-            torrents = torrents.Where(IsTrackerSearchEnabled)
-                .ToList();
+            torrents = await RemoteSearchAsync(search, altname, year, contentType, trackerQuery, request.Exact);
         }
-
-        if (torrents.Count == 0)
+        else
         {
-            if (!string.IsNullOrWhiteSpace(trackerQuery))
-            {
-                var fetched = await _remoteSearch.SearchAsync(trackerQuery, _remoteSearch.GetSupportedTrackers());
+            torrents = await LocalSearchAsync(search, altname, year, contentType, request.Exact);
 
-                await _repository.AddOrUpdateAsync(fetched);
-                torrents = await _localSearch.SearchByTitleAsync(search, altname, year, contentType,
-                    request.Exact);
-
-                if (request.Exact && torrents.Count == 0)
-                    torrents = await _localSearch.SearchByTitleAsync(search, altname, year, contentType);
-
-                torrents = torrents.Where(IsTrackerSearchEnabled)
-                    .ToList();
-            }
+            if (torrents.Count == 0)
+                if (!string.IsNullOrWhiteSpace(trackerQuery))
+                    torrents = await RemoteSearchAsync(search, altname, year, contentType, trackerQuery, request.Exact);
         }
-
+        
         var filtered = ApplyFilters(torrents, request.Type, request.Tracker, request.Year, request.Quality,
             request.VideoType, request.Voice, request.Season);
-        return ApplySort(filtered, request.Sort).ToList();
+        
+        torrents = ApplySort(filtered, request.Sort).ToList();
+        
+        return torrents;
+    }
+
+    private async Task<List<TorrentDetails>> LocalSearchAsync(string? search, string? altname, int? year,
+        int? contentType, bool exact)
+    {
+        var torrents = await _localSearch.SearchByTitleAsync(search, altname, year, contentType, exact);
+
+        if (exact && torrents.Count == 0)
+            torrents = await _localSearch.SearchByTitleAsync(search, altname, year, contentType);
+
+        return torrents.Where(IsTrackerSearchEnabled).ToList();
+    }
+
+    private async Task<List<TorrentDetails>> RemoteSearchAsync(string? search, string? altname, int? year,
+        int? contentType, string trackerQuery, bool exact)
+    {
+        var fetched = await _remoteSearch.SearchAsync(trackerQuery, _remoteSearch.GetSupportedTrackers());
+
+        await _repository.AddOrUpdateAsync(fetched);
+
+        return await LocalSearchAsync(search, altname, year, contentType, exact);
     }
 
     #region Jackett Helpers

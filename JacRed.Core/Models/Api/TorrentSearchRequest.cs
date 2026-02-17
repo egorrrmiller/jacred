@@ -31,4 +31,5 @@ public class TorrentSearchRequest
     public string? VideoType { get; set; }
     public int Quality { get; set; }
     public int Season { get; set; }
+    public bool ForceSearch { get; set; } = false;
 }

@@ -39,14 +39,7 @@ public class RemoteSearchService : BaseSearchService, IRemoteSearchService
         if (targetTrackers.Count == 0)
             return [];
 
-        var normalizedQuery = StringConvert.SearchName(query) ?? query.Trim();
-        var trackerKey = string.Join(",", targetTrackers.OrderBy(t => t).Select(t => t.ToString()));
-        var cacheKey = CacheKeyBuilder.Build("tracker-search", normalizedQuery, trackerKey);
-
-        return await _cacheService.GetOrCreateAsync(
-            cacheKey,
-            () => SearchUncachedAsync(query, targetTrackers),
-            TimeSpan.FromMinutes(5));
+        return await SearchUncachedAsync(query, targetTrackers);
     }
 
     private IReadOnlyCollection<TrackerType> ResolveTrackers(IReadOnlyCollection<TrackerType>? trackers)

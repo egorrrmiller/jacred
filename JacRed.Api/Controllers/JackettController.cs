@@ -51,7 +51,8 @@ public class JackettController : ControllerBase
         string title_original,
         int year,
         Dictionary<string, string> category,
-        int is_serial = -1)
+        int is_serial = -1,
+        bool force_search = false)
     {
         if (apikey != _config.ApiKey)
             return Unauthorized();
@@ -65,7 +66,8 @@ public class JackettController : ControllerBase
             Categories = category,
             IsSerial = is_serial,
             UserAgent = HttpContext.Request.Headers.UserAgent,
-            QueryString = HttpContext.Request.QueryString.Value ?? string.Empty
+            QueryString = HttpContext.Request.QueryString.Value ?? string.Empty,
+            ForceSearch = force_search
         });
 
         return Ok(root);
