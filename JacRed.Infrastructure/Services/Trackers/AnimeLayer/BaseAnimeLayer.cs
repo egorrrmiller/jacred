@@ -112,7 +112,7 @@ public abstract class BaseAnimeLayer : BaseTrackerSearch, ITrackerCatalogEnriche
                 !string.IsNullOrWhiteSpace(phpsessid))
             {
                 var cookie = $"layer_id={layerId}; layer_hash={layerHash}; PHPSESSID={phpsessid};";
-                await CacheService.SetAsync(CookieKey, cookie, TimeSpan.FromDays(1));
+                await CacheService.SetAsync(CookieKey, cookie, TimeSpan.FromDays(Config.Cache.AuthExpiry));
                 return cookie;
             }
         }

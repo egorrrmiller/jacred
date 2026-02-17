@@ -99,7 +99,7 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
         if (response.Headers.TryGetValues("Set-Cookie", out var cookies))
         {
             var cookie = string.Join("; ", cookies);
-            await CacheService.SetAsync(CookieKey, cookie, TimeSpan.FromDays(1));
+            await CacheService.SetAsync(CookieKey, cookie, TimeSpan.FromDays(Config.Cache.AuthExpiry));
             return cookie;
         }
 

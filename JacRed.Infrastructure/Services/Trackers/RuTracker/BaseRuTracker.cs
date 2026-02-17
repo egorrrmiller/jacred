@@ -48,6 +48,28 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         return true;
     }
 
+    protected async Task<IReadOnlyCollection<TorrentDetails>> FetchForumPageAsync(
+        string url,
+        string categoryId,
+        DateTime now,
+        int timeoutSeconds = 10,
+        int maxResponseSize = 10_000_000,
+        bool useProxy = false)
+    {
+        var html = await Get(
+            url,
+            RuEncoding,
+            url,
+            timeoutSeconds,
+            maxResponseSize,
+            useProxy: useProxy);
+
+        if (string.IsNullOrWhiteSpace(html))
+            return [];
+
+        return ParseForumPage(html, categoryId, Host, now);
+    }
+
     protected async Task<string> Get(
         string url,
         Encoding? encoding = null,
@@ -124,7 +146,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         var cookies = response.Headers.TryGetValues("Set-Cookie", out var v) ? v : [];
         var cookie = string.Join("; ", cookies);
 
-        await CacheService.SetAsync(CookieKey, cookie, TimeSpan.FromDays(3));
+        await CacheService.SetAsync(CookieKey, cookie, TimeSpan.FromDays(Config.Cache.AuthExpiry));
 
         return cookie;
     }
@@ -550,32 +572,6 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         };
 
         return (long)Math.Round(num * multiplier);
-    }
-
-    /// <summary>
-    ///     Загружает страницу tracker/viewforum и парсит её в коллекцию раздач.
-    ///     Можно переиспользовать в поиске, каталогах и рефреше.
-    /// </summary>
-    protected async Task<IReadOnlyCollection<TorrentDetails>> FetchForumPageAsync(
-        string url,
-        string categoryId,
-        DateTime now,
-        int timeoutSeconds = 10,
-        int maxResponseSize = 10_000_000,
-        bool useProxy = false)
-    {
-        var html = await Get(
-            url,
-            RuEncoding,
-            url,
-            timeoutSeconds,
-            maxResponseSize,
-            useProxy: useProxy);
-
-        if (string.IsNullOrWhiteSpace(html))
-            return [];
-
-        return ParseForumPage(html, categoryId, Host, now);
     }
 
     protected static string BuildCategoryUrl(string host, string categoryId, int page)
