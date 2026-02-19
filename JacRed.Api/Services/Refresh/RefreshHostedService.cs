@@ -43,8 +43,8 @@ public class RefreshHostedService : BackgroundService
                 _logger.Information("Update queries {@Queries}", (object)queries);
                 foreach (var query in queries)
                 {
-                    await remoteSearch.SearchAsync(query);
-                    //await repository.UpdateLastRefreshTimeAsync(query);
+                    await remoteSearch.SearchAsync(query.Query);
+                    await repository.UpdateLastRefreshTimeAsync(query.TmdbId);
                 }
             }
             catch (Exception ex)

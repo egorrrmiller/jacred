@@ -1,3 +1,5 @@
+using JacRed.Core.Models;
+
 namespace JacRed.Core.Interfaces;
 
 public interface IQueriesRepository
@@ -10,7 +12,7 @@ public interface IQueriesRepository
     /// <summary>
     ///     Возвращает список запросов, которые требуют обновления (last_refresh_time < olderThan или null).
     /// </summary>
-    Task<IReadOnlyCollection<string>> GetStaleSearchQueriesAsync(TimeSpan olderThan, int limit);
+    Task<IReadOnlyCollection<StaleQuery>> GetStaleSearchQueriesAsync(TimeSpan olderThan, int limit);
 
     /// <summary>
     ///     Сохраняет или обновляет статистику по поисковому запросу.

@@ -50,8 +50,8 @@ public static class ServicesConfiguration
             .AddScoped<ITrackerRefreshProvider, RuTrackerPopularService>()
             // крон сервисы
             .AddHostedService<TorrentMediaProbeHostedService>()
-            .AddHostedService<RuTrackerPopularHostedService>();
-            //.AddHostedService<RefreshHostedService>();
+            .AddHostedService<RuTrackerPopularHostedService>()
+            .AddHostedService<RefreshHostedService>();
 
         services.AddSingleton<ICacheService, CacheService>();
         services.AddMemoryCache();

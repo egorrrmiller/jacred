@@ -1,5 +1,6 @@
 using Dapper;
 using JacRed.Core.Interfaces;
+using JacRed.Core.Models;
 using JacRed.Infrastructure.Migrations.Configurations;
 using Npgsql;
 
@@ -37,7 +38,7 @@ public class QueriesRepository : IQueriesRepository
             .ToArray();
     }
 
-    public async Task<IReadOnlyCollection<string>> GetStaleSearchQueriesAsync(TimeSpan olderThan, int limit)
+    public async Task<IReadOnlyCollection<StaleQuery>> GetStaleSearchQueriesAsync(TimeSpan olderThan, int limit)
     {
         if (limit <= 0)
             return [];
@@ -48,18 +49,15 @@ public class QueriesRepository : IQueriesRepository
         var cutoff = DateTimeOffset.UtcNow - olderThan;
 
         var sql = $@"
-            SELECT query
+            SELECT query, tmdb_id AS ""TmdbId""
             FROM {Schema}.queries
             WHERE last_refresh_time IS NULL OR last_refresh_time < @Cutoff
             ORDER BY last_seen DESC, hits DESC
             LIMIT @Limit";
 
-        var rows = await connection.QueryAsync<string>(sql, new { Cutoff = cutoff, Limit = limit });
+        var rows = await connection.QueryAsync<StaleQuery>(sql, new { Cutoff = cutoff, Limit = limit });
 
-        return rows
-            .Where(q => !string.IsNullOrWhiteSpace(q))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        return rows.ToArray();
     }
 
     public async Task TrackSearchQueryAsync(long tmdbId, string query)
