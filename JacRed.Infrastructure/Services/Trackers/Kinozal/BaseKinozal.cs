@@ -67,12 +67,12 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
         if (!CacheService.TryGetValue(CookieKey, out string? cookie))
             cookie = await Authorize();
 
-        var html = await HttpService.Get(url, encoding, cookie);
+        var html = await HttpService.GetStringAsync(url, new RequestOptions { Encoding = encoding, Cookie = cookie });
 
         if (string.IsNullOrWhiteSpace(html) || html.Contains("Вход в систему"))
         {
             cookie = await Authorize(true);
-            html = await HttpService.Get(url, encoding, cookie);
+            html = await HttpService.GetStringAsync(url, new RequestOptions { Encoding = encoding, Cookie = cookie });
         }
 
         return html;
@@ -94,7 +94,7 @@ public class BaseKinozal : BaseTrackerSearch, ITrackerCatalogEnricher
             { "returnto", "" }
         });
 
-        var response = await HttpService.PostResponse($"{Host}/takelogin.php", content, allowRedirect: false);
+        var response = await HttpService.PostResponseAsync($"{Host}/takelogin.php", content, new RequestOptions { AllowAutoRedirect = false });
 
         if (response.Headers.TryGetValues("Set-Cookie", out var cookies))
         {

@@ -35,7 +35,7 @@ public class NNMClubSearch : BaseNNMClub
 
         var content = new StringContent(formEncoded, Encoding.UTF8, "application/x-www-form-urlencoded");
 
-        var html = await HttpService.Post(url, content, encoding: RuEncoding);
+        var html = await HttpService.PostAsync(url, content, new RequestOptions { Encoding = RuEncoding });
 
         if (string.IsNullOrWhiteSpace(html))
             return [];

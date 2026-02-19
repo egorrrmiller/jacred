@@ -1,17 +1,16 @@
 using Dapper;
 using JacRed.Core.Interfaces;
-using JacRed.Core.Utils;
 using JacRed.Infrastructure.Migrations.Configurations;
 using Npgsql;
 
 namespace JacRed.Infrastructure.Persistence.Repositories;
 
-public class SearchQueryRepository : ISearchQueryRepository
+public class QueriesRepository : IQueriesRepository
 {
     private const string Schema = DbSchema.Name;
     private readonly string _connectionString;
 
-    public SearchQueryRepository(string connectionString)
+    public QueriesRepository(string connectionString)
     {
         _connectionString = connectionString;
     }
@@ -26,7 +25,7 @@ public class SearchQueryRepository : ISearchQueryRepository
 
         var sql = $@"
             SELECT query
-            FROM {Schema}.search_queries
+            FROM {Schema}.queries
             ORDER BY last_seen DESC, hits DESC
             LIMIT @Limit";
 
@@ -50,7 +49,7 @@ public class SearchQueryRepository : ISearchQueryRepository
 
         var sql = $@"
             SELECT query
-            FROM {Schema}.search_queries
+            FROM {Schema}.queries
             WHERE last_refresh_time IS NULL OR last_refresh_time < @Cutoff
             ORDER BY last_seen DESC, hits DESC
             LIMIT @Limit";
@@ -63,35 +62,33 @@ public class SearchQueryRepository : ISearchQueryRepository
             .ToArray();
     }
 
-    public async Task TrackSearchQueryAsync(string query)
+    public async Task TrackSearchQueryAsync(long tmdbId, string query)
     {
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
 
         var sql = $@"
-            INSERT INTO {Schema}.search_queries (query, created_at, last_seen, hits)
-            VALUES (@Query, now(), now(), 1)
-            ON CONFLICT (query)
+            INSERT INTO {Schema}.queries (tmdb_id, query, created_at, last_seen, hits)
+            VALUES (@TmdbId, @Query, now(), now(), 1)
+            ON CONFLICT (tmdb_id)
             DO UPDATE SET
                 last_seen = now(),
-                hits = {Schema}.search_queries.hits + 1";
+                hits = {Schema}.queries.hits + 1,
+                query = @Query";
 
-        await connection.ExecuteAsync(sql, new { Query = query });
+        await connection.ExecuteAsync(sql, new { TmdbId = tmdbId, Query = query });
     }
 
-    public async Task UpdateLastRefreshTimeAsync(string query)
+    public async Task UpdateLastRefreshTimeAsync(long tmdbId)
     {
-        if (string.IsNullOrWhiteSpace(query))
-            return;
-
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
 
         var sql = $@"
-            UPDATE {Schema}.search_queries
+            UPDATE {Schema}.queries
             SET last_refresh_time = now()
-            WHERE query = @Query";
+            WHERE tmdb_id = @TmdbId";
 
-        await connection.ExecuteAsync(sql, new { Query = query });
+        await connection.ExecuteAsync(sql, new { TmdbId = tmdbId });
     }
 }

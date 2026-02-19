@@ -23,30 +23,6 @@ public abstract class BaseSearchService
         CacheService = cacheService;
     }
 
-    protected async Task<(string? search, string? altname)> ResolveKpImdb(string? search, string? altname)
-    {
-        if (string.IsNullOrWhiteSpace(search) || !Regex.IsMatch(search.Trim(), "^(tt|kp)[0-9]+$"))
-            return (search, altname);
-
-        var cacheKey = CacheKeyBuilder.Build("api", "v1.0", "torrents", search);
-        var cache = await CacheService.GetOrCreateAsync(
-            cacheKey,
-            async () =>
-            {
-                var uri = search.StartsWith("kp") ? $"&kp={search[2..]}" : $"&imdb={search}";
-                var response =
-                    await _httpService.Get<JObject>($"https://api.alloha.tv/?token=04941a9a3ca3ac16e2b4327347bbc1{uri}",
-                        timeoutSeconds: 8);
-                var data = response?.Value<JObject>("data");
-                return (data?.Value<string>("original_name"), data?.Value<string>("name"));
-            },
-            TimeSpan.FromMinutes(Config.Cache.Expiry));
-
-        return !string.IsNullOrWhiteSpace(cache.Item1) && !string.IsNullOrWhiteSpace(cache.Item2)
-            ? (cache.Item1, cache.Item2)
-            : (cache.Item1 ?? cache.Item2, altname);
-    }
-
     protected bool IsTrackerSearchEnabled(TorrentDetails torrentDetails)
     {
         return Enum.Parse<TrackerType>(torrentDetails.TrackerName, true).IsSearchEnabled(Config);

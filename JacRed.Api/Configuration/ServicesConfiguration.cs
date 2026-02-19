@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using System.Security.Authentication;
 using JacRed.Api.Services.Media;
 using JacRed.Api.Services.Refresh;
 using JacRed.Api.Services.RuTracker;
@@ -28,7 +29,8 @@ public static class ServicesConfiguration
     {
         services
             .AddScoped<ITorrentRepository, TorrentRepository>()
-            .AddScoped<ISearchQueryRepository, SearchQueryRepository>()
+            .AddScoped<IQueriesRepository, QueriesRepository>()
+            .AddScoped<ISubscriptionRepository, SubscriptionRepository>()
             .AddScoped<IKeyGenerator, KeyGenerator>()
             .AddScoped<ITorrentEnricher, TorrentEnricher>()
             .AddScoped<ILocalSearchService, LocalSearchService>()
@@ -36,6 +38,8 @@ public static class ServicesConfiguration
             .AddScoped<ITorrentMediaProbeService, TorrentMediaProbeService>()
             .AddScoped<IRemoteSearchService, RemoteSearchService>()
             .AddScoped<ISearchService, SearchService>()
+            .AddScoped<IMediaResolverService, MediaResolverService>()
+            .AddScoped<ISubscribeService, SubscribeService>()
             .AddScoped<ITrackerSearch, RuTrackerSearch>()
             .AddScoped<ITrackerSearch, AnilibertySearch>()
             .AddScoped<ITrackerSearch, RuTorSearch>()
@@ -46,16 +50,18 @@ public static class ServicesConfiguration
             .AddScoped<ITrackerRefreshProvider, RuTrackerPopularService>()
             // крон сервисы
             .AddHostedService<TorrentMediaProbeHostedService>()
-            .AddHostedService<RuTrackerPopularHostedService>()
-            .AddHostedService<RefreshHostedService>();
+            .AddHostedService<RuTrackerPopularHostedService>();
+            //.AddHostedService<RefreshHostedService>();
 
         services.AddSingleton<ICacheService, CacheService>();
         services.AddMemoryCache();
 
         services.AddHttpClient<HttpService>((sp, client) =>
             {
-                client.DefaultRequestHeaders.UserAgent.ParseAdd(HttpService.UserAgent);
+                client.DefaultRequestHeaders.UserAgent.ParseAdd(HttpService.DefaultUserAgent);
                 client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
+                client.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
+                client.DefaultRequestHeaders.Add("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
             })
             .ConfigurePrimaryHttpMessageHandler(sp =>
             {
@@ -64,7 +70,9 @@ public static class ServicesConfiguration
                 {
                     AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate |
                                              DecompressionMethods.Brotli,
-                    ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+                    ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+                    CheckCertificateRevocationList = false,
+                    SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
                 };
 
                 if (config.Proxy?.List?.Count > 0)

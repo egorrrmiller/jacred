@@ -1,6 +1,6 @@
 namespace JacRed.Core.Interfaces;
 
-public interface ISearchQueryRepository
+public interface IQueriesRepository
 {
     /// <summary>
     ///     Возвращает список популярных поисковых запросов.
@@ -15,10 +15,10 @@ public interface ISearchQueryRepository
     /// <summary>
     ///     Сохраняет или обновляет статистику по поисковому запросу.
     /// </summary>
-    Task TrackSearchQueryAsync(string query);
+    Task TrackSearchQueryAsync(long tmdbId, string query);
 
     /// <summary>
     ///     Обновляет время последнего фонового обновления для запроса.
     /// </summary>
-    Task UpdateLastRefreshTimeAsync(string query);
+    Task UpdateLastRefreshTimeAsync(long tmdbId);
 }

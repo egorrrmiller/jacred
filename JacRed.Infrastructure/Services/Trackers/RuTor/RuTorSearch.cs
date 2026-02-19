@@ -22,8 +22,8 @@ public class RuTorSearch : BaseRuTor
         if (!Config.RuTor.EnableSearch)
             return [];
 
-        var url = SearchUrl + query;
-        var html = await HttpService.Get(url, referer: url, encoding: Encoding.UTF8);
+        var url = SearchUrl + Uri.EscapeDataString(query);
+        var html = await HttpService.GetStringAsync(url, new RequestOptions { Referer = url, Encoding = Encoding.UTF8 });
 
         if (string.IsNullOrWhiteSpace(html))
             return [];

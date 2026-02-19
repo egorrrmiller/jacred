@@ -128,7 +128,7 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
     {
         try
         {
-            var html = await HttpService.Get(url, RuEncoding);
+            var html = await HttpService.GetStringAsync(url, new RequestOptions { Encoding = RuEncoding });
             if (string.IsNullOrWhiteSpace(html))
                 return (null, null);
 

@@ -23,9 +23,12 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
 
     protected static readonly IReadOnlyDictionary<string, CategoryInfo> CategoryMap = BuildCategoryMap();
 
+    private readonly IOptions<Config> _config;
+    
     protected BaseRuTracker(IOptions<Config> config, HttpService httpService, ICacheService cacheService) : base(config,
         httpService, cacheService)
     {
+        _config = config;
     }
 
     public override TrackerType Tracker => TrackerType.Rutracker;
@@ -82,28 +85,32 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         if (!CacheService.TryGetValue(CookieKey, out string? cookie))
             cookie = await Authorize();
 
-        var html = await HttpService.Get(
+        var html = await HttpService.GetStringAsync(
             url,
-            encoding,
-            cookie,
-            referer,
-            timeoutSeconds,
-            maxResponseSize,
-            addHeaders,
-            useProxy);
+            new RequestOptions
+            {
+                Encoding = encoding ?? Encoding.UTF8,
+                Cookie = cookie,
+                Referer = referer,
+                TimeoutSeconds = timeoutSeconds,
+                MaxResponseSizeBytes = maxResponseSize,
+                Headers = addHeaders?.ToDictionary(x => x.name, x => x.val)
+            });
 
         if (string.IsNullOrWhiteSpace(html) || !html.Contains("id=\"logged-in-username\""))
         {
             cookie = await Authorize(true);
-            html = await HttpService.Get(
+            html = await HttpService.GetStringAsync(
                 url,
-                encoding,
-                cookie,
-                referer,
-                timeoutSeconds,
-                maxResponseSize,
-                addHeaders,
-                useProxy);
+                new RequestOptions
+                {
+                    Encoding = encoding ?? Encoding.UTF8,
+                    Cookie = cookie,
+                    Referer = referer,
+                    TimeoutSeconds = timeoutSeconds,
+                    MaxResponseSizeBytes = maxResponseSize,
+                    Headers = addHeaders?.ToDictionary(x => x.name, x => x.val)
+                });
         }
 
         return html;
@@ -118,7 +125,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
             CookieContainer = new CookieContainer()
         };
         var client = new HttpClient(handler);
-        var http = new HttpService(client, NullLogger<HttpService>.Instance);
+        var http = new HttpService(client, NullLogger<HttpService>.Instance, _config);
 
         var pairs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -130,10 +137,10 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         var formEncoded = string.Join("&",
             pairs.Select(kv => $"{HttpUtility.UrlEncode(kv.Key)}={HttpUtility.UrlEncode(kv.Value)}"));
 
-        var response = await http.PostResponse(
+        var response = await http.PostResponseAsync(
             LoginUrl,
             new StringContent(formEncoded, Encoding.Default, "application/x-www-form-urlencoded"),
-            allowRedirect: false);
+            new RequestOptions { AllowAutoRedirect = false });
 
         if (response.StatusCode is not HttpStatusCode.Found)
         {
@@ -582,7 +589,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
 
     protected static string BuildQueryUrl(string host, string query, int page)
     {
-        var baseUrl = $"{host.TrimEnd('/')}/forum/tracker.php?nm={query}&o=10&s=2";
+        var baseUrl = $"{host.TrimEnd('/')}/forum/tracker.php?nm={Uri.EscapeDataString(query)}&o=10&s=2";
         return page <= 0 ? baseUrl : $"{baseUrl}&start={page * 50}";
     }
 

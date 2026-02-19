@@ -21,6 +21,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.SystemConsole.Themes;
@@ -35,19 +36,19 @@ var cleanTheme = new AnsiConsoleTheme(new Dictionary<ConsoleThemeStyle, string>
     [ConsoleThemeStyle.TertiaryText] = "\x1b[90m",
 
     // данные
-    [ConsoleThemeStyle.String] = "\x1b[32m",     // мягкий зелёный
-    [ConsoleThemeStyle.Number] = "\x1b[35m",     // фиолетовый
-    [ConsoleThemeStyle.Boolean] = "\x1b[36m",    // бирюзовый
+    [ConsoleThemeStyle.String] = "\x1b[32m", // мягкий зелёный
+    [ConsoleThemeStyle.Number] = "\x1b[35m", // фиолетовый
+    [ConsoleThemeStyle.Boolean] = "\x1b[36m", // бирюзовый
     [ConsoleThemeStyle.Scalar] = "\x1b[32m",
 
     // уровни
     [ConsoleThemeStyle.LevelVerbose] = "\x1b[90m",
     [ConsoleThemeStyle.LevelDebug] = "\x1b[90m",
 
-    [ConsoleThemeStyle.LevelInformation] = "\x1b[36m",  // спокойный cyan
-    [ConsoleThemeStyle.LevelWarning] = "\x1b[33m",      // amber
-    [ConsoleThemeStyle.LevelError] = "\x1b[31m",        // red
-    [ConsoleThemeStyle.LevelFatal] = "\x1b[31;1m",      // яркий красный только для fatal
+    [ConsoleThemeStyle.LevelInformation] = "\x1b[36m", // спокойный cyan
+    [ConsoleThemeStyle.LevelWarning] = "\x1b[33m", // amber
+    [ConsoleThemeStyle.LevelError] = "\x1b[31m", // red
+    [ConsoleThemeStyle.LevelFatal] = "\x1b[31;1m", // яркий красный только для fatal
 
     // прочее
     [ConsoleThemeStyle.Name] = "\x1b[37m",
@@ -99,6 +100,8 @@ CultureInfo.CurrentCulture = new CultureInfo("ru-RU");
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 // --- Сервисы ---
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 
 builder.Services.Configure<ApiBehaviorOptions>(options =>
@@ -143,8 +146,12 @@ var app = builder.Build();
 
 // --- Middleware ---
 if (app.Environment.IsDevelopment())
-    app.UseDeveloperExceptionPage();
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference();
+}
 else
+{
     app.UseExceptionHandler(errorApp =>
     {
         errorApp.Run(async context =>
@@ -159,6 +166,7 @@ else
             }.ToJson());
         });
     });
+}
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
@@ -175,12 +183,13 @@ app.UseModHeaders();
 
 app.UseSerilogRequestLogging(loggingOptions =>
 {
-    loggingOptions.MessageTemplate = "Incoming Request: {RequestMethod} {Url} | Status: {StatusCode} | Time: {Elapsed:0}ms";
+    loggingOptions.MessageTemplate =
+        "Incoming Request: {RequestMethod} {Url} | Status: {StatusCode} | Time: {Elapsed:0}ms";
 
     loggingOptions.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
     {
         var fullUrl = httpContext.Request.GetDisplayUrl();
-        
+
         diagnosticContext.Set("Url", fullUrl);
     };
 });

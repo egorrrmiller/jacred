@@ -34,7 +34,7 @@ public class RefreshHostedService : BackgroundService
             try
             {
                 using var scope = _scopeFactory.CreateScope();
-                var repository = scope.ServiceProvider.GetRequiredService<ISearchQueryRepository>();
+                var repository = scope.ServiceProvider.GetRequiredService<IQueriesRepository>();
                 var remoteSearch = scope.ServiceProvider.GetRequiredService<IRemoteSearchService>();
 
                 var queries = await repository.GetStaleSearchQueriesAsync(TimeSpan.FromMinutes(_config.Refresh.OlderThanMin), _config.Refresh.Limit);
@@ -44,7 +44,7 @@ public class RefreshHostedService : BackgroundService
                 foreach (var query in queries)
                 {
                     await remoteSearch.SearchAsync(query);
-                    await repository.UpdateLastRefreshTimeAsync(query);
+                    //await repository.UpdateLastRefreshTimeAsync(query);
                 }
             }
             catch (Exception ex)
