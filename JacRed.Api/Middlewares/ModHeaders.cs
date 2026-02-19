@@ -31,7 +31,7 @@ public partial class ModHeaders
         else
             httpContext.Response.Headers.AccessControlAllowOrigin = "*";
 
-        if (httpContext.Connection.RemoteIpAddress.ToString() == "127.0.0.1") return _next(httpContext);
+        /*if (httpContext.Connection.RemoteIpAddress.ToString() == "127.0.0.1") return _next(httpContext);
 
         if (httpContext.Request.Path.Value.StartsWith("/cron/")
             || httpContext.Request.Path.Value.StartsWith("/jsondb")
@@ -41,7 +41,7 @@ public partial class ModHeaders
         if (!string.IsNullOrEmpty(config.ApiKey))
         {
             if (httpContext.Request.Path.Value == "/" ||
-                Regex.IsMatch(httpContext.Request.Path.Value, "^/(api/v1\\.0/conf|stats/|sync/)"))
+                Regex.IsMatch(httpContext.Request.Path.Value, "^/(api/v1\\.0/(conf|subscribe)|stats/|sync/)"))
                 return _next(httpContext);
 
             if (config.ApiKey
@@ -49,7 +49,7 @@ public partial class ModHeaders
                     .Match(httpContext.Request.QueryString.Value)
                     .Groups[2].Value)
                 return Task.CompletedTask;
-        }
+        }*/
 
         return _next(httpContext);
     }
