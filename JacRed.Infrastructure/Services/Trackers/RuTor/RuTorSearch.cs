@@ -28,11 +28,11 @@ public class RuTorSearch : BaseRuTor
         if (string.IsNullOrWhiteSpace(html))
             return [];
 
-        var torrents = Parse(html).ToList();
+        var torrents = Parse(html);
 
         var options = new ParallelOptions
         {
-            MaxDegreeOfParallelism = Math.Max(4, Environment.ProcessorCount)
+            MaxDegreeOfParallelism = Environment.ProcessorCount
         };
 
         await Parallel.ForEachAsync(

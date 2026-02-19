@@ -71,7 +71,7 @@ public class TorrentRepository : ITorrentRepository
                 if (predicate != null && !await predicate(torrent))
                     continue;
 
-                var enriched = await _torrentEnricher.EnrichAndConvertAsync(torrent);
+                var enriched = _torrentEnricher.EnrichAndConvert(torrent);
                 await UpsertTorrent(enriched);
             }
 

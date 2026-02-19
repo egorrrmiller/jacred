@@ -10,5 +10,5 @@ public interface ITorrentEnricher
     /// <summary>
     ///     Обогащает и конвертирует раздачу в внутренний формат приложения.
     /// </summary>
-    Task<TorrentDetails> EnrichAndConvertAsync(TorrentDetails torrent);
+    TorrentDetails EnrichAndConvert(TorrentDetails torrent);
 }

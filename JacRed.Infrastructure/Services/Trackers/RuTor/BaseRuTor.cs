@@ -45,78 +45,6 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
         return !string.IsNullOrWhiteSpace(torrent.Name) || !string.IsNullOrWhiteSpace(torrent.Magnet);
     }
 
-    private void ParseDetailsTable(IElement detailsTable, TorrentDetails torrent)
-    {
-        var nameElement = detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Название:"));
-        if (nameElement?.NextSibling != null)
-            torrent.Name = nameElement.NextSibling.TextContent.Trim();
-
-        var originalNameElement = detailsTable.QuerySelectorAll("b")
-            .FirstOrDefault(e => e.TextContent.Contains("Оригинальное название:"));
-        if (originalNameElement?.NextSibling != null)
-            torrent.OriginalName = originalNameElement.NextSibling.TextContent.Trim();
-
-        var yearElement = detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Год выхода:"));
-        if (yearElement?.NextSibling != null && int.TryParse(yearElement.NextSibling.TextContent.Trim(), out var year))
-            torrent.Relased = year;
-
-        var categoryLink = detailsTable.QuerySelectorAll("tr")
-            .FirstOrDefault(tr => tr.QuerySelector("td.header")?.TextContent.Contains("Категория") == true)
-            ?.QuerySelector("a");
-
-        if (categoryLink != null)
-        {
-            var href = categoryLink.GetAttribute("href");
-            if (!string.IsNullOrWhiteSpace(href))
-            {
-                var category = href.Trim('/').Split('/').LastOrDefault();
-                if (category != null)
-                    torrent.Types = MapCategory(category);
-            }
-        }
-
-        var qualityElement =
-            detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Качество:"));
-        if (qualityElement?.NextSibling != null)
-            torrent.Quality = StringConvert.ParseQuality(qualityElement.NextSibling.TextContent.Trim());
-
-        var formatElement = detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Формат:"));
-        if (formatElement?.NextSibling != null)
-            torrent.VideoType = formatElement.NextSibling.TextContent.Trim();
-
-        var translationElement =
-            detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Перевод:"));
-        if (translationElement?.NextSibling != null)
-        {
-            var translationText = translationElement.NextSibling.TextContent.Trim();
-            if (!string.IsNullOrWhiteSpace(translationText))
-                torrent.Voices = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { translationText };
-        }
-    }
-
-    private static string[] MapCategory(string category)
-    {
-        if (string.IsNullOrWhiteSpace(category))
-            return [];
-
-        if (category.Contains("seriali", StringComparison.OrdinalIgnoreCase))
-            return ["serial"];
-        if (category.Contains("anime", StringComparison.OrdinalIgnoreCase))
-            return ["anime"];
-        if (category.Contains("kino", StringComparison.OrdinalIgnoreCase))
-            return ["movie"];
-        if (category.Contains("nashe_kino", StringComparison.OrdinalIgnoreCase))
-            return ["movie"];
-        if (category.Contains("nashi_seriali", StringComparison.OrdinalIgnoreCase))
-            return ["serial"];
-        if (category.Contains("tv", StringComparison.OrdinalIgnoreCase))
-            return ["tvshow"];
-        if (category.Contains("multiki", StringComparison.OrdinalIgnoreCase))
-            return ["multfilm"];
-
-        return [];
-    }
-
     protected IReadOnlyCollection<TorrentDetails> Parse(string html)
     {
         var list = new List<TorrentDetails>();
@@ -228,5 +156,77 @@ public class BaseRuTor : BaseTrackerSearch, ITrackerCatalogEnricher
         }
 
         return list;
+    }
+
+    private void ParseDetailsTable(IElement detailsTable, TorrentDetails torrent)
+    {
+        var nameElement = detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Название:"));
+        if (nameElement?.NextSibling != null)
+            torrent.Name = nameElement.NextSibling.TextContent.Trim();
+
+        var originalNameElement = detailsTable.QuerySelectorAll("b")
+            .FirstOrDefault(e => e.TextContent.Contains("Оригинальное название:"));
+        if (originalNameElement?.NextSibling != null)
+            torrent.OriginalName = originalNameElement.NextSibling.TextContent.Trim();
+
+        var yearElement = detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Год выхода:"));
+        if (yearElement?.NextSibling != null && int.TryParse(yearElement.NextSibling.TextContent.Trim(), out var year))
+            torrent.Relased = year;
+
+        var categoryLink = detailsTable.QuerySelectorAll("tr")
+            .FirstOrDefault(tr => tr.QuerySelector("td.header")?.TextContent.Contains("Категория") == true)
+            ?.QuerySelector("a");
+
+        if (categoryLink != null)
+        {
+            var href = categoryLink.GetAttribute("href");
+            if (!string.IsNullOrWhiteSpace(href))
+            {
+                var category = href.Trim('/').Split('/').LastOrDefault();
+                if (category != null)
+                    torrent.Types = MapCategory(category);
+            }
+        }
+
+        var qualityElement =
+            detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Качество:"));
+        if (qualityElement?.NextSibling != null)
+            torrent.Quality = StringConvert.ParseQuality(qualityElement.NextSibling.TextContent.Trim());
+
+        var formatElement = detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Формат:"));
+        if (formatElement?.NextSibling != null)
+            torrent.VideoType = formatElement.NextSibling.TextContent.Trim();
+
+        var translationElement =
+            detailsTable.QuerySelectorAll("b").FirstOrDefault(e => e.TextContent.Contains("Перевод:"));
+        if (translationElement?.NextSibling != null)
+        {
+            var translationText = translationElement.NextSibling.TextContent.Trim();
+            if (!string.IsNullOrWhiteSpace(translationText))
+                torrent.Voices = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { translationText };
+        }
+    }
+
+    private static string[] MapCategory(string category)
+    {
+        if (string.IsNullOrWhiteSpace(category))
+            return [];
+
+        if (category.Contains("seriali", StringComparison.OrdinalIgnoreCase))
+            return ["serial"];
+        if (category.Contains("anime", StringComparison.OrdinalIgnoreCase))
+            return ["anime"];
+        if (category.Contains("kino", StringComparison.OrdinalIgnoreCase))
+            return ["movie"];
+        if (category.Contains("nashe_kino", StringComparison.OrdinalIgnoreCase))
+            return ["movie"];
+        if (category.Contains("nashi_seriali", StringComparison.OrdinalIgnoreCase))
+            return ["serial"];
+        if (category.Contains("tv", StringComparison.OrdinalIgnoreCase))
+            return ["tvshow"];
+        if (category.Contains("multiki", StringComparison.OrdinalIgnoreCase))
+            return ["multfilm"];
+
+        return [];
     }
 }

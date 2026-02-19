@@ -43,7 +43,7 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
 
         var options = new ParallelOptions
         {
-            MaxDegreeOfParallelism = 1,
+            MaxDegreeOfParallelism = Environment.ProcessorCount,
             CancellationToken = cancellationToken
         };
 
@@ -151,8 +151,8 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
             if (!process.Start())
                 return null;
 
-            var outputTask = process.StandardOutput.ReadToEndAsync();
-            var errorTask = process.StandardError.ReadToEndAsync();
+            var outputTask = process.StandardOutput.ReadToEndAsync(probeToken);
+            var errorTask = process.StandardError.ReadToEndAsync(probeToken);
 
             try
             {

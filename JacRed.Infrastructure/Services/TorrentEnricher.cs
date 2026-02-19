@@ -1595,12 +1595,7 @@ public class TorrentEnricher : ITorrentEnricher
         .ToDictionary(v => v.ToLower(), v => v);
 
     /// <summary>Обогащает базовые данные торрента и дополняет медиа-информацией.</summary>
-    public Task<TorrentDetails> EnrichAndConvertAsync(TorrentDetails torrent)
-    {
-        return Task.FromResult(EnrichAndConvert(torrent));
-    }
-
-    private TorrentDetails EnrichAndConvert(TorrentDetails torrent)
+    public TorrentDetails EnrichAndConvert(TorrentDetails torrent)
     {
         var details = new TorrentDetails
         {

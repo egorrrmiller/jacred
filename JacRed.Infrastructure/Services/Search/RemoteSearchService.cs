@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using JacRed.Core.Enums;
 using JacRed.Core.Interfaces;
 using JacRed.Core.Models.Details;
@@ -66,9 +67,13 @@ public class RemoteSearchService : BaseSearchService, IRemoteSearchService
 
         await Parallel.ForEachAsync(trackers, options, async (tracker, _) =>
         {
+            var sw = new Stopwatch();
+            sw.Start();
             var res = await SearchTrackerSafeAsync(tracker, query);
             if (res.Count > 0)
                 bag.Add(res);
+            sw.Stop();
+            _logger.Information("Tracker: {Tracker}; \tSW: {SW}ms", tracker, sw.ElapsedMilliseconds);
         });
 
         var merged = new List<TorrentDetails>();

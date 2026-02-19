@@ -20,7 +20,6 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
             ["4"] = new(["serial"]),
             ["3"] = new(["serial"]),
             ["22"] = new(["docuserial", "documovie"]),
-            ["23"] = new(["docuserial", "documovie"]),
             ["1"] = new(["anime"]),
             ["7"] = new(["multfilm", "multserial"]),
             ["11"] = new(["movie"]),
@@ -52,57 +51,6 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
         torrent.Magnet = details.Magnet;
 
         return !string.IsNullOrWhiteSpace(torrent.Magnet);
-    }
-
-    private async Task<(string? Magnet, string? Title)> FetchTopicDetailsAsync(string url)
-    {
-        try
-        {
-            var html = await HttpService.Get(url, RuEncoding);
-            if (string.IsNullOrWhiteSpace(html))
-                return (null, null);
-
-            var magnetMatch = Regex.Match(html, @"href=""(magnet:\?xt=urn:btih:[^""]+)""");
-            var magnet = magnetMatch.Success ? magnetMatch.Groups[1].Value : null;
-
-            var titleMatch = Regex.Match(html, @"<a class=""maintitle""[^>]*>(.*?)</a>", RegexOptions.Singleline);
-            var title = titleMatch.Success ? WebUtility.HtmlDecode(titleMatch.Groups[1].Value).Trim() : null;
-
-            return (magnet, title);
-        }
-        catch
-        {
-            return (null, null);
-        }
-    }
-
-    protected Dictionary<string, string> GetSearchParameters(string query)
-    {
-        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            { "prev_sd", "0" },
-            { "prev_a", "0" },
-            { "prev_my", "0" },
-            { "prev_n", "0" },
-            { "prev_shc", "1" },
-            { "prev_shf", "1" },
-            { "prev_sha", "0" },
-            { "prev_shs", "0" },
-            { "prev_shr", "0" },
-            { "prev_sht", "0" },
-            { "f[]", "-1" },
-            { "o", "10" },
-            { "s", "2" },
-            { "tm", "-1" },
-            { "shc", "1" },
-            { "shf", "1" },
-            { "ta", "-1" },
-            { "sns", "-1" },
-            { "sds", "-1" },
-            { "nm", query },
-            { "pn", "" },
-            { "submit", "Поиск" }
-        };
     }
 
     protected static IReadOnlyCollection<TorrentDetails> ParseTrackerPage(string html, string host)
@@ -174,6 +122,57 @@ public class BaseNNMClub : BaseTrackerSearch, ITrackerCatalogEnricher
         }
 
         return list;
+    }
+
+    private async Task<(string? Magnet, string? Title)> FetchTopicDetailsAsync(string url)
+    {
+        try
+        {
+            var html = await HttpService.Get(url, RuEncoding);
+            if (string.IsNullOrWhiteSpace(html))
+                return (null, null);
+
+            var magnetMatch = Regex.Match(html, @"href=""(magnet:\?xt=urn:btih:[^""]+)""");
+            var magnet = magnetMatch.Success ? magnetMatch.Groups[1].Value : null;
+
+            var titleMatch = Regex.Match(html, @"<a class=""maintitle""[^>]*>(.*?)</a>", RegexOptions.Singleline);
+            var title = titleMatch.Success ? WebUtility.HtmlDecode(titleMatch.Groups[1].Value).Trim() : null;
+
+            return (magnet, title);
+        }
+        catch
+        {
+            return (null, null);
+        }
+    }
+
+    protected Dictionary<string, string> GetSearchParameters(string query)
+    {
+        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "prev_sd", "0" },
+            { "prev_a", "0" },
+            { "prev_my", "0" },
+            { "prev_n", "0" },
+            { "prev_shc", "1" },
+            { "prev_shf", "1" },
+            { "prev_sha", "0" },
+            { "prev_shs", "0" },
+            { "prev_shr", "0" },
+            { "prev_sht", "0" },
+            { "f[]", "-1" },
+            { "o", "10" },
+            { "s", "2" },
+            { "tm", "-1" },
+            { "shc", "1" },
+            { "shf", "1" },
+            { "ta", "-1" },
+            { "sns", "-1" },
+            { "sds", "-1" },
+            { "nm", query },
+            { "pn", "" },
+            { "submit", "Поиск" }
+        };
     }
 
     private static (string? name, string? originalName, int relased) ParseTitle(string title)
