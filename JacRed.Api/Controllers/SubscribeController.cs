@@ -42,8 +42,12 @@ public class SubscribeController : ControllerBase
     /// <param name="tmdb">идентификатор сериала</param>
     /// <param name="uid">уникальный идентификатор пользователя</param>
     [HttpPost("check-subscribe")]
-    public async Task<bool> CheckSubscribe(long tmdb, string uid)
+    public async Task<IActionResult> CheckSubscribe(long tmdb, string uid)
     {
-        return await _subscribeService.CheckSubscribeAsync(tmdb, uid);
+        return Ok(
+            new
+            {
+                result = await _subscribeService.CheckSubscribeAsync(tmdb, uid)
+            });
     }
 }
