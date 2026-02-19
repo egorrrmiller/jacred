@@ -118,15 +118,6 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
 
     private async Task<string> Authorize(bool reAuth = false)
     {
-        var handler = new HttpClientHandler
-        {
-            AllowAutoRedirect = false,
-            UseCookies = true,
-            CookieContainer = new CookieContainer()
-        };
-        var client = new HttpClient(handler);
-        var http = new HttpService(client, NullLogger<HttpService>.Instance, _config);
-
         var pairs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "login_username", Config.RuTracker.Authorization.Login },
@@ -137,7 +128,7 @@ public class BaseRuTracker : BaseTrackerSearch, ITrackerCatalogEnricher
         var formEncoded = string.Join("&",
             pairs.Select(kv => $"{HttpUtility.UrlEncode(kv.Key)}={HttpUtility.UrlEncode(kv.Value)}"));
 
-        var response = await http.PostResponseAsync(
+        var response = await HttpService.PostResponseAsync(
             LoginUrl,
             new StringContent(formEncoded, Encoding.Default, "application/x-www-form-urlencoded"),
             new RequestOptions { AllowAutoRedirect = false });

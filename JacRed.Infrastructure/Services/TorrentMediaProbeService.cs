@@ -123,7 +123,8 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
         {
             TimeoutSeconds = 180,
             Headers = headers,
-            CancellationToken = cancellationToken
+            CancellationToken = cancellationToken,
+            UseProxy = false
         };
 
         using var response = await _httpService.GetResponseAsync(streamUrl, requestOptions);

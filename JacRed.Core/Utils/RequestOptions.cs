@@ -23,6 +23,11 @@ public class RequestOptions
     
     public bool AllowAutoRedirect { get; set; } = true;
     
+    /// <summary>
+    /// Использовать ли прокси для этого запроса (если прокси настроен в конфиге).
+    /// </summary>
+    public bool UseProxy { get; set; } = true;
+    
     public CancellationToken CancellationToken { get; set; } = default;
 
     public static RequestOptions Default => new();

@@ -55,21 +55,24 @@ public static class ServicesConfiguration
 
         services.AddSingleton<ICacheService, CacheService>();
         services.AddMemoryCache();
+        
+        services.AddScoped<HttpService>();
 
-        services.AddHttpClient<HttpService>((sp, client) =>
-            {
-                client.DefaultRequestHeaders.UserAgent.ParseAdd(HttpService.DefaultUserAgent);
-                client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
-                client.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
-                client.DefaultRequestHeaders.Add("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
-            })
+        Action<HttpClient> configureClient = client =>
+        {
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(HttpService.DefaultUserAgent);
+            client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
+            client.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
+            client.DefaultRequestHeaders.Add("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
+        };
+
+        services.AddHttpClient("Default", configureClient)
             .ConfigurePrimaryHttpMessageHandler(sp =>
             {
                 var config = sp.GetRequiredService<IOptionsMonitor<Config>>().CurrentValue;
                 var handler = new HttpClientHandler
                 {
-                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate |
-                                             DecompressionMethods.Brotli,
+                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
                     ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
                     CheckCertificateRevocationList = false,
                     SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
@@ -89,6 +92,15 @@ public static class ServicesConfiguration
                 }
 
                 return handler;
+            });
+
+        services.AddHttpClient("NoProxy", configureClient)
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
+                ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+                CheckCertificateRevocationList = false,
+                SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
             });
     }
 }
