@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace JacRed.Api.Controllers;
 
-[ApiController]
 public class SubscribeController : ControllerBase
 {
     private readonly ISubscribeService _subscribeService;
@@ -19,7 +18,7 @@ public class SubscribeController : ControllerBase
     /// </summary>
     /// <param name="tmdb">идентификатор сериала</param>
     /// <param name="uid">уникальный идентификатор пользователя</param>
-    [HttpPost("[action]")]
+    [Route("[action]")]
     public async Task Subscribe(long tmdb, string uid)
     {
         await _subscribeService.SubscribeAsync(tmdb, uid);
@@ -30,7 +29,7 @@ public class SubscribeController : ControllerBase
     /// </summary>
     /// <param name="tmdb">идентификатор сериала</param>
     /// <param name="uid">уникальный идентификатор пользователя</param>
-    [HttpPost("[action]")]
+    [Route("[action]")]
     public async Task UnSubscribe(long tmdb, string uid)
     {
         await _subscribeService.UnSubscribeAsync(tmdb, uid);
@@ -41,7 +40,7 @@ public class SubscribeController : ControllerBase
     /// </summary>
     /// <param name="tmdb">идентификатор сериала</param>
     /// <param name="uid">уникальный идентификатор пользователя</param>
-    [HttpPost("check-subscribe")]
+    [Route("check-subscribe")]
     public async Task<IActionResult> CheckSubscribe(long tmdb, string uid)
     {
         return Ok(
