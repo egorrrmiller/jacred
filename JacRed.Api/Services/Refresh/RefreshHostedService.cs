@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using JacRed.Core.Interfaces;
@@ -40,7 +41,11 @@ public class RefreshHostedService : BackgroundService
                 var queries = await repository.GetStaleSearchQueriesAsync(TimeSpan.FromMinutes(_config.Refresh.OlderThanMin), _config.Refresh.Limit);
                 if (queries.Count == 0) continue;
 
-                _logger.Information("Update queries {@Queries}", (object)queries);
+                _logger.Information("Update queries {@Queries}", (object)queries.Select(x => new
+                {
+                    query = x.Query,
+                    tmdb_id = x.TmdbId
+                }));
                 foreach (var query in queries)
                 {
                     await remoteSearch.SearchAsync(query.Query);

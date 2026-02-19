@@ -8,7 +8,6 @@ using Microsoft.Extensions.Options;
 
 namespace JacRed.Api.Controllers;
 
-
 public class JackettController : ControllerBase
 {
     private readonly Config _config;
@@ -20,19 +19,19 @@ public class JackettController : ControllerBase
         _config = config.Value;
     }
 
-    [HttpGet("/")]
+    [Route("/")]
     public ActionResult Index()
     {
         return File(System.IO.File.OpenRead("wwwroot/index.html"), "text/html");
     }
 
-    [HttpGet("health")]
+    [Route("health")]
     public IActionResult Health()
     {
         return Ok(new { status = "OK" });
     }
 
-    [HttpGet("api/v1.0/conf")]
+    [Route("api/v1.0/conf")]
     public IActionResult JacRedConf(string apikey)
     {
         if(apikey == _config.ApiKey)
@@ -74,7 +73,7 @@ public class JackettController : ControllerBase
         return Ok(root);
     }
 
-    [HttpGet("/api/v1.0/torrents")]
+    [Route("/api/v1.0/torrents")]
     public async Task<IActionResult> Torrents(
         string apikey,
         string search,
