@@ -172,11 +172,11 @@ public class HttpService
 
             if (_config.Proxy?.List?.Count > 0)
             {
-                var proxyUrl = _config.Proxy.List[Random.Shared.Next(_config.Proxy.List.Count)];
-                var proxy = new WebProxy(proxyUrl);
+                var proxyItem = _config.Proxy.List[Random.Shared.Next(_config.Proxy.List.Count)];
+                var proxy = new WebProxy(proxyItem.Url);
 
-                if (_config.Proxy.UseAuth && !string.IsNullOrEmpty(_config.Proxy.Username))
-                    proxy.Credentials = new NetworkCredential(_config.Proxy.Username, _config.Proxy.Password);
+                if (!string.IsNullOrEmpty(proxyItem.Username))
+                    proxy.Credentials = new NetworkCredential(proxyItem.Username, proxyItem.Password);
 
                 proxy.BypassProxyOnLocal = _config.Proxy.BypassOnLocal;
                 handler.Proxy = proxy;

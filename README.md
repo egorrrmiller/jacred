@@ -116,6 +116,12 @@ cache:
   expiry: 15            # срок жизни данных в кеше (мин)
   auth-expiry: 1        # срок жизни аутентификационных данных в кеше (дни)
 
+proxy:
+  list:
+    - url: 'socks5://111.111.1.1:8000'
+      username: ''
+      password: ''
+
 ##### Настройка выдачи
 max-result-count: 250   # Лимит результатов в ответе
 merge-duplicates: true  # Схлопывать дубликаты по InfoHash

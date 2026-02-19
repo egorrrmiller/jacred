@@ -77,11 +77,11 @@ public static class ServicesConfiguration
 
                 if (config.Proxy?.List?.Count > 0)
                 {
-                    var proxyUrl = config.Proxy.List[Random.Shared.Next(config.Proxy.List.Count)];
-                    var proxy = new WebProxy(proxyUrl);
+                    var proxyItem = config.Proxy.List[Random.Shared.Next(config.Proxy.List.Count)];
+                    var proxy = new WebProxy(proxyItem.Url);
 
-                    if (config.Proxy.UseAuth && !string.IsNullOrEmpty(config.Proxy.Username))
-                        proxy.Credentials = new NetworkCredential(config.Proxy.Username, config.Proxy.Password);
+                    if (!string.IsNullOrEmpty(proxyItem.Username))
+                        proxy.Credentials = new NetworkCredential(proxyItem.Username, proxyItem.Password);
 
                     proxy.BypassProxyOnLocal = config.Proxy.BypassOnLocal;
                     handler.Proxy = proxy;
