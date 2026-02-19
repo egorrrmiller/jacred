@@ -145,28 +145,23 @@ builder.Services.AddJacRedMigrations(connectionString);
 var app = builder.Build();
 
 // --- Middleware ---
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-    app.MapScalarApiReference();
-}
-else
-{
-    app.UseExceptionHandler(errorApp =>
-    {
-        errorApp.Run(async context =>
-        {
-            context.Response.StatusCode = 500;
-            context.Response.ContentType = "application/json";
+app.MapOpenApi();
+app.MapScalarApiReference();
 
-            await context.Response.WriteAsync(new
-            {
-                error = "Internal server error",
-                message = "An unexpected error occurred. Please try again later."
-            }.ToJson());
-        });
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+
+        await context.Response.WriteAsync(new
+        {
+            error = "Internal server error",
+            message = "An unexpected error occurred. Please try again later."
+        }.ToJson());
     });
-}
+});
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
