@@ -25,7 +25,7 @@
     Повторное нажатие позволит убрать фильм/сериал из списка отслеживаемых.
     ![torrent_subscribe.png](imgs/torrent_subscribe.png)
     ![torrent_subscribe_1.png](imgs/torrent_subscribe_1.png)
-    ![torrent_subscribe_2.png](imgs/torrent_subscribe_2.png)
+   ![torrent_subscribe_2.png](imgs/torrent_subscribe_2.png)
 ---
 
 ## 🚀 1. Настройка окружения (.env)
