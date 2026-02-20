@@ -45,6 +45,7 @@ public class SubscribeService : ISubscribeService
     public async Task UnSubscribeAsync(long tmdbId, string uid)
     {
         await _repository.RemoveAsync(tmdbId, uid);
+        await _queriesRepository.RemoveQueryIfNoSubscriptionsAsync(tmdbId);
     }
 
     public async Task<bool> CheckSubscribeAsync(long tmdbId, string uid)

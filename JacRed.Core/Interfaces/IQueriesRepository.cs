@@ -23,4 +23,9 @@ public interface IQueriesRepository
     ///     Обновляет время последнего фонового обновления для запроса.
     /// </summary>
     Task UpdateLastRefreshTimeAsync(long tmdbId);
+
+    /// <summary>
+    ///     Удаляет поисковый запрос, если на него больше нет активных подписок.
+    /// </summary>
+    Task RemoveQueryIfNoSubscriptionsAsync(long tmdbId);
 }

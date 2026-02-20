@@ -89,4 +89,20 @@ public class QueriesRepository : IQueriesRepository
 
         await connection.ExecuteAsync(sql, new { TmdbId = tmdbId });
     }
+
+    public async Task RemoveQueryIfNoSubscriptionsAsync(long tmdbId)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        var sql = $@"
+            DELETE FROM {Schema}.queries
+            WHERE tmdb_id = @TmdbId
+              AND NOT EXISTS (
+                SELECT 1 FROM {Schema}.subscriptions
+                WHERE tmdb_id = @TmdbId
+              )";
+
+        await connection.ExecuteAsync(sql, new { TmdbId = tmdbId });
+    }
 }
