@@ -2,7 +2,7 @@ namespace JacRed.Core.Interfaces;
 
 public interface ISubscribeService
 {
-    Task SubscribeAsync(long tmdbId, string uid);
-    Task UnSubscribeAsync(long tmdbId, string uid);
+    Task<bool> SubscribeAsync(long tmdbId, string uid);
+    Task<bool> UnSubscribeAsync(long tmdbId, string uid);
     Task<bool> CheckSubscribeAsync(long tmdbId, string uid);
 }

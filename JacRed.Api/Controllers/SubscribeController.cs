@@ -19,9 +19,12 @@ public class SubscribeController : ControllerBase
     /// <param name="tmdb">идентификатор сериала</param>
     /// <param name="uid">уникальный идентификатор пользователя</param>
     [Route("[action]")]
-    public async Task Subscribe(long tmdb, string uid)
+    public async Task<IActionResult> Subscribe(long tmdb, string uid)
     {
-        await _subscribeService.SubscribeAsync(tmdb, uid);
+        return Ok(new
+        {
+            result = await _subscribeService.SubscribeAsync(tmdb, uid)
+        });
     }
 
     /// <summary>
@@ -30,9 +33,12 @@ public class SubscribeController : ControllerBase
     /// <param name="tmdb">идентификатор сериала</param>
     /// <param name="uid">уникальный идентификатор пользователя</param>
     [Route("[action]")]
-    public async Task UnSubscribe(long tmdb, string uid)
+    public async Task<IActionResult> UnSubscribe(long tmdb, string uid)
     {
-        await _subscribeService.UnSubscribeAsync(tmdb, uid);
+        return Ok(new
+        {
+            result = await _subscribeService.UnSubscribeAsync(tmdb, uid)
+        });
     }
 
     /// <summary>

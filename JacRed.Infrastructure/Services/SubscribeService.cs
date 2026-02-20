@@ -20,15 +20,14 @@ public class SubscribeService : ISubscribeService
         _queriesRepository = queriesRepository;
     }
 
-    public async Task SubscribeAsync(long tmdbId, string uid)
+    public async Task<bool> SubscribeAsync(long tmdbId, string uid)
     {
         var (search, altname) = await _mediaResolver.ResolveKpImdb(tmdbId.ToString(), null);
         var trackerQuery = StringConvert.ClearTitle($"{search} {altname}".Trim());
 
         if (string.IsNullOrWhiteSpace(trackerQuery))
-            return;
-
-        // Гарантируем, что запрос существует в таблице queries
+            return false;
+        
         await _queriesRepository.TrackSearchQueryAsync(tmdbId, trackerQuery);
 
         var subscription = new Subscription
@@ -40,12 +39,14 @@ public class SubscribeService : ISubscribeService
         };
 
         await _repository.AddAsync(subscription);
+        return true;
     }
 
-    public async Task UnSubscribeAsync(long tmdbId, string uid)
+    public async Task<bool> UnSubscribeAsync(long tmdbId, string uid)
     {
         await _repository.RemoveAsync(tmdbId, uid);
         await _queriesRepository.RemoveQueryIfNoSubscriptionsAsync(tmdbId);
+        return true;
     }
 
     public async Task<bool> CheckSubscribeAsync(long tmdbId, string uid)
