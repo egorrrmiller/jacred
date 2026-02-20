@@ -30,7 +30,7 @@ public class BaseMegaPeer : BaseTrackerSearch, ITrackerCatalogEnricher
         if (torrent == null || string.IsNullOrWhiteSpace(torrent.Url))
             return false;
 
-        var html = await HttpService.Get(torrent.Url, referer: torrent.Url);
+        var html = await HttpService.GetStringAsync(torrent.Url, new RequestOptions { Referer = torrent.Url });
         if (string.IsNullOrWhiteSpace(html))
             return false;
 

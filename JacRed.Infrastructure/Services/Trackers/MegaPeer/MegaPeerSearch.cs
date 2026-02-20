@@ -23,7 +23,7 @@ public class MegaPeerSearch : BaseMegaPeer
         var encodedQuery = string.Join("", encoding.GetBytes(query).Select(b => $"%{b:X2}"));
         
         var url = $"{SearchUrl}?search={encodedQuery}&age=&cat=0&stype=0&sort=3&ascdesc=0";
-        var html = await HttpService.Get(url, referer: url, encoding: encoding);
+        var html = await HttpService.GetStringAsync(url, new RequestOptions { Referer = url, Encoding = encoding });
 
         if (string.IsNullOrWhiteSpace(html))
             return [];

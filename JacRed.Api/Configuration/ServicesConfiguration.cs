@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using System.Security.Authentication;
 using JacRed.Api.Services.Media;
 using JacRed.Api.Services.Refresh;
 using JacRed.Api.Services.RuTracker;
@@ -28,7 +29,8 @@ public static class ServicesConfiguration
     {
         services
             .AddScoped<ITorrentRepository, TorrentRepository>()
-            .AddScoped<ISearchQueryRepository, SearchQueryRepository>()
+            .AddScoped<IQueriesRepository, QueriesRepository>()
+            .AddScoped<ISubscriptionRepository, SubscriptionRepository>()
             .AddScoped<IKeyGenerator, KeyGenerator>()
             .AddScoped<ITorrentEnricher, TorrentEnricher>()
             .AddScoped<ILocalSearchService, LocalSearchService>()
@@ -36,6 +38,8 @@ public static class ServicesConfiguration
             .AddScoped<ITorrentMediaProbeService, TorrentMediaProbeService>()
             .AddScoped<IRemoteSearchService, RemoteSearchService>()
             .AddScoped<ISearchService, SearchService>()
+            .AddScoped<IMediaResolverService, MediaResolverService>()
+            .AddScoped<ISubscribeService, SubscribeService>()
             .AddScoped<ITrackerSearch, RuTrackerSearch>()
             .AddScoped<ITrackerSearch, AnilibertySearch>()
             .AddScoped<ITrackerSearch, RuTorSearch>()
@@ -51,29 +55,36 @@ public static class ServicesConfiguration
 
         services.AddSingleton<ICacheService, CacheService>();
         services.AddMemoryCache();
+        
+        services.AddScoped<HttpService>();
 
-        services.AddHttpClient<HttpService>((sp, client) =>
-            {
-                client.DefaultRequestHeaders.UserAgent.ParseAdd(HttpService.UserAgent);
-                client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
-            })
+        Action<HttpClient> configureClient = client =>
+        {
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(HttpService.DefaultUserAgent);
+            client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
+            client.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7");
+            client.DefaultRequestHeaders.Add("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7");
+        };
+
+        services.AddHttpClient("Default", configureClient)
             .ConfigurePrimaryHttpMessageHandler(sp =>
             {
                 var config = sp.GetRequiredService<IOptionsMonitor<Config>>().CurrentValue;
                 var handler = new HttpClientHandler
                 {
-                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate |
-                                             DecompressionMethods.Brotli,
-                    ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
+                    ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+                    CheckCertificateRevocationList = false,
+                    SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
                 };
 
                 if (config.Proxy?.List?.Count > 0)
                 {
-                    var proxyUrl = config.Proxy.List[Random.Shared.Next(config.Proxy.List.Count)];
-                    var proxy = new WebProxy(proxyUrl);
+                    var proxyItem = config.Proxy.List[Random.Shared.Next(config.Proxy.List.Count)];
+                    var proxy = new WebProxy(proxyItem.Url);
 
-                    if (config.Proxy.UseAuth && !string.IsNullOrEmpty(config.Proxy.Username))
-                        proxy.Credentials = new NetworkCredential(config.Proxy.Username, config.Proxy.Password);
+                    if (!string.IsNullOrEmpty(proxyItem.Username))
+                        proxy.Credentials = new NetworkCredential(proxyItem.Username, proxyItem.Password);
 
                     proxy.BypassProxyOnLocal = config.Proxy.BypassOnLocal;
                     handler.Proxy = proxy;
@@ -81,6 +92,15 @@ public static class ServicesConfiguration
                 }
 
                 return handler;
+            });
+
+        services.AddHttpClient("NoProxy", configureClient)
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
+                ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+                CheckCertificateRevocationList = false,
+                SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
             });
     }
 }

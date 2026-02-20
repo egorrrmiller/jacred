@@ -53,7 +53,7 @@ public class AnilibertySearch : BaseTrackerSearch
         var url = $"{Host}/api/v1/app/search/releases?query={Uri.EscapeDataString(query)}&include=id,name,year,alias";
         try
         {
-            var json = await HttpService.Get(url, timeoutSeconds: 10);
+            var json = await HttpService.GetStringAsync(url, new RequestOptions { TimeoutSeconds = 10 });
             if (string.IsNullOrWhiteSpace(json))
                 return [];
 
@@ -91,7 +91,7 @@ public class AnilibertySearch : BaseTrackerSearch
             $"{Host}/api/v1/anime/torrents/release/{releaseId}?include=id,hash,size,type,quality,label,magnet,filename,seeders,leechers,updated_at,created_at,description";
         try
         {
-            var json = await HttpService.Get(url, timeoutSeconds: 10);
+            var json = await HttpService.GetStringAsync(url, new RequestOptions { TimeoutSeconds = 10 });
             if (string.IsNullOrWhiteSpace(json))
                 return [];
 

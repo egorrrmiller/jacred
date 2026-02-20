@@ -14,32 +14,29 @@ public class ProxySettings
     public bool BypassOnLocal { get; set; }
 
     /// <summary>
-    ///     Список адресов прокси-серверов (например, "http://proxy:8080").
+    ///     Список прокси-серверов.
     /// </summary>
     [ConfigurationKeyName("list")]
-    public List<string> List { get; set; } = [];
+    public List<ProxyItem> List { get; set; } = [];
+}
 
+public class ProxyItem
+{
     /// <summary>
-    ///     Пароль для авторизации на прокси (если требуется).
+    ///     Адрес прокси-сервера (например, "http://proxy:8080").
     /// </summary>
-    [ConfigurationKeyName("password")]
-    public string? Password { get; set; }
+    [ConfigurationKeyName("url")]
+    public string Url { get; set; } = null!;
 
     /// <summary>
-    ///     (Устарело/Не используется) Шаблон URL, для которых применять прокси.
-    /// </summary>
-    [ConfigurationKeyName("pattern")]
-    public string? Pattern { get; set; }
-
-    /// <summary>
-    ///     Использовать ли авторизацию (логин/пароль) для прокси.
-    /// </summary>
-    [ConfigurationKeyName("use-auth")]
-    public bool UseAuth { get; set; }
-
-    /// <summary>
-    ///     Имя пользователя для авторизации на прокси.
+    ///     Имя пользователя для авторизации.
     /// </summary>
     [ConfigurationKeyName("username")]
     public string? Username { get; set; }
+
+    /// <summary>
+    ///     Пароль для авторизации.
+    /// </summary>
+    [ConfigurationKeyName("password")]
+    public string? Password { get; set; }
 }

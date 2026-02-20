@@ -116,6 +116,20 @@ cache:
   expiry: 15            # срок жизни данных в кеше (мин)
   auth-expiry: 1        # срок жизни аутентификационных данных в кеше (дни)
 
+proxy:
+  list:
+    # Пример 1: SOCKS5 прокси без авторизации
+    - url: 'socks5://111.111.1.1:8000'
+
+    # Пример 2: HTTP прокси с авторизацией
+    - url: 'http://222.222.2.2:9000'
+      username: 'proxy_user'
+      password: 'proxy_password'
+      
+    # Пример 3: Еще один SOCKS5 прокси без авторизации
+    # username и password можно опустить, если они не требуются
+    - url: 'socks5://123.123.1.1:8080'
+
 ##### Настройка выдачи
 max-result-count: 250   # Лимит результатов в ответе
 merge-duplicates: true  # Схлопывать дубликаты по InfoHash
@@ -205,3 +219,25 @@ docker-compose --env-file /path/to/.env up -d --build
 ```bash
 docker-compose down -v && docker-compose up -d --build
 ```
+
+---
+
+## 🧩 Расширения для JacRed
+
+> Для улучшения пользовательского опыта, JacRed предлагает установить следующий набор расширений в LAMPA:
+
+1. ### [Принудительный поиск на торрент трекерах](https://egorrrmiller.github.io/fix_search.js)
+   [Плагин](https://egorrrmiller.github.io/fix_search.js) позволяет начать принудительный поиск по включенным трекерам, исключив из алгоритма получение данных из кеша или базы данных. <br/>
+   После обновления данных, выдача торрентов будет обновлена. <br/><br/>
+   Дополнительно плагин убирает из запроса к JacRed параметр year для более полной выдачи раздач. Фильтрация по годам останется доступна через штатный интерфейс LAMPA на странице торрентов
+   ![fix_search](imgs/fix_search.png)
+
+
+2. ### [Подписка на обновление торрентов по карточке фильма, сериала](https://egorrrmiller.github.io/torrent_subscribe.js)
+   > Требуется авторизация в CUB для корректной работы плагина.
+
+   [Плагин](https://egorrrmiller.github.io/torrent_subscribe.js) добавляет кнопку отслеживания на страницу, по нажатию которой фильм/сериал будут добавлены в базу для фонового обновления раздач на включенных трекерах. <br/>
+   Повторное нажатие позволит убрать фильм/сериал из списка отслеживаемых.
+   ![torrent_subscribe.png](imgs/torrent_subscribe.png)
+   ![torrent_subscribe_1.png](imgs/torrent_subscribe_1.png)
+   ![torrent_subscribe_2.png](imgs/torrent_subscribe_2.png)

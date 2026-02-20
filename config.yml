@@ -23,6 +23,12 @@ refresh:
   timeout: 20         # Интервал запуска сервиса (мин)
   older-than-min: 60  # Обновлять торренты старше 60 минут
   limit: 50           # Лимит торрентов за проход
+  
+proxy:
+  list:
+    - url: 'socks5://111.111.1.1:8000'
+      username: ''
+      password: ''
 
 # ffprobe/языки через TorrServer
 ffprobe:

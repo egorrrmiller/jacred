@@ -25,7 +25,7 @@ public class JackettController : ControllerBase
         return File(System.IO.File.OpenRead("wwwroot/index.html"), "text/html");
     }
 
-    [Route("health")]
+    [Route("/health")]
     public IActionResult Health()
     {
         return Ok(new { status = "OK" });

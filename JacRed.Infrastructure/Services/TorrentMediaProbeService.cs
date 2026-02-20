@@ -117,15 +117,17 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
         var authHeader = BuildAuthHeader(_config.Ffprobe.Authorization.Login, _config.Ffprobe.Authorization.Password);
         var headers = string.IsNullOrEmpty(authHeader)
             ? null
-            : new List<(string name, string val)> { ("Authorization", authHeader) };
+            : new Dictionary<string, string> { { "Authorization", authHeader } };
 
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
-        var probeToken = linkedCts.Token;
-        using var response = await _httpService.GetResponse(
-            streamUrl,
-            timeoutSeconds: 180,
-            addHeaders: headers);
+        var requestOptions = new RequestOptions
+        {
+            TimeoutSeconds = 180,
+            Headers = headers,
+            CancellationToken = cancellationToken,
+            UseProxy = false
+        };
+
+        using var response = await _httpService.GetResponseAsync(streamUrl, requestOptions);
 
         if (!response.IsSuccessStatusCode)
             return null;
@@ -134,7 +136,7 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
 
         try
         {
-            await using var stream = await response.Content.ReadAsStreamAsync(probeToken).ConfigureAwait(false);
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
 
             var startInfo = new ProcessStartInfo
             {
@@ -151,15 +153,15 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
             if (!process.Start())
                 return null;
 
-            var outputTask = process.StandardOutput.ReadToEndAsync(probeToken);
-            var errorTask = process.StandardError.ReadToEndAsync(probeToken);
+            var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
 
             try
             {
                 var buffer = new byte[81920];
                 while (true)
                 {
-                    var read = await stream.ReadAsync(buffer, 0, buffer.Length, probeToken).ConfigureAwait(false);
+                    var read = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false);
                     if (read == 0)
                         break;
 
@@ -168,7 +170,7 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
 
                     try
                     {
-                        await process.StandardInput.BaseStream.WriteAsync(buffer, 0, read, probeToken)
+                        await process.StandardInput.BaseStream.WriteAsync(buffer, 0, read, cancellationToken)
                             .ConfigureAwait(false);
                     }
                     catch (IOException)
@@ -189,7 +191,7 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
                 }
             }
 
-            await process.WaitForExitAsync(probeToken).ConfigureAwait(false);
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
 
             var output = await outputTask.ConfigureAwait(false);
             var error = await errorTask.ConfigureAwait(false);

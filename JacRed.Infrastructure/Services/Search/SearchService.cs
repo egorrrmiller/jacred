@@ -16,7 +16,8 @@ public class SearchService : BaseSearchService, ISearchService
     private readonly ITorrentMergerService _merger;
     private readonly IRemoteSearchService _remoteSearch;
     private readonly ITorrentRepository _repository;
-    private readonly ISearchQueryRepository _searchQueryRepository;
+    private readonly IQueriesRepository _queriesRepository;
+    private readonly IMediaResolverService _mediaResolver;
     private readonly Config _config;
 
     public SearchService(
@@ -26,14 +27,16 @@ public class SearchService : BaseSearchService, ISearchService
         ILocalSearchService localSearch,
         IRemoteSearchService remoteSearch,
         ITorrentRepository repository,
-        ITorrentMergerService merger, ISearchQueryRepository searchQueryRepository) : base(config.Value, httpService,
-        cacheService)
+        ITorrentMergerService merger,
+        IQueriesRepository queriesRepository,
+        IMediaResolverService mediaResolver) : base(config.Value, httpService, cacheService)
     {
         _localSearch = localSearch;
         _remoteSearch = remoteSearch;
         _repository = repository;
         _merger = merger;
-        _searchQueryRepository = searchQueryRepository;
+        _queriesRepository = queriesRepository;
+        _mediaResolver = mediaResolver;
         _config = config.Value;
     }
 
@@ -111,10 +114,8 @@ public class SearchService : BaseSearchService, ISearchService
 
     private async Task<List<TorrentDetails>> ExecuteUnifiedSearch(TorrentSearchRequest request, int? contentType)
     {
-        var (search, altname) = await ResolveKpImdb(request.Title, request.TitleOriginal);
+        var (search, altname) = await _mediaResolver.ResolveKpImdb(request.Title, request.TitleOriginal);
         var trackerQuery = StringConvert.ClearTitle(BuildTrackerQuery(search, altname));
-
-        await _searchQueryRepository.TrackSearchQueryAsync(trackerQuery);
 
         var year = request.Year > 0 ? request.Year : (int?)null;
         

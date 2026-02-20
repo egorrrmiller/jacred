@@ -1,6 +1,8 @@
+using JacRed.Core.Models;
+
 namespace JacRed.Core.Interfaces;
 
-public interface ISearchQueryRepository
+public interface IQueriesRepository
 {
     /// <summary>
     ///     Возвращает список популярных поисковых запросов.
@@ -10,15 +12,20 @@ public interface ISearchQueryRepository
     /// <summary>
     ///     Возвращает список запросов, которые требуют обновления (last_refresh_time < olderThan или null).
     /// </summary>
-    Task<IReadOnlyCollection<string>> GetStaleSearchQueriesAsync(TimeSpan olderThan, int limit);
+    Task<IReadOnlyCollection<StaleQuery>> GetStaleSearchQueriesAsync(TimeSpan olderThan, int limit);
 
     /// <summary>
     ///     Сохраняет или обновляет статистику по поисковому запросу.
     /// </summary>
-    Task TrackSearchQueryAsync(string query);
+    Task TrackSearchQueryAsync(long tmdbId, string query);
 
     /// <summary>
     ///     Обновляет время последнего фонового обновления для запроса.
     /// </summary>
-    Task UpdateLastRefreshTimeAsync(string query);
+    Task UpdateLastRefreshTimeAsync(long tmdbId);
+
+    /// <summary>
+    ///     Удаляет поисковый запрос, если на него больше нет активных подписок.
+    /// </summary>
+    Task RemoveQueryIfNoSubscriptionsAsync(long tmdbId);
 }
