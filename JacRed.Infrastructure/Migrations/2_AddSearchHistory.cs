@@ -3,7 +3,7 @@ using JacRed.Infrastructure.Migrations.Configurations;
 
 namespace JacRed.Infrastructure.Migrations;
 
-[Migration(202601210003)]
+[Migration(2)]
 public class AddSearchHistory : Migration
 {
     public override void Up()

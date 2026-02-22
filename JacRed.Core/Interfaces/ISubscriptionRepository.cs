@@ -6,5 +6,5 @@ public interface ISubscriptionRepository
 {
     Task AddAsync(Subscription subscription);
     Task RemoveAsync(long tmdbId, string uid);
-    Task<bool> ExistsAsync(long tmdbId, string uid);
+    Task<bool> ExistsAsync(long tmdbId, string uid, string? media = null);
 }

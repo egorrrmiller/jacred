@@ -3,7 +3,7 @@ using JacRed.Infrastructure.Migrations.Configurations;
 
 namespace JacRed.Infrastructure.Migrations;
 
-[Migration(202505220002)]
+[Migration(6)]
 public class RecreateQueriesAndSubscriptions : Migration
 {
     public override void Up()
@@ -59,7 +59,7 @@ public class RecreateQueriesAndSubscriptions : Migration
         Delete.Table("subscriptions").InSchema(schema);
         Delete.Table("queries").InSchema(schema);
         
-        // Восстанавливаем старую таблицу (упрощенно)
+        // Восстанавливаем старую таблицу
         Create.Table("search_queries").InSchema(schema)
             .WithColumn("query").AsString().PrimaryKey()
             .WithColumn("created_at").AsDateTimeOffset().NotNullable()

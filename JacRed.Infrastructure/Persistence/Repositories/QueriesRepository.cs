@@ -105,4 +105,19 @@ public class QueriesRepository : IQueriesRepository
 
         await connection.ExecuteAsync(sql, new { TmdbId = tmdbId });
     }
+
+    public async Task<IReadOnlyCollection<UserSubscriptionItem>> GetUserSubscriptionsAsync(string uid)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        var sql = $@"
+            SELECT tmdb_id AS ""TmdbId"", media AS ""Media""
+            FROM {Schema}.subscriptions
+            WHERE uid = @Uid";
+
+        var rows = await connection.QueryAsync<UserSubscriptionItem>(sql, new { Uid = uid });
+
+        return rows.ToArray();
+    }
 }

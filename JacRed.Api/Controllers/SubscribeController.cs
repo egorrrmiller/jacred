@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace JacRed.Api.Controllers;
 
+[ApiController]
 public class SubscribeController : ControllerBase
 {
     private readonly ISubscribeService _subscribeService;
@@ -17,13 +18,14 @@ public class SubscribeController : ControllerBase
     ///     Начать отслеживание сериала
     /// </summary>
     /// <param name="tmdb">идентификатор сериала</param>
+    /// <param name="media">название медиа</param>
     /// <param name="uid">уникальный идентификатор пользователя</param>
-    [Route("[action]")]
-    public async Task<IActionResult> Subscribe(long tmdb, string uid)
+    [HttpPost("[action]")]
+    public async Task<IActionResult> Subscribe(long tmdb, string media, string uid)
     {
         return Ok(new
         {
-            result = await _subscribeService.SubscribeAsync(tmdb, uid)
+            result = await _subscribeService.SubscribeAsync(tmdb, media, uid)
         });
     }
 
@@ -31,13 +33,14 @@ public class SubscribeController : ControllerBase
     ///     Прекратить отслеживание сериала
     /// </summary>
     /// <param name="tmdb">идентификатор сериала</param>
+    /// <param name="media">название медиа</param>
     /// <param name="uid">уникальный идентификатор пользователя</param>
-    [Route("[action]")]
-    public async Task<IActionResult> UnSubscribe(long tmdb, string uid)
+    [HttpPost("[action]")]
+    public async Task<IActionResult> UnSubscribe(long tmdb, string media, string uid)
     {
         return Ok(new
         {
-            result = await _subscribeService.UnSubscribeAsync(tmdb, uid)
+            result = await _subscribeService.UnSubscribeAsync(tmdb, media, uid)
         });
     }
 
@@ -45,14 +48,25 @@ public class SubscribeController : ControllerBase
     ///     Проверить наличие отслеживания сериала
     /// </summary>
     /// <param name="tmdb">идентификатор сериала</param>
+    /// <param name="media">название медиа</param>
     /// <param name="uid">уникальный идентификатор пользователя</param>
-    [Route("check-subscribe")]
-    public async Task<IActionResult> CheckSubscribe(long tmdb, string uid)
+    [HttpPost("check-subscribe")]
+    public async Task<IActionResult> CheckSubscribe(long tmdb, string media, string uid)
     {
         return Ok(
             new
             {
-                result = await _subscribeService.CheckSubscribeAsync(tmdb, uid)
+                result = await _subscribeService.CheckSubscribeAsync(tmdb, media, uid)
             });
+    }
+
+    /// <summary>
+    ///     Получить список отслеживаемых сериалов
+    /// </summary>
+    /// <param name="uid">уникальный идентификатор пользователя</param>
+    [HttpGet("subscribes")]
+    public async Task<IActionResult> GetSubscribes(string uid)
+    {
+        return Ok(await _subscribeService.GetUserSubscriptionsAsync(uid));
     }
 }

@@ -28,4 +28,9 @@ public interface IQueriesRepository
     ///     Удаляет поисковый запрос, если на него больше нет активных подписок.
     /// </summary>
     Task RemoveQueryIfNoSubscriptionsAsync(long tmdbId);
+
+    /// <summary>
+    ///     Возвращает список подписок пользователя с их временем обновления.
+    /// </summary>
+    Task<IReadOnlyCollection<UserSubscriptionItem>> GetUserSubscriptionsAsync(string uid);
 }
