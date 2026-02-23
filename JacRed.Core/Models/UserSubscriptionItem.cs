@@ -10,4 +10,7 @@ public class UserSubscriptionItem
 
     [JsonPropertyName("media")]
     public string Media { get; set; } = string.Empty;
+
+    [JsonPropertyName("last_refresh_time")]
+    public DateTimeOffset? LastRefreshTime { get; set; }
 }

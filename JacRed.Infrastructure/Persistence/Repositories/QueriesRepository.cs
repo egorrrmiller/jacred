@@ -112,9 +112,10 @@ public class QueriesRepository : IQueriesRepository
         await connection.OpenAsync();
 
         var sql = $@"
-            SELECT tmdb_id AS ""TmdbId"", media AS ""Media""
-            FROM {Schema}.subscriptions
-            WHERE uid = @Uid";
+            SELECT s.tmdb_id AS ""TmdbId"", s.media AS ""Media"", q.last_refresh_time AS ""LastRefreshTime""
+            FROM {Schema}.subscriptions s
+            LEFT JOIN {Schema}.queries q ON s.tmdb_id = q.tmdb_id
+            WHERE s.uid = @Uid";
 
         var rows = await connection.QueryAsync<UserSubscriptionItem>(sql, new { Uid = uid });
 
