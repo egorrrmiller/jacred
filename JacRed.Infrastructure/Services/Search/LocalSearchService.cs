@@ -95,12 +95,16 @@ public class LocalSearchService : BaseSearchService, ILocalSearchService
             return [];
 
         var suffixPattern = mediaType == 1 ? "(\\D|$)" : ".*";
+
+        string ReplaceForRegex(string t) => t.Replace("е", "[её]").Replace("ё", "[её]").Replace("ш", "[шщ]").Replace("щ", "[шщ]");
+        string ReplaceForLike(string t) => t.Replace("е", "_").Replace("ё", "_").Replace("ш", "_").Replace("щ", "_");
+
         var termRegexes = terms
-            .Select(t => $"^{Regex.Escape(t)}{suffixPattern}")
+            .Select(t => $"^{ReplaceForRegex(Regex.Escape(t))}{suffixPattern}")
             .ToArray();
-        var likeTerms = terms.Select(t => $"%{t}%").ToArray();
+        var likeTerms = terms.Select(t => $"%{ReplaceForLike(t)}%").ToArray();
         var rawTerm = string.IsNullOrWhiteSpace(webTerm) ? string.Empty : webTerm.Trim().ToLowerInvariant();
-        var rawLikeTerms = string.IsNullOrWhiteSpace(rawTerm) ? Array.Empty<string>() : new[] { $"%{rawTerm}%" };
+        var rawLikeTerms = string.IsNullOrWhiteSpace(rawTerm) ? Array.Empty<string>() : new[] { $"%{ReplaceForLike(rawTerm)}%" };
 
         using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync();
@@ -192,13 +196,17 @@ public class LocalSearchService : BaseSearchService, ILocalSearchService
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Distinct()
             .ToArray();
+            
+        string ReplaceForRegex(string t) => t.Replace("е", "[её]").Replace("ё", "[её]").Replace("ш", "[шщ]").Replace("щ", "[шщ]");
+        string ReplaceForLike(string t) => t.Replace("е", "_").Replace("ё", "_").Replace("ш", "_").Replace("щ", "_");
+
         var suffixPattern = mediaType == 1 ? "(\\D|$)" : ".*";
         var termRegexes = terms
-            .Select(t => $"^{Regex.Escape(t)}{suffixPattern}")
+            .Select(t => $"^{ReplaceForRegex(Regex.Escape(t))}{suffixPattern}")
             .ToArray();
-        var likeTerms = terms.Select(t => $"%{t}%").ToArray();
+        var likeTerms = terms.Select(t => $"%{ReplaceForLike(t)}%").ToArray();
         var rawTerm = string.IsNullOrWhiteSpace(webTerm) ? string.Empty : webTerm.Trim().ToLowerInvariant();
-        var rawLikeTerms = string.IsNullOrWhiteSpace(rawTerm) ? Array.Empty<string>() : new[] { $"%{rawTerm}%" };
+        var rawLikeTerms = string.IsNullOrWhiteSpace(rawTerm) ? Array.Empty<string>() : new[] { $"%{ReplaceForLike(rawTerm)}%" };
 
         var hasWeb = !string.IsNullOrWhiteSpace(webTerm);
 

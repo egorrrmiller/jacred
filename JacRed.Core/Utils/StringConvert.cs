@@ -82,11 +82,13 @@ public static class StringConvert
             return null;
 
         val = val.ToLowerInvariant()
+            .Replace("ё", "е")
+            .Replace("щ", "ш")
             .Replace("n", "?")
             .Replace("e", "e");
 
         // Оставляем латиницу, кириллицу и цифры.
-        val = Regex.Replace(val, "[^a-z0-9а-яё]", "");
+        val = Regex.Replace(val, "[^a-z0-9а-я]", "");
 
         return string.IsNullOrWhiteSpace(val) ? null : val;
     }
