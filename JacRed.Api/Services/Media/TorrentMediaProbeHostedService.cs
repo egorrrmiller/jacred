@@ -33,7 +33,7 @@ public class TorrentMediaProbeHostedService : BackgroundService
                 var torrentMediaProbeService = scope.ServiceProvider.GetRequiredService<ITorrentMediaProbeService>();
 
                 _logger.Information("Starting torrent media probe service");
-                await torrentMediaProbeService.ExecuteAsync(stoppingToken);
+                await torrentMediaProbeService.ExecuteAsync();
             }
             catch (Exception ex)
             {
