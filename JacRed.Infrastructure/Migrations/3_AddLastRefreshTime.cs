@@ -3,7 +3,7 @@ using JacRed.Infrastructure.Migrations.Configurations;
 
 namespace JacRed.Infrastructure.Migrations;
 
-[Migration(20240728130000)]
+[Migration(3)]
 public class AddLastRefreshTime : Migration
 {
     public override void Up()

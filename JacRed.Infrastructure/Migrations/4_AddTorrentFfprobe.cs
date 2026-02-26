@@ -3,7 +3,7 @@ using JacRed.Infrastructure.Migrations.Configurations;
 
 namespace JacRed.Infrastructure.Migrations;
 
-[Migration(202601250001)]
+[Migration(4)]
 public class AddTorrentFfprobe : Migration
 {
     public override void Up()

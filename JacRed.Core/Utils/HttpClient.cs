@@ -88,7 +88,11 @@ public class HttpService
         if (content != null)
             request.Content = content;
 
-        var client = _httpClientFactory.CreateClient(options.UseProxy ? "Default" : "NoProxy");
+        string clientName = options.UseProxy ? "Default" : "NoProxy";
+        if (!options.AllowAutoRedirect)
+            clientName += "NoRedirect";
+            
+        var client = _httpClientFactory.CreateClient(clientName);
 
         if (!string.IsNullOrEmpty(options.Cookie))
             request.Headers.TryAddWithoutValidation("Cookie", options.Cookie);

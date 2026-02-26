@@ -29,7 +29,7 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
         _config = config.Value;
     }
 
-    public async Task ExecuteAsync(CancellationToken cancellationToken)
+    public async Task ExecuteAsync()
     {
         if (!_config.Ffprobe.Enable || _config.Ffprobe.TsUri is null)
             return;
@@ -40,6 +40,9 @@ public sealed class TorrentMediaProbeService : ITorrentMediaProbeService
 
         if (torrents.Count == 0)
             return;
+        
+        var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+        var cancellationToken = cancellationTokenSource.Token;
 
         var options = new ParallelOptions
         {

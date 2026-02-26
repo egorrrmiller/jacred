@@ -20,7 +20,7 @@ public class SubscribeService : ISubscribeService
         _queriesRepository = queriesRepository;
     }
 
-    public async Task<bool> SubscribeAsync(long tmdbId, string uid)
+    public async Task<bool> SubscribeAsync(long tmdbId, string media, string uid)
     {
         var (search, altname) = await _mediaResolver.ResolveKpImdb(tmdbId.ToString(), null);
         var trackerQuery = StringConvert.ClearTitle($"{search} {altname}".Trim());
@@ -35,6 +35,7 @@ public class SubscribeService : ISubscribeService
             Id = Guid.NewGuid(),
             Uid = uid,
             TmdbId = tmdbId,
+            Media = media ?? string.Empty,
             CreatedAt = DateTimeOffset.UtcNow
         };
 
@@ -42,15 +43,20 @@ public class SubscribeService : ISubscribeService
         return true;
     }
 
-    public async Task<bool> UnSubscribeAsync(long tmdbId, string uid)
+    public async Task<bool> UnSubscribeAsync(long tmdbId, string media, string uid)
     {
-        await _repository.RemoveAsync(tmdbId, uid);
+        await _repository.RemoveAsync(tmdbId, uid, media);
         await _queriesRepository.RemoveQueryIfNoSubscriptionsAsync(tmdbId);
         return true;
     }
 
-    public async Task<bool> CheckSubscribeAsync(long tmdbId, string uid)
+    public async Task<bool> CheckSubscribeAsync(long tmdbId, string media, string uid)
     {
-        return await _repository.ExistsAsync(tmdbId, uid);
+        return await _repository.ExistsAsync(tmdbId, uid, media);
+    }
+
+    public async Task<IReadOnlyCollection<Core.Models.UserSubscriptionItem>> GetUserSubscriptionsAsync(string uid)
+    {
+        return await _queriesRepository.GetUserSubscriptionsAsync(uid);
     }
 }

@@ -94,6 +94,35 @@ public static class ServicesConfiguration
                 return handler;
             });
 
+        services.AddHttpClient("DefaultNoRedirect", configureClient)
+            .ConfigurePrimaryHttpMessageHandler(sp =>
+            {
+                var config = sp.GetRequiredService<IOptionsMonitor<Config>>().CurrentValue;
+                var handler = new HttpClientHandler
+                {
+                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
+                    ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+                    CheckCertificateRevocationList = false,
+                    SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+                    AllowAutoRedirect = false
+                };
+
+                if (config.Proxy?.List?.Count > 0)
+                {
+                    var proxyItem = config.Proxy.List[Random.Shared.Next(config.Proxy.List.Count)];
+                    var proxy = new WebProxy(proxyItem.Url);
+
+                    if (!string.IsNullOrEmpty(proxyItem.Username))
+                        proxy.Credentials = new NetworkCredential(proxyItem.Username, proxyItem.Password);
+
+                    proxy.BypassProxyOnLocal = config.Proxy.BypassOnLocal;
+                    handler.Proxy = proxy;
+                    handler.UseProxy = true;
+                }
+
+                return handler;
+            });
+
         services.AddHttpClient("NoProxy", configureClient)
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
             {
@@ -101,6 +130,16 @@ public static class ServicesConfiguration
                 ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
                 CheckCertificateRevocationList = false,
                 SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13
+            });
+
+        services.AddHttpClient("NoProxyNoRedirect", configureClient)
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
+                ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+                CheckCertificateRevocationList = false,
+                SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+                AllowAutoRedirect = false
             });
     }
 }

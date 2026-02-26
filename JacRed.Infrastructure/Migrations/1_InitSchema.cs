@@ -3,7 +3,7 @@ using JacRed.Infrastructure.Migrations.Configurations;
 
 namespace JacRed.Infrastructure.Migrations;
 
-[Migration(202601210001)]
+[Migration(1)]
 public class InitSchema : Migration
 {
     public override void Up()
