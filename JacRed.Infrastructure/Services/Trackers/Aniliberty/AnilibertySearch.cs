@@ -136,20 +136,23 @@ public class AnilibertySearch : BaseTrackerSearch
 
     private TorrentDetails Map(ReleaseDto release, TorrentDto t, string? name, string? originalName)
     {
-        var title = t.Label ?? t.FileName ?? release.Name ?? release.OriginalName ?? "Torrent";
+        var torrentLabel = t.Label ?? t.FileName ?? "Torrent";
+        var title = string.IsNullOrWhiteSpace(name) ? torrentLabel : $"{name} ({torrentLabel})";
+
         var url = !string.IsNullOrWhiteSpace(release.Alias)
-            ? $"{Host}/anime/{release.Alias}"
-            : Host;
+            ? $"{Host}/anime/{release.Alias}#torrent-{t.Id}"
+            : $"{Host}#torrent-{t.Id}";
 
         var create = ParseDate(t.CreatedAt) ?? DateTime.UtcNow;
         var update = ParseDate(t.UpdatedAt) ?? create;
 
         return new TorrentDetails
         {
+            Id = Guid.NewGuid(),
             TrackerName = TrackerName,
             Types = ["anime"],
             Url = url,
-            Title = name ?? title,
+            Title = title,
             Sid = t.Seeders,
             Pir = t.Leechers,
             Size = t.Size,
@@ -158,7 +161,7 @@ public class AnilibertySearch : BaseTrackerSearch
             UpdateTime = update,
             CheckTime = DateTime.UtcNow,
             Magnet = t.Magnet,
-            Name = name ?? title,
+            Name = title,
             OriginalName = originalName,
             Relased = release.Year,
             Quality = ParseQuality(t.Quality),
