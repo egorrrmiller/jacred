@@ -145,7 +145,7 @@ refresh:
 # Интеграция с TorrServer (ffprobe/языки)
 ffprobe:
   enable: true          # Включить получение метаданных
-  timeout: 10           # Таймаут запроса (сек)
+  timeout: 10           # Таймаут запроса (мин)
   tsuri: 'http://localhost:5665' # Адрес TorrServer
   batch-size: 5         # Торрентов за один проход
   attempts: 3           # Попыток на один торрент
