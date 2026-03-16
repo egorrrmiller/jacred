@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="JacRett.Api\JacRett.Api.csproj" />
+  <Project Path="JacRett.Core\JacRett.Core.csproj" />
+  <Project Path="JacRett.Infrastructure\JacRett.Infrastructure.csproj" />
+</Solution>
