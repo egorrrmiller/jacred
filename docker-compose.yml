@@ -1,9 +1,9 @@
-name: jacred
+name: jacrett
 
 services:
-  jacred:
-    image: ${IMAGE_NAME:-ghcr.io/egorrrmiller/jacred:latest}
-    container_name: jacred
+  jacrett:
+    image: ${IMAGE_NAME:-ghcr.io/egorrrmiller/jacrett:latest}
+    container_name: jacrett
     restart: unless-stopped
     depends_on:
       db:
@@ -12,7 +12,7 @@ services:
       TZ: ${TZ:-UTC}
       UMASK: ${UMASK:-0027}
       HEALTHCHECK_PORT: ${HEALTHCHECK_PORT:-9117}
-      ConnectionStrings__DefaultConnection: ${DB_CONNECTION:-Host=db;Port=${DB_PORT:-5432};Database=${DB_NAME:-jacred};Username=${DB_USER:-jacred};Password=${DB_PASSWORD:-jacred};Timeout=30;CommandTimeout=60;}
+      ConnectionStrings__DefaultConnection: ${DB_CONNECTION:-Host=db;Port=${DB_PORT:-5432};Database=${DB_NAME:-jacrett};Username=${DB_USER:-jacrett};Password=${DB_PASSWORD:-jacrett};Timeout=30;CommandTimeout=60;}
     ports:
       - "${APP_PORT:-9117}:${APP_PORT:-9117}"
     volumes:
@@ -26,25 +26,25 @@ services:
 
   db:
     image: postgres:16-alpine
-    container_name: jacred-db
+    container_name: jacrett-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME:-jacred}
-      POSTGRES_USER: ${DB_USER:-jacred}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-jacred}
+      POSTGRES_DB: ${DB_NAME:-jacrett}
+      POSTGRES_USER: ${DB_USER:-jacrett}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-jacrett}
     expose:
       - "5432"
     # Раскомментируйте для доступа к БД снаружи
     # ports:
     #   - "${DB_PORT:-5432}:5432"
     volumes:
-      - jacred-db:/var/lib/postgresql/data
+      - jacrett-db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-jacred} -d ${DB_NAME:-jacred}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-jacrett} -d ${DB_NAME:-jacrett}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
 
 volumes:
-  jacred-db:
+  jacrett-db:

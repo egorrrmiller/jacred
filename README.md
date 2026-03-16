@@ -1,7 +1,7 @@
 ﻿# AI Документация
 [![DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/egorrrmiller/jacred)
 
-# JacRed
+# JacRett
 
 Торрент-трекер агрегатор.
 
@@ -30,10 +30,10 @@ CONFIG_PATH=./config.yml
 
 DB_HOST=db
 DB_PORT=5432
-DB_NAME=jacred
-DB_USER=jacred
-DB_PASSWORD=jacred
-# DB_CONNECTION=Host=db;Port=5432;Database=jacred;Username=jacred;Password=jacred;Timeout=30;CommandTimeout=60;
+DB_NAME=jacrett
+DB_USER=jacrett
+DB_PASSWORD=jacrett
+# DB_CONNECTION=Host=db;Port=5432;Database=jacrett;Username=jacrett;Password=jacred;Timeout=30;CommandTimeout=60;
 
 IMAGE_NAME=ghcr.io/egorrrmiller/jacred:latest
 ```
@@ -59,7 +59,7 @@ services:
       TZ: ${TZ:-UTC}
       UMASK: ${UMASK:-0027}
       HEALTHCHECK_PORT: ${HEALTHCHECK_PORT:-9117}
-      ConnectionStrings__DefaultConnection: ${DB_CONNECTION:-Host=db;Port=${DB_PORT:-5432};Database=${DB_NAME:-jacred};Username=${DB_USER:-jacred};Password=${DB_PASSWORD:-jacred};Timeout=30;CommandTimeout=60;}
+      ConnectionStrings__DefaultConnection: ${DB_CONNECTION:-Host=db;Port=${DB_PORT:-5432};Database=${DB_NAME:-jacrett};Username=${DB_USER:-jacrett};Password=${DB_PASSWORD:-jacred};Timeout=30;CommandTimeout=60;}
     ports:
       - "${APP_PORT:-9117}:${APP_PORT:-9117}"
     volumes:
